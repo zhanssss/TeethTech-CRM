@@ -5,9 +5,9 @@ import {usePathname} from 'next/navigation';
 
 const menuItems = [
     {name: 'Дэшборд', href: '/'},
-    // {name: 'Заказы', href: '/orders'},
+    {name: 'Заказы', href: '/orders'},
     {name: 'Аналитика', href: '/analytics'},
-    {name: 'Доска задач', href: '/tasks'},
+    // {name: 'Доска задач', href: '/tasks'},
 ];
 
 export default function Sidebar() {
