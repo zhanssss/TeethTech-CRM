@@ -2,27 +2,30 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import CreateOrderModal from '@/src/components/CreateOrderModal'; // Убедись, что путь верный
-
-// --- ИМИТАЦИЯ ДАННЫХ ---
-const initialOrders = [
-    { id: '101', patient: 'Алиев К.', work: 'Коронка цирконий', status: 'Приемка', technician: '—', date: '08.04.2026' },
-    { id: '102', patient: 'Иванова М.', work: 'Винир E-max', status: 'Моделирование', technician: 'Берик С.', date: '08.04.2026' },
-];
+import CreateOrderModal from '@/src/components/orders/CreateOrderModal'; // Убедись, что путь верный
+import { mockOrders } from '@/src/mock/orders';
 
 export default function OrdersPage() {
-    const [orders, setOrders] = useState(initialOrders);
+    const [orders, setOrders] = useState(mockOrders);
     const [isModalOpen, setIsModalOpen] = useState(false);
 
     // Функция обработки данных из новой модалки
     const handleCreateOrder = (newTask: any) => {
         // Преобразуем данные из формата модалки в формат строки таблицы
         const orderToAdd = {
-            id: newTask.id.replace('TT-', ''), // Убираем префикс для единообразия в таблице
+            id: newTask.id.replace('TT-', ''),
             patient: newTask.patient,
-            work: `${newTask.type} (${newTask.material})`, // Объединяем вид и материал
+            clinic: newTask.clinicName,
+            doctor: newTask.doctor,
+            work: `${newTask.type} (${newTask.material})`,
+            units: newTask.units,
+            unitPrice: newTask.unitPrice,
+            discount: newTask.discount,
+            total: newTask.total,
+            paid: newTask.paid,
+            unpaid: newTask.unpaid,
             status: 'Приемка',
-            technician: '—', // Изначально не назначен в общем списке
+            technician: '—',
             date: new Date().toLocaleDateString('ru-RU')
         };
 
@@ -55,6 +58,10 @@ export default function OrdersPage() {
                         <th className="p-4 font-bold">Вид работы</th>
                         <th className="p-4 font-bold">Статус</th>
                         <th className="p-4 font-bold text-right">Действия</th>
+                        <th className="p-4 font-bold">Кол-во</th>
+                        <th className="p-4 font-bold">Цена за ед.</th>
+                        <th className="p-4 font-bold">Скидка</th>
+                        <th className="p-4 font-bold">Итого</th>
                     </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
@@ -73,6 +80,10 @@ export default function OrdersPage() {
                                     Открыть проект
                                 </Link>
                             </td>
+                            <td className="p-4 text-sm">{order.units}</td>
+                            <td className="p-4 text-sm">{order.unitPrice?.toLocaleString('ru-RU')} ₸</td>
+                            <td className="p-4 text-sm">{order.discount?.toLocaleString('ru-RU')} ₸</td>
+                            <td className="p-4 text-sm font-bold">{order.total?.toLocaleString('ru-RU')} ₸</td>
                         </tr>
                     ))}
                     </tbody>

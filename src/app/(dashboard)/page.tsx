@@ -107,7 +107,7 @@ export default function Dashboard() {
                                     <div className="text-xs">О: <span className="font-semibold text-slate-700">{order.operator}</span></div>
                                 </td>
                                 <td className="p-3 text-right font-mono text-xs font-bold text-slate-700">
-                                    {order.total.toLocaleString()} ₸
+                                    {order.total.toLocaleString('ru-RU')} ₸
                                 </td>
                                 <td className="p-3 text-right">
                                     <span className="text-[10px] text-slate-400 italic">не оплачено</span>

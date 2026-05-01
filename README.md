@@ -1,36 +1,61 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# TeethTech CRM — Техническое задание
 
-## Getting Started
+## 1. Цель проекта
 
-First, run the development server:
+TeethTech CRM — это CRM-система для зуботехнической лаборатории, которая помогает управлять заказами, клиниками, клиентами, сотрудниками, задачами, оплатами, файлами и выгрузками данных.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+Система должна позволять создавать и редактировать заказы, отслеживать их статусы, распределять задачи между сотрудниками, считать стоимость работ, хранить данные по клиникам и клиентам, а также выгружать отчеты в Excel и 1C.
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+---
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+# Этап 1. Базовая структура CRM
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## 1.1 Основные разделы системы
 
-## Learn More
+Необходимо реализовать следующие страницы:
 
-To learn more about Next.js, take a look at the following resources:
+- Dashboard / Главная страница
+- Заказы
+- Создание заказа
+- Редактирование заказа
+- Клиенты
+- Клиники
+- Сотрудники
+- Профиль сотрудника
+- Финансы / Оплаты
+- Отчеты
+- Выгрузка данных
+- Настройки
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+---
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+# Этап 2. Заказы
 
-## Deploy on Vercel
+## 2.1 Создание заказа
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+При создании заказа необходимо добавить следующие поля:
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### Основная информация
+
+- Клиника
+- Клиент / пациент
+- Врач
+- Дата создания заказа
+- Дедлайн
+- Статус заказа
+- Комментарий к заказу
+
+### Финансовые поля
+
+- Количество единиц
+- Цена за 1 единицу
+- Скидка
+- Общая сумма
+- Оплачено
+- Не оплачено
+
+Формула:
+
+```txt
+Общая сумма = Количество единиц * Цена за 1 единицу - Скидка
+Не оплачено = Общая сумма - Оплачено

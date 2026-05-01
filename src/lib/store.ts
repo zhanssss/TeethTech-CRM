@@ -1,7 +1,7 @@
 import {configureStore} from "@reduxjs/toolkit";
 import {setupListeners} from "@reduxjs/toolkit/query";
 import {teethTechApi } from '../services/teethTechApi';
-import authReducer from './features/authSlice';
+import authReducer from '@/src/features/auth/authSlice';
 
 export const makeStore = () =>{
 

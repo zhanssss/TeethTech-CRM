@@ -9,10 +9,10 @@ interface UserState {
 }
 
 const initialState: UserState = {
-    id: '1',
-    name: 'Жансерик Базаров',
-    role: 'DISPATCHER', // Поменяй на TECHNICIAN, чтобы увидеть разницу в хедере
-    isAuthenticated: true,
+    id: null,
+    name: null,
+    role: null,
+    isAuthenticated: false,
 };
 
 const authSlice = createSlice({

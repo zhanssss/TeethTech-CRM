@@ -22,6 +22,9 @@ import {
 } from '@dnd-kit/sortable';
 import { useDroppable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
+import {mockOrders} from "@/src/mock/orders";
+import {mockTasks} from "@/src/mock/tasks";
+
 
 // --- КОНСТАНТЫ ---
 const COLUMNS = [
@@ -69,32 +72,25 @@ const TaskCard = ({task}: { task: any, role: string | null }) => {
 
 // --- СТРАНИЦА ЗАКАЗА ---
 export default function OrderBoardPage() {
-    const { id } = useParams();
+    const params = useParams<{ id: string | string[] }>();
+    const id = Array.isArray(params.id) ? params.id[0] : params.id;
     const { role } = useSelector((state: RootState) => state.auth);
     const [isMounted, setIsMounted] = useState(false);
+    const order = mockOrders.find((item) => item.id === id);
+    const orderTasks = mockTasks.filter((task) => task.orderId === id);
 
-    // Имитация загрузки данных конкретного заказа (те же поля, что в Excel)
-    const [orderData, setOrderData] = useState({
-        patient: 'Алиев К.',
-        clinic: 'Dental Care Astana',
-        doctor: 'Смирнов А.В.',
-        workType: 'Коронка (Zirconia)',
-        units: 1,
-        color: 'A2',
-        abutment: 'Стандарт',
-        deadline: '2026-04-12',
-        impression: true,
-        transfer: false,
-        bite: true,
-        analog: false,
-        operator: 'Мария (CAD/CAM)',
-        technician: 'Алексей (Универсал)'
-    });
 
     const [tasks, setTasks] = useState([
         { id: `${id}-step1`, type: 'CAD/CAM Моделирование', techId: '2', status: 'MODELING' },
         { id: `${id}-step2`, type: 'Спекание и глазуровка', techId: '3', status: 'TODO' }
     ]);
+
+    useEffect(() => {
+        setTasks([
+            { id: `${id}-step1`, type: 'CAD/CAM Моделирование', techId: '2', status: 'MODELING' },
+            { id: `${id}-step2`, type: 'Спекание и глазуровка', techId: '3', status: 'TODO' }
+        ]);
+    }, [id]);
 
     const [activeId, setActiveId] = useState<string | null>(null);
 
@@ -129,6 +125,26 @@ export default function OrderBoardPage() {
 
     if (!isMounted) return null;
 
+    if (!order) {
+        return (
+            <div className="space-y-4">
+                <Link
+                    href="/orders"
+                    className="inline-flex items-center gap-1 text-xs font-bold uppercase tracking-wider text-blue-600 hover:underline"
+                >
+                    ← Реестр заказов
+                </Link>
+
+                <div className="rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
+                    <h1 className="text-2xl font-bold text-slate-900">Заказ не найден</h1>
+                    <p className="mt-2 text-sm text-slate-500">
+                        Проверь id заказа или вернись в реестр.
+                    </p>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <DndContext sensors={sensors} onDragStart={handleDragStart} collisionDetection={closestCorners} onDragEnd={handleDragEnd}>
             <div className="h-full flex flex-col space-y-6">
@@ -142,7 +158,7 @@ export default function OrderBoardPage() {
                     </div>
                     <div className="flex gap-2">
                         <span className="bg-yellow-100 text-yellow-700 px-3 py-1 rounded-full text-[10px] font-black uppercase">В производстве</span>
-                        <span className="bg-slate-100 text-slate-600 px-3 py-1 rounded-full text-[10px] font-black uppercase">Срок: {orderData.deadline}</span>
+                        <span className="bg-slate-100 text-slate-600 px-3 py-1 rounded-full text-[10px] font-black uppercase">Срок: {order.deadline}</span>
                     </div>
                 </header>
 
@@ -152,19 +168,19 @@ export default function OrderBoardPage() {
                     <div className="md:col-span-2 bg-white p-5 rounded-2xl border border-slate-200 shadow-sm grid grid-cols-2 gap-4">
                         <div>
                             <p className="text-[10px] font-bold text-slate-400 uppercase">Пациент</p>
-                            <p className="font-bold text-slate-800 text-lg">{orderData.patient}</p>
+                            <p className="font-bold text-slate-800 text-lg">{order.patient}</p>
                         </div>
                         <div>
                             <p className="text-[10px] font-bold text-slate-400 uppercase">Клиника</p>
-                            <p className="font-semibold text-blue-600 text-sm">{orderData.clinic}</p>
+                            <p className="font-semibold text-blue-600 text-sm">{order.clinic}</p>
                         </div>
                         <div>
                             <p className="text-[10px] font-bold text-slate-400 uppercase">Врач</p>
-                            <p className="text-slate-700 text-sm font-medium">{orderData.doctor}</p>
+                            <p className="text-slate-700 text-sm font-medium">{order.doctor}</p>
                         </div>
                         <div>
                             <p className="text-[10px] font-bold text-slate-400 uppercase">Вид работы</p>
-                            <p className="text-slate-700 text-sm font-medium">{orderData.workType} — {orderData.units} ед.</p>
+                            <p className="text-slate-700 text-sm font-medium">{order.workType} — {order.units} ед.</p>
                         </div>
                     </div>
 
@@ -173,16 +189,16 @@ export default function OrderBoardPage() {
                         <div className="flex justify-between items-start">
                             <div>
                                 <p className="text-[10px] font-bold text-slate-400 uppercase">Цвет</p>
-                                <p className="text-xl font-black text-orange-400">{orderData.color}</p>
+                                <p className="text-xl font-black text-orange-400">{order.color}</p>
                             </div>
                             <div className="text-right">
                                 <p className="text-[10px] font-bold text-slate-400 uppercase">Абатмент</p>
-                                <p className="text-sm font-bold italic">{orderData.abutment}</p>
+                                <p className="text-sm font-bold italic">{order.abutment}</p>
                             </div>
                         </div>
                         <div className="mt-4 pt-4 border-t border-slate-800 flex gap-2">
-                            {orderData.impression && <span className="bg-white/10 text-[9px] px-2 py-1 rounded font-bold">СЛЕПОК</span>}
-                            {orderData.bite && <span className="bg-white/10 text-[9px] px-2 py-1 rounded font-bold">ПРИКУС</span>}
+                            {order.impression && <span className="bg-white/10 text-[9px] px-2 py-1 rounded font-bold">СЛЕПОК</span>}
+                            {order.bite && <span className="bg-white/10 text-[9px] px-2 py-1 rounded font-bold">ПРИКУС</span>}
                         </div>
                     </div>
 
@@ -194,14 +210,14 @@ export default function OrderBoardPage() {
                                 <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold text-xs">Т</div>
                                 <div className="text-[11px]">
                                     <p className="text-slate-400 uppercase font-bold text-[8px]">Техник</p>
-                                    <p className="font-bold text-slate-700">{orderData.technician}</p>
+                                    <p className="font-bold text-slate-700">{order.technician}</p>
                                 </div>
                             </div>
                             <div className="flex items-center gap-3">
                                 <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center text-purple-600 font-bold text-xs">О</div>
                                 <div className="text-[11px]">
                                     <p className="text-slate-400 uppercase font-bold text-[8px]">Оператор</p>
-                                    <p className="font-bold text-slate-700">{orderData.operator}</p>
+                                    <p className="font-bold text-slate-700">{order.operator}</p>
                                 </div>
                             </div>
                         </div>
