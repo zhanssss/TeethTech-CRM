@@ -2,7 +2,7 @@
 import Link from 'next/link';
 import {useSelector} from 'react-redux';
 import {RootState} from '@/src/lib/store';
-import {useEffect, useState} from 'react';
+import {useState} from 'react';
 import {useDroppable} from '@dnd-kit/core';
 import {
     DndContext,
@@ -12,7 +12,7 @@ import {
     useSensors,
     DragEndEvent,
     DragOverlay,
-    defaultDropAnimationSideEffects
+    DragStartEvent
 } from '@dnd-kit/core';
 import {
     arrayMove,
@@ -21,10 +21,11 @@ import {
     useSortable
 } from '@dnd-kit/sortable';
 import {CSS} from '@dnd-kit/utilities';
+import type { KanbanColumn, WorkBoardTask } from '@/src/types/task.types';
 
 // --- 1. КОНСТАНТЫ ---
 
-const COLUMNS = [
+const COLUMNS: KanbanColumn[] = [
     {id: 'TODO', title: 'Нужно сделать', color: 'border-t-slate-500'},
     {id: 'MODELING', title: 'Моделирование', color: 'border-t-blue-500'},
     {id: 'MILLING', title: 'Фрезеровка', color: 'border-t-purple-500'},
@@ -39,7 +40,7 @@ const materialColors: { [key: string]: string } = {
     'Titanium': 'bg-zinc-200 text-zinc-900 border-zinc-300',
 };
 
-const initialTasks = [
+const initialTasks: WorkBoardTask[] = [
     {
         id: 'TT-101',
         patient: 'Алиев К.',
@@ -99,7 +100,7 @@ const initialTasks = [
 
 // --- 2. КОМПОНЕНТ КАРТОЧКИ (TaskCard) ---
 
-const TaskCard = ({task, role}: { task: any, role: string | null }) => {
+const TaskCard = ({task, role}: { task: WorkBoardTask, role: string | null }) => {
     const {attributes, listeners, setNodeRef, transform, transition, isDragging} = useSortable({
         id: task.id,
         data: {type: 'Task', task}
@@ -161,7 +162,13 @@ const TaskCard = ({task, role}: { task: any, role: string | null }) => {
 
 // --- 3. ОСНОВНАЯ СТРАНИЦА ---
 
-const DroppableColumn = ({id, children, column}: any) => {
+type DroppableColumnProps = {
+    id: KanbanColumn['id'];
+    children: React.ReactNode;
+    column: KanbanColumn;
+};
+
+const DroppableColumn = ({id, children, column}: DroppableColumnProps) => {
     const {setNodeRef} = useDroppable({
         id: id, // ID колонки (TODO, MODELING и т.д.)
     });
@@ -186,26 +193,20 @@ export default function BoardPage() {
     // Находим объект задачи по ID, чтобы отрисовать её в оверлее
     const activeTask = tasks.find(t => t.id === activeId);
 
-    const [isMounted, setIsMounted] = useState(false);
-
-    useEffect(() => {
-        setIsMounted(true);
-    }, []);
-
     const sensors = useSensors(
         useSensor(PointerSensor, {activationConstraint: {distance: 8}})
     );
 
-    const handleDragStart = (event: any) => {
-        setActiveId(event.active.id); // Запоминаем ID, когда начали тянуть
+    const handleDragStart = (event: DragStartEvent) => {
+        setActiveId(String(event.active.id)); // Запоминаем ID, когда начали тянуть
     };
 
     const handleDragEnd = (event: DragEndEvent) => {
         const {active, over} = event;
         if (!over) return;
 
-        const activeId = active.id;
-        const overId = over.id;
+        const activeId = String(active.id);
+        const overId = String(over.id);
 
         if (activeId === overId) return;
 
@@ -222,10 +223,10 @@ export default function BoardPage() {
             }
 
             // Если перетащили на пустую колонку (overId будет равен ID колонки)
-            const isColumn = COLUMNS.some(col => col.id === overId);
-            if (isColumn) {
+            const targetColumn = COLUMNS.find(col => col.id === overId);
+            if (targetColumn) {
                 const updated = [...prev];
-                updated[activeIndex] = {...updated[activeIndex], status: overId as string};
+                updated[activeIndex] = {...updated[activeIndex], status: targetColumn.id};
                 return updated;
             }
 
@@ -235,10 +236,6 @@ export default function BoardPage() {
 
 
     const filteredTasks = role === 'DISPATCHER' ? tasks : tasks.filter(t => t.techId === userId);
-
-    if (!isMounted) {
-        return null;
-    }
 
     return (
         <DndContext

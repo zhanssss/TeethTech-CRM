@@ -1,4 +1,6 @@
-export const mockOrders = [
+import type { OrderListItem } from '@/src/types/order.types';
+
+export const mockOrders: OrderListItem[] = [
     {
         id: '101',
         patient: 'Алиев К.',
@@ -7,14 +9,15 @@ export const mockOrders = [
         workType: 'Коронка цирконий',
         deadline: '2026-04-12',
         status: 'IN_PROGRESS',
-    },
-    {
-        id: '102',
-        patient: 'Иванова М.',
-        clinic: 'Elite Smile',
-        doctor: 'Ким Н.А.',
-        workType: 'Винир E-max',
-        deadline: '2026-04-14',
-        status: 'MODELING',
+        units: 2,
+        color: "A2",
+        abutment: 0,
+        impression: 0,
+        bite: 0,
+        technician: "z",
+        operator: "b",
+        unitPrice: 25000,
+        discount: 10,
+        total: 45000.
     },
 ];

@@ -4,8 +4,7 @@ import {teethTechApi } from '../services/teethTechApi';
 import authReducer from '@/src/features/auth/authSlice';
 
 export const makeStore = () =>{
-
-    return configureStore({
+    const store = configureStore({
         reducer: {
             auth: authReducer,
             [teethTechApi.reducerPath]: teethTechApi.reducer,
@@ -13,6 +12,10 @@ export const makeStore = () =>{
         middleware: getDefaultMiddleware =>
             getDefaultMiddleware().concat(teethTechApi.middleware),
     })
+
+    setupListeners(store.dispatch);
+
+    return store;
 }
 
 

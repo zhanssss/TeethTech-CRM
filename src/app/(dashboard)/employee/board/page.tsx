@@ -12,6 +12,7 @@ import {
     useSensor,
     useSensors,
     DragEndEvent,
+    DragStartEvent,
     DragOverlay,
     useDroppable,
 } from '@dnd-kit/core';
@@ -22,8 +23,9 @@ import {
     arrayMove,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import type { KanbanColumn, ProductionTask } from '@/src/types/task.types';
 
-const COLUMNS = [
+const COLUMNS: KanbanColumn[] = [
     { id: 'TODO', title: 'Нужно сделать', color: 'border-t-slate-500' },
     { id: 'MODELING', title: 'Моделирование', color: 'border-t-blue-500' },
     { id: 'MILLING', title: 'Фрезеровка', color: 'border-t-purple-500' },
@@ -46,7 +48,13 @@ function getPriorityBadge(priority: string) {
     }
 }
 
-function DroppableColumn({ id, column, children }: any) {
+type DroppableColumnProps = {
+    id: KanbanColumn['id'];
+    column: KanbanColumn;
+    children: React.ReactNode;
+};
+
+function DroppableColumn({ id, column, children }: DroppableColumnProps) {
     const { setNodeRef } = useDroppable({ id });
 
     return (
@@ -59,7 +67,7 @@ function DroppableColumn({ id, column, children }: any) {
     );
 }
 
-function TaskCard({ task }: { task: any }) {
+function TaskCard({ task }: { task: ProductionTask }) {
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
         useSortable({
             id: task.id,
@@ -131,8 +139,8 @@ export default function EmployeeBoardPage() {
 
     const activeTask = tasks.find((task) => task.id === activeId);
 
-    const handleDragStart = (event: any) => {
-        setActiveId(event.active.id);
+    const handleDragStart = (event: DragStartEvent) => {
+        setActiveId(String(event.active.id));
     };
 
     const handleDragEnd = (event: DragEndEvent) => {
@@ -143,8 +151,8 @@ export default function EmployeeBoardPage() {
             return;
         }
 
-        const activeId = active.id;
-        const overId = over.id;
+        const activeId = String(active.id);
+        const overId = String(over.id);
 
         if (activeId === overId) {
             setActiveId(null);
@@ -162,10 +170,10 @@ export default function EmployeeBoardPage() {
                 return arrayMove(updated, activeIndex, overIndex);
             }
 
-            const isColumn = COLUMNS.some((column) => column.id === overId);
-            if (isColumn) {
+            const targetColumn = COLUMNS.find((column) => column.id === overId);
+            if (targetColumn) {
                 const updated = [...prev];
-                updated[activeIndex] = { ...updated[activeIndex], status: overId as string };
+                updated[activeIndex] = { ...updated[activeIndex], status: targetColumn.id };
                 return updated;
             }
 

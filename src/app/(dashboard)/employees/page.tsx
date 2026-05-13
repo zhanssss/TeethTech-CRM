@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { mockEmployees } from '@/src/mock/employees';
 import { EmployeeRole, EmployeeStatus } from '@/src/types/employee.types';
+import CreateEmployeeModal from '@/src/components/Modals/CreateEmployeeModal';
 
 const roleOptions: { label: string; value: 'ALL' | EmployeeRole }[] = [
     { label: 'Все роли', value: 'ALL' },
@@ -96,6 +97,7 @@ function StatCard({
 export default function EmployeesPage() {
     const [search, setSearch] = useState('');
     const [selectedRole, setSelectedRole] = useState<'ALL' | EmployeeRole>('ALL');
+    const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
     const filteredEmployees = useMemo(() => {
         return mockEmployees.filter((employee) => {
@@ -150,11 +152,13 @@ export default function EmployeesPage() {
                     </p>
                 </div>
 
-                <button className="rounded-xl bg-blue-600 px-5 py-2.5 font-bold text-white shadow-lg shadow-blue-200 transition-all hover:bg-blue-700 active:scale-95">
+                <button
+                    onClick={() => setIsCreateModalOpen(true)}
+                    className="rounded-xl bg-blue-600 px-5 py-2.5 font-bold text-white shadow-lg shadow-blue-200 transition-all hover:bg-blue-700 active:scale-95"
+                >
                     + Добавить сотрудника
                 </button>
             </header>
-
             <section className="grid grid-cols-1 gap-4 md:grid-cols-4">
                 <StatCard
                     title="Всего сотрудников"
@@ -218,8 +222,8 @@ export default function EmployeesPage() {
                 </div>
 
                 <div className="overflow-x-auto">
-                    <table className="min-w-[1100px] w-full border-collapse text-left">
-                        <thead className="border-b border-slate-200 bg-slate-50 text-[11px] uppercase tracking-widest text-slate-400">
+                    <table className="min-w-275 w-full border-collapse text-left">
+                        <thead className="border-b border-slate-200 bg-slate-50 text-[.7rem] uppercase tracking-widest text-slate-400">
                         <tr>
                             <th className="p-4 font-bold">Сотрудник</th>
                             <th className="p-4 font-bold">Роль</th>
@@ -331,6 +335,9 @@ export default function EmployeesPage() {
                     </table>
                 </div>
             </section>
+            {isCreateModalOpen && (
+                <CreateEmployeeModal onClose={() => setIsCreateModalOpen(false)} />
+            )}
         </div>
     );
 }

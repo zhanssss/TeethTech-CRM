@@ -1,4 +1,6 @@
-export const mockTasks = [
+import type { ProductionTask } from '@/src/types/task.types';
+
+export const mockTasks: ProductionTask[] = [
     {
         id: 't1',
         orderId: '101',

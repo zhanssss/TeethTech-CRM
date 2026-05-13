@@ -4,6 +4,7 @@ import React from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import Link from 'next/link';
+import type { WorkBoardTask } from '@/src/types/task.types';
 
 // Цвета для материалов
 const materialColors: { [key: string]: string } = {
@@ -14,7 +15,7 @@ const materialColors: { [key: string]: string } = {
 };
 
 interface TaskCardProps {
-    task: any;
+    task: WorkBoardTask;
     role: string | null;
 }
 

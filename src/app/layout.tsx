@@ -15,7 +15,9 @@ export default function RootLayout({
     return (
         <html lang="ru">
             <body>
-                <StoreProvider>{children}</StoreProvider>
+                <StoreProvider>
+                    {children}
+                </StoreProvider>
             </body>
         </html>
     );

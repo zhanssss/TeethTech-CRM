@@ -29,12 +29,43 @@ const initialOrders = [
 export default function Dashboard() {
     const [orders] = useState(initialOrders);
 
+    const [search, setSearch] = useState('');
+    const [clinicFilter, setClinicFilter] = useState('all');
+    const [paymentFilter, setPaymentFilter] = useState('all');
+
+    const clinics = Array.from(new Set(orders.map(order => order.clinic)));
+
+    const filteredOrders = orders.filter((order) => {
+        const searchValue = search.toLowerCase();
+
+        const matchesSearch =
+            order.patient.toLowerCase().includes(searchValue) ||
+            order.clinic.toLowerCase().includes(searchValue) ||
+            order.doctor.toLowerCase().includes(searchValue) ||
+            order.workType.toLowerCase().includes(searchValue);
+
+        const matchesClinic =
+            clinicFilter === 'all' || order.clinic === clinicFilter;
+
+        const matchesPayment =
+            paymentFilter === 'all' ||
+            (paymentFilter === 'paid' && order.paid >= order.total) ||
+            (paymentFilter === 'unpaid' && order.paid < order.total);
+
+        return matchesSearch && matchesClinic && matchesPayment;
+    });
+
+    const resetFilters = () => {
+        setSearch('');
+        setClinicFilter('all');
+        setPaymentFilter('all');
+    };
+
     return (
         <div className="space-y-6">
             {/* Заголовок */}
             <header>
                 <h1 className="text-3xl font-bold text-slate-900">Панель управления</h1>
-                <p className="text-slate-500">Добро пожаловать, администратор TeethTech</p>
             </header>
 
             {/* Карточки со статистикой */}
@@ -53,15 +84,63 @@ export default function Dashboard() {
                 </div>
             </div>
 
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <input
+                        type="text"
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                        placeholder="Поиск: пациент, клиника, врач, работа"
+                        className="md:col-span-2 rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none focus:border-blue-500"
+                    />
+
+                    <select
+                        value={clinicFilter}
+                        onChange={(e) => setClinicFilter(e.target.value)}
+                        className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none focus:border-blue-500 bg-white"
+                    >
+                        <option value="all">Все клиники</option>
+                        {clinics.map((clinic) => (
+                            <option key={clinic} value={clinic}>
+                                {clinic}
+                            </option>
+                        ))}
+                    </select>
+
+                    <select
+                        value={paymentFilter}
+                        onChange={(e) => setPaymentFilter(e.target.value)}
+                        className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none focus:border-blue-500 bg-white"
+                    >
+                        <option value="all">Любая оплата</option>
+                        <option value="paid">Оплачено</option>
+                        <option value="unpaid">Не оплачено</option>
+                    </select>
+                </div>
+
+                <div className="mt-4 flex items-center justify-between">
+                    <p className="text-xs text-slate-500">
+                        Найдено: <span className="font-bold text-slate-700">{filteredOrders.length}</span>
+                    </p>
+
+                    <button
+                        onClick={resetFilters}
+                        className="text-xs font-bold text-slate-500 hover:text-blue-600 transition"
+                    >
+                        Сбросить фильтры
+                    </button>
+                </div>
+            </div>
+
             {/* Таблица на основе Excel-структуры */}
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                 <div className="p-4 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
-                    <h2 className="font-bold text-slate-700">Последние наряды (Журнал)</h2>
+                    <h2 className="font-bold text-slate-700">Последние наряды</h2>
                     <span className="text-[10px] bg-blue-100 text-blue-700 px-2 py-1 rounded-full font-bold uppercase">Live Update</span>
                 </div>
 
                 <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse min-w-[1200px]">
+                    <table className="w-full text-left border-collapse min-w-300">
                         <thead className="bg-slate-50 border-b border-slate-200 text-[10px] uppercase tracking-tighter text-slate-400">
                         <tr>
                             <th className="p-3 font-bold">Дата</th>
@@ -78,7 +157,7 @@ export default function Dashboard() {
                         </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
-                        {orders.map((order, idx) => (
+                        {filteredOrders.map((order, idx) => (
                             <tr key={idx} className="hover:bg-blue-50/30 transition text-sm">
                                 <td className="p-3 text-slate-500">{order.date}</td>
                                 <td className="p-3">

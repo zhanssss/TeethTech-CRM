@@ -1,18 +1,77 @@
-interface Order {
+import type { TaskStatus } from './employee.types';
+
+export type ImplantSource = 'clinic' | 'lab';
+
+export type OrderTaskPriority = 'low' | 'medium' | 'high' | 'urgent';
+
+export interface CreateOrderTask {
+    type: string;
+    units: number;
+    material: string;
+    color: string;
+    unitPrice: number;
+    discount: number;
+    impressionQty: number;
+    transferQty: number;
+    biteQty: number;
+    analogQty: number;
+    implantSystem: string;
+    implantSize: string;
+    implantQty: number;
+    implantSource: ImplantSource;
+    abutment: string;
+    priority: OrderTaskPriority;
+    operatorId: string;
+    technicianId: string;
+}
+
+export interface OrderTask extends CreateOrderTask {
     id: string;
+    orderId: string;
+    status: TaskStatus;
+}
+
+export interface CreateOrderPayload {
+    id: string;
+    clinicId: string;
+    clinicName: string;
     patient: string;
-    clinic: string;
     doctor: string;
-    workType: string;
     deadline: string;
+    comment: string;
+    tasks: OrderTask[];
+    total: number;
+    paid: number;
+    unpaid: number;
     status: string;
 }
 
-interface Task {
+export interface OrderListItem {
     id: string;
-    orderId: string;
-    title: string;
-    technicianId: string;
-    status: 'TODO' | 'MODELING' | 'MILLING' | 'POST_PROCESSING' | 'DONE';
-    deadline: string;
+    patient: string;
+    clinic?: string;
+    clinicName?: string;
+    doctor: string;
+    work?: string;
+    workType?: string;
+    deadline?: string;
+    status: string;
+    units?: number;
+    color?: string;
+    abutment?: string | number;
+    impression?: boolean | number;
+    transfer?: boolean | number;
+    bite?: boolean | number;
+    analog?: boolean | number;
+    technician?: string;
+    operator?: string;
+    unitPrice?: number;
+    discount?: number;
+    total?: number;
+    paid?: number;
+    unpaid?: number;
+    date?: string;
+    clinicId?: string;
+    comment?: string;
+    tasks?: OrderTask[];
 }
