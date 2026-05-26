@@ -1,61 +1,35 @@
 'use client';
 
-import { useParams } from 'next/navigation';
+import {useParams} from 'next/navigation';
 import Link from 'next/link';
-import { useState } from 'react';
-import EditClinicModal from '@/src/components/Modals/CreateClinicEditModal';
-import type { ClinicDetails } from '@/src/types/clinic.types';
+import {useState} from 'react';
+import EditClinicModal from '@/src/components/Modals/EditClinicModal';
+import {useGetClinicsByIdQuery} from '@/src/services/teethTechApi';
+import type {ClinicDetailedInfo} from "@/src/types/clinic.types";
+import InfoItem from '@/src/components/ui/InfoItem'
 
-const mockClinics: ClinicDetails[] = [
-    {
-        id: '1',
-        name: 'Клиника 1',
-        address: 'г. Астана, ул. Кабанбай батыра 10',
-        phone: '+7 777 000 00 00',
-        email: 'clinic@mail.com',
-        contactPerson: 'Администратор Айжан',
-        discount: 10,
-        priceType: 'Индивидуальный прайс',
-        comment: 'Постоянная клиника. Часто заказывает цирконий и E-max.',
-        doctors: [
-            {
-                id: 'd1',
-                name: 'Смирнов А.В.',
-                phone: '+7 701 111 22 33',
-                specialization: 'Ортопед',
-            },
-            {
-                id: 'd2',
-                name: 'Иванова М.К.',
-                phone: '+7 702 444 55 66',
-                specialization: 'Терапевт',
-            },
-        ],
-        orders: [
-            {
-                id: '101',
-                patient: 'Алиев К.',
-                workType: 'Коронка цирконий',
-                status: 'В работе',
-                total: 25000,
-                paid: 0,
-            },
-        ],
-    },
-];
+type ClinicPageProps = {
+    params: Promise<{
+        id: string;
+    }>;
+};
+
 
 export default function ClinicDetailsPage() {
-    const { id } = useParams();
-
-    const [clinic, setClinic] = useState(() =>
-        mockClinics.find((item) => item.id === id) || null
-    );
-
+    const {id} = useParams();
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
-    const handleUpdateClinic = (updatedClinic: ClinicDetails) => {
-        setClinic(updatedClinic);
-    };
+    // @ts-ignore
+    const {
+        data: clinic,
+        isLoading,
+        isError,
+
+    } = useGetClinicsByIdQuery(id);
+
+    if (isLoading) return <p>Загрузка клиники...</p>;
+    if (isError) return <p>Ошибка загрузки клиники</p>;
+
 
     if (!clinic) {
         return (
@@ -80,12 +54,12 @@ export default function ClinicDetailsPage() {
     }
 
     const totalOrdersSum = clinic.orders.reduce(
-        (sum, order) => sum + order.total,
+        (sum, order) => sum + order.totalAmount,
         0
     );
 
     const totalPaidSum = clinic.orders.reduce(
-        (sum, order) => sum + order.paid,
+        (sum, order) => sum + order.paidAmount,
         0
     );
 
@@ -164,23 +138,15 @@ export default function ClinicDetailsPage() {
                     </h2>
 
                     <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2">
-                        <InfoItem label="Название" value={clinic.name} />
-                        <InfoItem label="Контактное лицо" value={clinic.contactPerson} />
-                        <InfoItem label="Телефон" value={clinic.phone} />
-                        <InfoItem label="Email" value={clinic.email} />
-                        <InfoItem label="Адрес" value={clinic.address} />
-                        <InfoItem label="Тип прайса" value={clinic.priceType} />
-                        <InfoItem label="Скидка" value={`${clinic.discount}%`} />
+                        <InfoItem label="Название" value={clinic.name}/>
+                        <InfoItem label="Контактное лицо" value={clinic.contactPerson}/>
+                        <InfoItem label="Телефон" value={clinic.phone}/>
+                        <InfoItem label="Email" value={clinic.email}/>
+                        <InfoItem label="Адрес" value={clinic.address}/>
+                        <InfoItem label="Тип прайса" value={clinic.priceType}/>
+                        {/*<InfoItem.tsx label="Скидка" value={`${clinic.discount}%`} />*/}
                     </div>
                 </section>
-
-                {/*<section className="rounded-2xl border border-slate-200 bg-slate-900 p-6 text-white shadow-sm">*/}
-                {/*    <h2 className="text-lg font-bold">Комментарий</h2>*/}
-
-                {/*    <p className="mt-4 text-sm leading-6 text-slate-300">*/}
-                {/*        {clinic.comment}*/}
-                {/*    </p>*/}
-                {/*</section>*/}
             </div>
 
             <section className="rounded-2xl border border-slate-200 bg-white shadow-sm">
@@ -193,19 +159,11 @@ export default function ClinicDetailsPage() {
                 <div className="grid grid-cols-1 gap-4 p-5 md:grid-cols-2">
                     {clinic.doctors.map((doctor) => (
                         <div
-                            key={doctor.id}
+                            key={doctor.fullName}
                             className="rounded-2xl border border-slate-200 bg-slate-50 p-4"
                         >
                             <p className="font-bold text-slate-900">
-                                {doctor.name}
-                            </p>
-
-                            <p className="mt-1 text-sm text-slate-500">
-                                {doctor.specialization}
-                            </p>
-
-                            <p className="mt-3 text-sm font-semibold text-blue-600">
-                                {doctor.phone}
+                                {doctor.fullName}
                             </p>
                         </div>
                     ))}
@@ -221,7 +179,8 @@ export default function ClinicDetailsPage() {
 
                 <div className="overflow-x-auto">
                     <table className="w-full min-w-[800px] border-collapse text-left">
-                        <thead className="border-b border-slate-200 bg-slate-50 text-[.7rem] uppercase tracking-widest text-slate-400">
+                        <thead
+                            className="border-b border-slate-200 bg-slate-50 text-[.7rem] uppercase tracking-widest text-slate-400">
                         <tr>
                             <th className="p-4 font-bold">ID</th>
                             <th className="p-4 font-bold">Пациент</th>
@@ -244,25 +203,26 @@ export default function ClinicDetailsPage() {
                                 </td>
 
                                 <td className="p-4 font-bold text-slate-800">
-                                    {order.patient}
+                                    {order.patientName}
                                 </td>
 
                                 <td className="p-4 text-sm text-slate-600">
-                                    {order.workType}
+                                    {order.summaryWork}
                                 </td>
 
                                 <td className="p-4">
-                                        <span className="rounded-lg bg-yellow-100 px-2 py-1 text-[10px] font-bold uppercase text-yellow-700">
+                                        <span
+                                            className="rounded-lg bg-yellow-100 px-2 py-1 text-[10px] font-bold uppercase text-yellow-700">
                                             {order.status}
                                         </span>
                                 </td>
 
                                 <td className="p-4 text-sm font-bold text-slate-700">
-                                    {order.total.toLocaleString('ru-RU')} ₸
+                                    {order.totalAmount.toLocaleString('ru-RU')} ₸
                                 </td>
 
                                 <td className="p-4 text-sm font-bold text-green-600">
-                                    {order.paid.toLocaleString('ru-RU')} ₸
+                                    {order.paidAmount.toLocaleString('ru-RU')} ₸
                                 </td>
 
                                 <td className="p-4 text-right">
@@ -283,21 +243,8 @@ export default function ClinicDetailsPage() {
                 isOpen={isEditModalOpen}
                 clinic={clinic}
                 onClose={() => setIsEditModalOpen(false)}
-                onSubmit={handleUpdateClinic}
             />
         </div>
     );
 }
 
-function InfoItem({ label, value }: { label: string; value: string }) {
-    return (
-        <div>
-            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                {label}
-            </p>
-            <p className="mt-1 text-sm font-semibold text-slate-800">
-                {value}
-            </p>
-        </div>
-    );
-}

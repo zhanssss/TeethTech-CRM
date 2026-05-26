@@ -1,64 +1,62 @@
 'use client';
 
 import {useState} from 'react';
-import {  CreateClinicDto} from '@/src/types/clinic.types';
-import Modal from "../ui/Modal";
-import {useCreateClinicMutation} from "@/src/services/teethTechApi";
+import Modal from '@/src/components/ui/Modal'
+import {useUpdateClinicMutation} from '@/src/services/teethTechApi'
+import {CreateClinicDto} from "@/src/types/clinic.types";
 
-type CreateClinicModalProps = {
+type EditClinicModalProps = {
     isOpen: boolean;
+    clinic: CreateClinicDto | null;
     onClose: () => void;
+    onSubmit: (updatedClinic: CreateClinicDto) => void;
 };
 
-export default function CreateClinicModal({
-                                              isOpen,
-                                              onClose,
-                                          }: CreateClinicModalProps) {
-    const [formData, setFormData] = useState<CreateClinicDto>({
+export default function EditClinicModal({
+                                            isOpen,
+                                            clinic,
+                                            onClose,
+                                            onSubmit,
+                                        }: EditClinicModalProps) {
+    const [formData, setFormData] = useState<CreateClinicDto>(clinic ?? {
         name: '',
-        contactPerson: '',
+        address: '',
         phone: '',
         email: '',
-        address: '',
-        bin: '',
+        contactPerson: '',
+        bin: ''
     });
 
-    const [createClinic, {isLoading}] = useCreateClinicMutation();
+    const [ updateClinic, {isLoading}] = useUpdateClinicMutation();
 
-    if (!isOpen) return null;
+    if (!isOpen || !clinic) return null;
 
-    const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-        e.preventDefault();
+    const handleSubmit = async (
+        e: React.FormEvent<HTMLFormElement>
+    ) => {
+       e.preventDefault();
 
-        try {
-            await createClinic(formData).unwrap();
-            onClose();
-        } catch (e) {
-            console.log(e);
-        }
-        onClose();
+       try {
+           await updateClinic({
+               id: clinic.id,
+               body: formData,
+           }).unwrap();
 
-        setFormData({
-            name: 'd',
-            contactPerson: '',
-            phone: '',
-            email: '',
-            address: '',
-            bin: '123123123'
-        });
-    };
-
-
+           onClose();
+       } catch (e) {
+           console.error(e);
+       }
+    }
 
     return (
         <Modal>
             <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50 px-6 py-4">
                 <div>
                     <h2 className="text-xl font-bold text-slate-900">
-                        Добавить клинику
+                        Редактировать клинику
                     </h2>
                     <p className="text-xs text-slate-500">
-                        Заполните данные клиники для добавления в базу
+                        Изменение данных клиники в базе
                     </p>
                 </div>
 
@@ -71,7 +69,7 @@ export default function CreateClinicModal({
                 </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-5 p-6">
+            <form onSubmit={handleSubmit} className="flex-1 space-y-5 overflow-y-auto p-6">
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                     <div>
                         <label className="mb-1 block text-xs font-bold uppercase text-slate-400">
@@ -84,7 +82,6 @@ export default function CreateClinicModal({
                             onChange={(e) =>
                                 setFormData({...formData, name: e.target.value})
                             }
-                            placeholder="Dental Care Astana"
                             className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-500 focus:bg-white"
                         />
                     </div>
@@ -97,9 +94,11 @@ export default function CreateClinicModal({
                             type="text"
                             value={formData.contactPerson}
                             onChange={(e) =>
-                                setFormData({...formData, contactPerson: e.target.value})
+                                setFormData({
+                                    ...formData,
+                                    contactPerson: e.target.value,
+                                })
                             }
-                            placeholder="ФИО администратора / врача"
                             className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-500 focus:bg-white"
                         />
                     </div>
@@ -114,7 +113,6 @@ export default function CreateClinicModal({
                             onChange={(e) =>
                                 setFormData({...formData, phone: e.target.value})
                             }
-                            placeholder="+7 777 000 00 00"
                             className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-500 focus:bg-white"
                         />
                     </div>
@@ -129,12 +127,23 @@ export default function CreateClinicModal({
                             onChange={(e) =>
                                 setFormData({...formData, email: e.target.value})
                             }
-                            placeholder="clinic@mail.com"
                             className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-500 focus:bg-white"
                         />
                     </div>
 
                     <div className="md:col-span-2">
+                        <label className="mb-1 block text-xs font-bold uppercase text-slate-400">
+                            Адрес
+                        </label>
+                        <input
+                            required
+                            type="text"
+                            value={formData.address}
+                            onChange={(e) =>
+                                setFormData({...formData, address: e.target.value})
+                            }
+                            className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-500 focus:bg-white"
+                        />
                         <label className="mb-1 block text-xs font-bold uppercase text-slate-400">
                             BIN
                         </label>
@@ -146,19 +155,6 @@ export default function CreateClinicModal({
                                 setFormData({...formData, bin: e.target.value})
                             }
                             placeholder="12 цифр"
-                            className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-500 focus:bg-white"
-                        />
-                        <label className="mb-1 block text-xs font-bold uppercase text-slate-400">
-                            Адрес
-                        </label>
-                        <input
-                            required
-                            type="text"
-                            value={formData.address}
-                            onChange={(e) =>
-                                setFormData({...formData, address: e.target.value})
-                            }
-                            placeholder="г. Астана, ул. ..."
                             className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-500 focus:bg-white"
                         />
                     </div>
@@ -177,7 +173,7 @@ export default function CreateClinicModal({
                         type="submit"
                         className="rounded-xl bg-blue-600 px-7 py-2.5 text-sm font-bold text-white shadow-lg shadow-blue-100 transition hover:bg-blue-700 active:scale-95"
                     >
-                        {isLoading ? 'Создание...' : 'Добавить клинику'}
+                        Сохранить изменения
                     </button>
                 </div>
             </form>

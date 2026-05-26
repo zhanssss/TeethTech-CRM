@@ -1,0 +1,70 @@
+import {useParams} from "next/navigation";
+import {updateOrderTasks, useOrders} from "@/src/lib/ordersStore";
+import {useState} from "react";
+import {DragEndEvent, DragStartEvent, PointerSensor, useSensor, useSensors} from "@dnd-kit/core";
+import {arrayMove, useSortable} from "@dnd-kit/sortable";
+import Link from "next/link";
+import {OrderTask} from "@/src/types/order.types";
+import { CSS } from '@dnd-kit/utilities';
+
+export default function TaskCard ({ task }: { task: OrderTask }) {
+    const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
+        useSortable({
+            id: task.id,
+            data: { type: 'Task', task },
+        });
+
+    const subtotal = task.units * task.unitPrice;
+    const total = Math.max(subtotal - subtotal * (task.discount / 100), 0);
+
+    return (
+        <div
+            ref={setNodeRef}
+            style={{
+                transform: CSS.Translate.toString(transform),
+                transition,
+                opacity: isDragging ? 0.3 : 1,
+            }}
+            {...attributes}
+            {...listeners}
+            className="bg-white p-4 rounded-lg shadow-sm border border-slate-200 hover:border-blue-400 cursor-grab active:cursor-grabbing transition flex flex-col gap-3"
+        >
+            <div className="flex justify-between items-center text-[10px]">
+                <span className="font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">
+                    {task.id}
+                </span>
+                <span className="text-slate-400 italic">{task.units} ед.</span>
+            </div>
+
+            <div>
+                <h3 className="text-slate-900 font-semibold text-sm">
+                    {task.type || task.material || 'Техническое задание'}
+                </h3>
+                <p className="mt-1 text-xs text-slate-500">
+                    {task.material || 'Материал не указан'}
+                    {task.color ? ` · цвет ${task.color}` : ''}
+                </p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 text-[10px] text-slate-500">
+                <div>
+                    <p className="font-bold uppercase text-slate-400">Техник</p>
+                    <p className="font-semibold text-slate-700">{task.technicianId || '-'}</p>
+                </div>
+                <div>
+                    <p className="font-bold uppercase text-slate-400">Оператор</p>
+                    <p className="font-semibold text-slate-700">{task.operatorId || '-'}</p>
+                </div>
+            </div>
+
+            <div className="flex items-center justify-between border-t border-slate-100 pt-3">
+                <span className="text-[10px] text-slate-400">
+                    {task.unitPrice.toLocaleString('ru-RU')} ₸ / ед.
+                </span>
+                <span className="text-xs font-black text-slate-800">
+                    {total.toLocaleString('ru-RU')} ₸
+                </span>
+            </div>
+        </div>
+    );
+}

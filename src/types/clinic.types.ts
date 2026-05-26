@@ -1,39 +1,52 @@
-export interface ClinicDoctor {
+export type Clinic = {
     id: string;
-    name: string;
-    phone: string;
-    specialization: string;
-}
-
-export interface ClinicOrder {
-    id: string;
-    patient: string;
-    workType: string;
-    status: string;
-    total: number;
-    paid: number;
-}
-
-export interface ClinicFormData {
+    displayId: number;
     name: string;
     address: string;
     phone: string;
-    email: string;
-    contactPerson: string;
-    comment: string;
-}
-
-export interface ClinicListItem extends ClinicFormData {
-    id: number;
-    ordersCount: number;
+    totalOrders: number;
     activeOrders: number;
     completedOrders: number;
 }
 
-export interface ClinicDetails extends ClinicFormData {
-    id: string;
-    discount: number;
-    priceType: string;
-    doctors: ClinicDoctor[];
-    orders: ClinicOrder[];
+
+export type CreateClinicDto = {
+    name: string;
+    contactPerson: string;
+    phone: string;
+    email: string;
+    address: string;
+    bin: string;
 }
+
+export type UpdateClinicDto =
+    Partial<CreateClinicDto>;
+
+export type ClinicDetailedInfo = {
+    id: string,
+    totalOrdersCount: number,
+    totalAmount: number,
+    totalPaid: number,
+    totalDebt: number,
+    name: string,
+    phone: string,
+    address: string,
+    contactPerson: string,
+    email: string,
+    priceType: string,
+    discountPercent: number,
+    doctors:
+        {
+            fullName: string
+        }[],
+    orders:
+        {
+            id: string,
+            patientName: string,
+            summaryWork: string,
+            status: string,
+            totalAmount: number,
+            paidAmount: number
+        }[],
+}
+

@@ -1,33 +1,43 @@
 'use client';
 
-import { useState } from 'react';
+import {useMemo, useState} from 'react';
 import Section from '@/src/components/ui/Section';
 import CreateClinicModal from '@/src/components/Modals/CreateClinicModal';
 import Link from 'next/link';
-import type { ClinicListItem } from '@/src/types/clinic.types';
+import {useGetClinicsQuery} from "@/src/services/teethTechApi";
 
-const initialClinics: ClinicListItem[] = [
-    {
-        id: 1,
-        name: 'Клиника 1',
-        address: 'Адрес 1',
-        phone: '+7 777 000 00 00',
-        email: 'clinic@mail.com',
-        contactPerson: 'Администратор',
-        comment: '',
-        ordersCount: 10,
-        activeOrders: 2,
-        completedOrders: 8,
-    },
-];
+type ClinicTableRow = {
+    id: string | number;
+    name: string;
+    address: string;
+    phone: string;
+    ordersCount: number;
+    activeOrders: number;
+    completedOrders: number;
+};
 
 export default function ClinicsPage() {
-    const [clinics, setClinics] = useState(initialClinics);
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const {data, isLoading, isError} = useGetClinicsQuery();
 
-    const handleCreateClinic = (newClinic: ClinicListItem) => {
-        setClinics((prev) => [newClinic, ...prev]);
-    };
+
+    const clinics = useMemo<ClinicTableRow[]>(() => {
+        const apiClinics = data?.map((clinic) => ({
+            id: clinic.id,
+            name: clinic.name,
+            address: clinic.address,
+            phone: clinic.phone,
+            ordersCount: clinic.totalOrders,
+            activeOrders: clinic.activeOrders,
+            completedOrders: clinic.completedOrders,
+        })) ?? [];
+
+        return apiClinics;
+
+    }, [ data]);
+
+    if (isLoading) return <p>Загрузка...</p>
+    if (isError) return <p>Ошибка в загрузке клиник...</p>
 
     return (
         <div className="space-y-6">
@@ -55,7 +65,8 @@ export default function ClinicsPage() {
                         className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none focus:border-blue-500 focus:bg-white sm:max-w-sm"
                     />
 
-                    <select className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-1 text-sm outline-none transition focus:border-blue-500 focus:bg-white sm:w-56">
+                    <select
+                        className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-1 text-sm outline-none transition focus:border-blue-500 focus:bg-white sm:w-56">
                         <option value="ordersCount">По кол-ву заказов</option>
                     </select>
                 </div>
@@ -70,9 +81,9 @@ export default function ClinicsPage() {
 
                 <div className="overflow-x-auto">
                     <table className="w-full min-w-[900px] border-collapse text-left">
-                        <thead className="border-b border-slate-200 bg-slate-50 text-[.7rem] uppercase tracking-widest text-slate-400">
+                        <thead
+                            className="border-b border-slate-200 bg-slate-50 text-[.7rem] uppercase tracking-widest text-slate-400">
                         <tr>
-                            <th className="p-4 font-bold">ID</th>
                             <th className="p-4 font-bold">Название</th>
                             <th className="p-4 font-bold">Адрес</th>
                             <th className="p-4 font-bold">Телефон</th>
@@ -88,7 +99,6 @@ export default function ClinicsPage() {
                                 key={clinic.id}
                                 className="transition hover:bg-blue-50/30"
                             >
-                                <td className="p-4">{clinic.id}</td>
                                 <td className="p-4 font-bold text-slate-800">
                                     <Link
                                         href={`/clinics/${clinic.id}`}
@@ -112,7 +122,6 @@ export default function ClinicsPage() {
             <CreateClinicModal
                 isOpen={isModalOpen}
                 onClose={() => setIsModalOpen(false)}
-                onSubmit={handleCreateClinic}
             />
         </div>
     );

@@ -417,21 +417,6 @@ export default function EmployeeDetailsPage() {
                             ))}
                         </div>
                     </div>
-
-                    <div className="rounded-2xl border border-slate-200 bg-slate-900 p-5 text-white shadow-lg">
-                        <p className="text-xs font-black uppercase tracking-widest text-slate-400">
-                            Performance note
-                        </p>
-                        <h3 className="mt-3 text-lg font-black">
-                            {employee.stats.onTimeRate >= 90
-                                ? 'Сотрудник стабильно держит высокий темп'
-                                : 'Нужно усилить контроль сроков'}
-                        </h3>
-                        <p className="mt-2 text-sm leading-6 text-slate-300">
-                            Эта карточка позже может показывать AI-анализ: перегрузка,
-                            качество выполнения, риск просрочек и рекомендации по перераспределению задач.
-                        </p>
-                    </div>
                 </div>
             </section>
         </div>

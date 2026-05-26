@@ -19,7 +19,7 @@ const authSlice = createSlice({
     name: 'auth',
     initialState,
     reducers: {
-        // Этот экшен мы вызовем, когда получим данные от Spring Boot
+
         setUser: (state, action: PayloadAction<Omit<UserState, 'isAuthenticated'>>) => {
             state.id = action.payload.id;
             state.name = action.payload.name;

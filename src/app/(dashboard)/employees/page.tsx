@@ -206,6 +206,11 @@ export default function EmployeesPage() {
                                 </option>
                             ))}
                         </select>
+                        <label htmlFor="fired-employees" className="flex items-center gap-2">
+                            <input id="fired-employees" type="checkbox"/>
+                            <h3>Показывать уволенных сотрудников</h3>
+                        </label>
+
                     </div>
 
                     <div className="text-xs font-medium text-slate-400">
