@@ -60,6 +60,13 @@ export default function OrdersPage() {
             .join(', ');
         const units = newTask.tasks.reduce((sum, task) => sum + task.units, 0);
 
+        const tasks = newTask.tasks.map((task, index) => ({
+            ...task,
+            id: task.id || `${newTask.id}-task-${index + 1}`,
+            orderId: newTask.id.replace('TT-', ''),
+            status: task.status || '1',
+        }));
+
         // Преобразуем данные из формата модалки в формат строки таблицы
         const orderToAdd: OrderListItem = {
             id: newTask.id.replace('TT-', ''),
@@ -81,7 +88,7 @@ export default function OrdersPage() {
             status: 'Приемка',
             technician: '—',
             date: new Date().toLocaleDateString('ru-RU'),
-            tasks: newTask.tasks,
+            tasks
         };
 
         addOrder(orderToAdd);
@@ -196,7 +203,6 @@ export default function OrdersPage() {
                 </table>
             </div>
 
-            {/* ИСПОЛЬЗУЕМ НОВУЮ ВНЕШНЮЮ МОДАЛКУ */}
             <CreateOrderModal
                 isOpen={isModalOpen}
                 onClose={() => setIsModalOpen(false)}

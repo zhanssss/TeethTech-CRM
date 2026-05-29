@@ -3,7 +3,7 @@
 import {useState} from 'react';
 import {  CreateClinicDto} from '@/src/types/clinic.types';
 import Modal from "../ui/Modal";
-import {useCreateClinicMutation} from "@/src/services/teethTechApi";
+import {useCreateClinicMutation} from "@/src/services/api/clinicsApi";
 
 type CreateClinicModalProps = {
     isOpen: boolean;
@@ -30,6 +30,7 @@ export default function CreateClinicModal({
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
 
+        console.log(formData)
         try {
             await createClinic(formData).unwrap();
             onClose();
@@ -39,12 +40,12 @@ export default function CreateClinicModal({
         onClose();
 
         setFormData({
-            name: 'd',
+            name: '',
             contactPerson: '',
             phone: '',
             email: '',
             address: '',
-            bin: '123123123'
+            bin: ''
         });
     };
 

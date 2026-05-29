@@ -3,10 +3,18 @@
 import { useSyncExternalStore } from 'react';
 import { mockOrders } from '@/src/mock/orders';
 import type { CreateOrderTask, OrderListItem, OrderTask } from '@/src/types/order.types';
-import type { TaskStatus } from '@/src/types/employee.types';
+import type { OrderTaskStatus } from '@/src/types/task.types';
 
 const STORAGE_KEY = 'teeth-tech-orders';
-const TASK_STATUSES: TaskStatus[] = ['TODO', 'MODELING', 'MILLING', 'POST_PROCESSING', 'DONE'];
+const ORDER_TASK_STATUSES: OrderTaskStatus[] = ['1', '2', '3', '4', '5', '6', '7'];
+const LEGACY_TASK_STATUS_MAP: Record<string, OrderTaskStatus> = {
+    TODO: '1',
+    IN_PROGRESS: '2',
+    MODELING: '4',
+    MILLING: '5',
+    POST_PROCESSING: '6',
+    DONE: '7',
+};
 
 type OrdersListener = () => void;
 
@@ -36,13 +44,18 @@ function quantityFrom(value: unknown) {
     return numberFrom(value, 0);
 }
 
-function taskStatusFrom(value: unknown): TaskStatus {
-    if (typeof value === 'string' && TASK_STATUSES.includes(value as TaskStatus)) {
-        return value as TaskStatus;
+function taskStatusFrom(value: unknown): OrderTaskStatus {
+    if (typeof value === 'string' || typeof value === 'number') {
+        const status = String(value);
+
+        if (ORDER_TASK_STATUSES.includes(status as OrderTaskStatus)) {
+            return status as OrderTaskStatus;
+        }
+
+        return LEGACY_TASK_STATUS_MAP[status] ?? '1';
     }
 
-    if (value === 'IN_PROGRESS') return 'MODELING';
-    return 'TODO';
+    return '1';
 }
 
 function normalizeTask(task: Partial<OrderTask> & Partial<CreateOrderTask>, orderId: string, index: number): OrderTask {

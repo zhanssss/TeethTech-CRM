@@ -19,9 +19,6 @@ export type CreateClinicDto = {
     bin: string;
 }
 
-export type UpdateClinicDto =
-    Partial<CreateClinicDto>;
-
 export type ClinicDetailedInfo = {
     id: string,
     totalOrdersCount: number,
@@ -35,6 +32,7 @@ export type ClinicDetailedInfo = {
     email: string,
     priceType: string,
     discountPercent: number,
+    bin: string;
     doctors:
         {
             fullName: string
@@ -49,4 +47,7 @@ export type ClinicDetailedInfo = {
             paidAmount: number
         }[],
 }
+
+export type UpdateClinicDto =
+    Partial<ClinicDetailedInfo>;
 

@@ -27,6 +27,7 @@ export default function Sidebar() {
                 { name: 'Сотрудники', href: '/employees' },
                 {name: 'Клиники', href: '/clinics' },
                 {name: 'Пациенты', href: '/patients' },
+                {name: 'Лаборатория', href: '/laboratory' },
             ];
 
     const handleLogout = () => {

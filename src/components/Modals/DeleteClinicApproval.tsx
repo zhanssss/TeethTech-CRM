@@ -1,0 +1,65 @@
+import Modal from "@/src/components/ui/Modal";
+import {useDeleteClinicMutation} from "@/src/services/api/clinicsApi";
+import {useRouter} from "next/navigation";
+
+type props = {
+    isOpen: boolean;
+    onClose: () => void;
+    clinicId: string
+}
+
+const DeleteClinicApproval = ({isOpen, onClose, clinicId}: props) => {
+
+    const router = useRouter();
+    const [deleteClinic, {isLoading}] = useDeleteClinicMutation();
+
+    if (!isOpen) return null;
+
+    const handleDelete = async () => {
+        try {
+            await deleteClinic(clinicId).unwrap();
+            onClose()
+            router.push('/clinics');
+        } catch (e) {
+            console.error(e);
+        }
+    }
+
+    return (
+        <Modal>
+            <div>
+                <h1 className="text-xl font-bold text-slate-900">
+                    Удалить клинику?
+                </h1>
+
+                <p className="mt-2 text-sm text-slate-500">
+                    Вы уверены, что хотите удалить клинику из реестра? Это действие нельзя отменить.
+                </p>
+            </div>
+            {isLoading ?
+                <h2>Удаление ожидайте...</h2>
+                :
+                <div className="flex justify-end gap-3">
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        className="rounded-xl px-5 py-2.5 text-sm font-bold text-slate-500 transition hover:bg-slate-100"
+                    >
+                        Нет
+                    </button>
+
+                    <button
+                        type="button"
+                        onClick={handleDelete}
+                        disabled={isLoading}
+                        className="rounded-xl bg-red-700 px-5 py-2.5 text-sm font-bold text-white transition hover:bg-red-800 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                        {isLoading ? 'Удаление...' : 'Да, удалить'}
+                    </button>
+                </div>
+            }
+        </Modal>
+    )
+}
+
+export default DeleteClinicApproval

@@ -4,9 +4,9 @@ import {useParams} from 'next/navigation';
 import Link from 'next/link';
 import {useState} from 'react';
 import EditClinicModal from '@/src/components/Modals/EditClinicModal';
-import {useGetClinicsByIdQuery} from '@/src/services/teethTechApi';
-import type {ClinicDetailedInfo} from "@/src/types/clinic.types";
+import {useGetClinicsByIdQuery} from '@/src/services/api/clinicsApi';
 import InfoItem from '@/src/components/ui/InfoItem'
+import DeleteClinicApproval from "@/src/components/Modals/DeleteClinicApproval";
 
 type ClinicPageProps = {
     params: Promise<{
@@ -16,10 +16,11 @@ type ClinicPageProps = {
 
 
 export default function ClinicDetailsPage() {
-    const {id} = useParams();
+    const params = useParams();
+    const id = params.id as string;
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+    const [isApproveModalOpen, setIsApproveModalOpen] = useState(false);
 
-    // @ts-ignore
     const {
         data: clinic,
         isLoading,
@@ -84,13 +85,20 @@ export default function ClinicDetailsPage() {
                         Карточка клиники, контакты, врачи, заказы и финансовая информация
                     </p>
                 </div>
-
-                <button
-                    onClick={() => setIsEditModalOpen(true)}
-                    className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-blue-200 transition hover:bg-blue-700 active:scale-95"
-                >
-                    Редактировать данные
-                </button>
+            <div className="flex gap-3">
+                    <button
+                        onClick={() => setIsEditModalOpen(true)}
+                        className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-blue-200 transition hover:bg-blue-700 active:scale-95"
+                    >
+                        Редактировать данные
+                    </button>
+                    <button
+                        onClick={() => setIsApproveModalOpen(true)}
+                        className="rounded-xl bg-red-800 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-red-200 transition hover:bg-red-500 active:scale-95"
+                    >
+                        Удалить клинику
+                    </button>
+                </div>
             </header>
 
             <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
@@ -144,7 +152,6 @@ export default function ClinicDetailsPage() {
                         <InfoItem label="Email" value={clinic.email}/>
                         <InfoItem label="Адрес" value={clinic.address}/>
                         <InfoItem label="Тип прайса" value={clinic.priceType}/>
-                        {/*<InfoItem.tsx label="Скидка" value={`${clinic.discount}%`} />*/}
                     </div>
                 </section>
             </div>
@@ -239,10 +246,17 @@ export default function ClinicDetailsPage() {
                     </table>
                 </div>
             </section>
+
             <EditClinicModal
                 isOpen={isEditModalOpen}
                 clinic={clinic}
                 onClose={() => setIsEditModalOpen(false)}
+            />
+
+            <DeleteClinicApproval
+                clinicId={id}
+                isOpen={isApproveModalOpen}
+                onClose={() => setIsApproveModalOpen(false)}
             />
         </div>
     );

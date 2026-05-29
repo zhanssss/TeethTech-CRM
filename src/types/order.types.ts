@@ -1,8 +1,15 @@
-import type { TaskStatus } from './employee.types';
-
+//types/order.types.ts
 export type ImplantSource = 'clinic' | 'lab';
 
 export type OrderTaskPriority = 'low' | 'medium' | 'high' | 'urgent';
+
+import type { OrderTaskStatus } from './task.types';
+
+export interface OrderTask extends CreateOrderTask {
+    id: string;
+    orderId: string;
+    status: OrderTaskStatus;
+}
 
 export interface CreateOrderTask {
     type: string;
@@ -23,12 +30,6 @@ export interface CreateOrderTask {
     priority: OrderTaskPriority;
     operatorId: string;
     technicianId: string;
-}
-
-export interface OrderTask extends CreateOrderTask {
-    id: string;
-    orderId: string;
-    status: TaskStatus;
 }
 
 export interface CreateOrderPayload {

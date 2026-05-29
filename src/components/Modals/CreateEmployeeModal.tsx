@@ -1,139 +1,108 @@
-'use client';
-
-import {FormEvent, useState} from 'react';
-import {EmployeeRole} from '@/src/types/employee.types';
-import Modal from '@/src/components/ui/Modal'
+import { FormEvent, useState } from 'react';
+import Modal from '@/src/components/ui/Modal';
+import {
+    EmployeeRole,
+    employeeRoleOptions,
+} from '@/src/types/employee.types';
+import { useRegisterUserMutation } from '@/src/services/api/authApi';
+import type { Register } from '@/src/types/auth.types';
 
 type CreateEmployeeModalProps = {
     onClose: () => void;
 };
 
-export default function CreateEmployeeModal({onClose}: CreateEmployeeModalProps) {
+export default function CreateEmployeeModal({ onClose }: CreateEmployeeModalProps) {
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
     const [phone, setPhone] = useState('');
-    const [role, setRole] = useState<EmployeeRole>('TECHNICIAN');
+    const [role, setRole] = useState<EmployeeRole>('Оператор / Моделировщик');
+    const [tempPassword, setTempPassword] = useState('');
 
-    const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
+    const [registerUser, { isLoading }] = useRegisterUserMutation();
+
+    const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
         e.preventDefault();
 
-        const newEmployee = {
-            id: Date.now().toString(),
-            name,
+        const body: Register = {
+            fullName: name,
             email,
             phone,
             role,
-            stats: {
-                completed: 0,
-                inProgress: 0,
-                overdue: 0,
-                totalAssigned: 0,
-                averageDays: 0,
-                onTimeRate: 100,
-            },
+            password: tempPassword,
         };
 
-        console.log('Новый сотрудник:', newEmployee);
-
-        onClose();
+        try {
+            await registerUser(body).unwrap();
+            onClose();
+        } catch (error) {
+            console.error('Ошибка создания сотрудника:', error);
+        }
     };
 
     return (
         <Modal>
-            <div className="mb-6 flex items-start justify-between gap-4">
-                <div>
-                    <h2 className="text-xl font-black text-slate-900">
-                        Добавить сотрудника
-                    </h2>
-                    <p className="mt-1 text-sm text-slate-500">
-                        Заполните основные данные сотрудника
-                    </p>
+            <form onSubmit={handleSubmit} className="space-y-4 flex flex-col gap-y-5 p-4">
+                <div className='flex justify-between'>
+                    <h2>Добавить Сотрудника</h2>
+                    <h1 className='cursor-pointer' onClick={onClose}>X</h1>
                 </div>
+                <input
+                    type="text"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="Имя сотрудника"
+                    required
+                    className='p-4 w-full'
+                />
+
+                <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="employee@example.com"
+                    required
+                    className='p-4 w-full'
+                />
+
+                <input
+                    type="tel"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    placeholder="+7 777 123 45 67"
+                    required
+                    className='p-4 w-full'
+                />
+
+                <select
+                    value={role}
+                    onChange={(e) => setRole(e.target.value as EmployeeRole)}
+                    className='p-4 w-full'
+                >
+                    {employeeRoleOptions
+                        .filter((option) => option.value !== 'ALL')
+                        .map((option) => (
+                            <option key={option.id} value={option.value}>
+                                {option.label}
+                            </option>
+                        ))}
+                </select>
+
+                <input
+                    type="text"
+                    value={tempPassword}
+                    onChange={(e) => setTempPassword(e.target.value)}
+                    placeholder="Временный пароль"
+                    required
+                    className='p-4 w-full'
+                />
 
                 <button
-                    type="button"
-                    onClick={onClose}
-                    className="rounded-lg px-3 py-1.5 text-sm font-bold text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+                    type="submit"
+                    disabled={isLoading}
+                    className='bg-blue-500 text-white py-3 rounded-xl cursor-pointer transition hover:bg-blue-600'
                 >
-                    ✕
+                    {isLoading ? 'Создание...' : 'Добавить'}
                 </button>
-            </div>
-
-            <form onSubmit={handleSubmit} className="space-y-4">
-                <div>
-                    <label className="mb-1 block text-sm font-bold text-slate-700">
-                        Имя сотрудника
-                    </label>
-                    <input
-                        type="text"
-                        value={name}
-                        onChange={(e) => setName(e.target.value)}
-                        placeholder="Например: Алишер Нурланов"
-                        required
-                        className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-500 focus:bg-white"
-                    />
-                </div>
-
-                <div>
-                    <label className="mb-1 block text-sm font-bold text-slate-700">
-                        Почта
-                    </label>
-                    <input
-                        type="email"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        placeholder="employee@example.com"
-                        required
-                        className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-500 focus:bg-white"
-                    />
-                </div>
-
-                <div>
-                    <label className="mb-1 block text-sm font-bold text-slate-700">
-                        Номер телефона
-                    </label>
-                    <input
-                        type="tel"
-                        value={phone}
-                        onChange={(e) => setPhone(e.target.value)}
-                        placeholder="+7 777 123 45 67"
-                        required
-                        className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-500 focus:bg-white"
-                    />
-                </div>
-
-                <div>
-                    <label className="mb-1 block text-sm font-bold text-slate-700">
-                        Роль
-                    </label>
-                    <select
-                        value={role}
-                        onChange={(e) => setRole(e.target.value as EmployeeRole)}
-                        className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-500 focus:bg-white"
-                    >
-                        <option value="TECHNICIAN">Техник</option>
-                        <option value="OPERATOR">Оператор</option>
-                        <option value="DISPATCHER">Диспетчер</option>
-                        <option value="ADMIN">Администратор</option>
-                    </select>
-                </div>
-
-                <div className="flex justify-end gap-3 pt-4">
-                    <button
-                        type="button"
-                        onClick={onClose}
-                        className="rounded-xl border border-slate-200 px-5 py-2.5 text-sm font-bold text-slate-600 transition hover:bg-slate-50"
-                    >
-                        Отмена
-                    </button>
-
-                    <button
-                        type="submit"
-                        className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-blue-200 transition hover:bg-blue-700 active:scale-95"
-                    >
-                        Добавить
-                    </button>
-                </div>
             </form>
         </Modal>
     );

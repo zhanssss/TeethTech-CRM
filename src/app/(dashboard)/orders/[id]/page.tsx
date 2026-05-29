@@ -12,29 +12,17 @@ import {
     DragEndEvent,
     DragOverlay,
     DragStartEvent,
-    useDroppable,
 } from '@dnd-kit/core';
 import {
     arrayMove,
     SortableContext,
-    useSortable,
     verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 
 import { updateOrderTasks, useOrders } from '@/src/lib/ordersStore';
-import type { OrderTask } from '@/src/types/order.types';
-import type { KanbanColumn } from '@/src/types/task.types';
 import TaskCard from "@/src/components/ui/TaskCard";
 import DroppableColumn from "@/src/components/ui/DroppableColumn";
-
-const COLUMNS: KanbanColumn[] = [
-    { id: 'TODO', title: 'Нужно сделать', color: 'border-t-slate-500' },
-    { id: 'MODELING', title: 'Моделирование', color: 'border-t-blue-500' },
-    { id: 'MILLING', title: 'Фрезеровка', color: 'border-t-purple-500' },
-    { id: 'POST_PROCESSING', title: 'Обработка', color: 'border-t-orange-500' },
-    { id: 'DONE', title: 'Готово', color: 'border-t-green-500' },
-];
-
+import { PHYSIC_COPY_COLUMNS } from '@/src/utils/orderUtils'
 
 
 export default function OrderBoardPage() {
@@ -44,6 +32,8 @@ export default function OrderBoardPage() {
     const order = orders.find((item) => item.id === id);
     const tasks = order?.tasks ?? [];
     const [activeId, setActiveId] = useState<string | null>(null);
+
+    const COLUMNS = PHYSIC_COPY_COLUMNS;
 
     const sensors = useSensors(
         useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
@@ -216,13 +206,13 @@ export default function OrderBoardPage() {
                     </div>
                 </div>
 
-                <div className="flex-1 flex gap-4 overflow-x-auto pb-4 items-start pt-4">
+                <div className="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-x-10 gap-y-5 overflow-x-auto pb-4 items-start pt-4 ">
                     {COLUMNS.map((column) => {
                         const tasksInColumn = tasks.filter((task) => task.status === column.id);
 
                         return (
                             <DroppableColumn key={column.id} id={column.id} column={column}>
-                                <div className="p-4 flex justify-between items-center border-b border-slate-200 bg-white/50 rounded-t-xl">
+                                <div className={`p-4 flex  justify-between items-center border-b border-slate-200 bg-white/50 rounded-t-xl`} >
                                     <h2 className="font-bold text-xs text-slate-800 uppercase tracking-widest">
                                         {column.title}
                                     </h2>

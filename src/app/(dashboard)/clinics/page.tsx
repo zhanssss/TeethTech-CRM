@@ -4,7 +4,7 @@ import {useMemo, useState} from 'react';
 import Section from '@/src/components/ui/Section';
 import CreateClinicModal from '@/src/components/Modals/CreateClinicModal';
 import Link from 'next/link';
-import {useGetClinicsQuery} from "@/src/services/teethTechApi";
+import {useGetClinicsQuery} from "@/src/services/api/clinicsApi";
 
 type ClinicTableRow = {
     id: string | number;

@@ -95,7 +95,7 @@ export default function CreateOrderModal({isOpen, onClose, onSubmit}: CreateOrde
             ...task,
             id: `${orderId}-task-${index + 1}`,
             orderId,
-            status: 'TODO' as const,
+            status: '1' as const,
         }));
 
         const newOrder: CreateOrderPayload = {

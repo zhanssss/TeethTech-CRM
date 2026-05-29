@@ -2,30 +2,31 @@
 
 import {useState} from 'react';
 import Modal from '@/src/components/ui/Modal'
-import {useUpdateClinicMutation} from '@/src/services/teethTechApi'
-import {CreateClinicDto} from "@/src/types/clinic.types";
+import {useUpdateClinicMutation} from '@/src/services/api/clinicsApi'
+import {UpdateClinicDto} from "@/src/types/clinic.types";
 
 type EditClinicModalProps = {
     isOpen: boolean;
-    clinic: CreateClinicDto | null;
+    clinic: UpdateClinicDto | null;
     onClose: () => void;
-    onSubmit: (updatedClinic: CreateClinicDto) => void;
 };
 
 export default function EditClinicModal({
                                             isOpen,
                                             clinic,
                                             onClose,
-                                            onSubmit,
                                         }: EditClinicModalProps) {
-    const [formData, setFormData] = useState<CreateClinicDto>(clinic ?? {
+    const [formData, setFormData] = useState<UpdateClinicDto>(clinic ?? {
+        id: '',
         name: '',
-        address: '',
         phone: '',
-        email: '',
+        address: '',
         contactPerson: '',
+        email: '',
         bin: ''
     });
+
+
 
     const [ updateClinic, {isLoading}] = useUpdateClinicMutation();
 
@@ -36,17 +37,37 @@ export default function EditClinicModal({
     ) => {
        e.preventDefault();
 
+       if(!clinic.id){
+           console.log('Clinic id is missing')
+           return;
+       }
+
+       const body: UpdateClinicDto = {
+           name: formData.name,
+           phone: formData.phone,
+           address: formData.address,
+           contactPerson: formData.contactPerson,
+           email: formData.email,
+           bin: formData.bin,
+       }
+
+
        try {
+           console.log('Patch data', {
+               id: clinic.id,
+               body,
+           })
            await updateClinic({
                id: clinic.id,
                body: formData,
            }).unwrap();
-
            onClose();
        } catch (e) {
            console.error(e);
        }
     }
+
+
 
     return (
         <Modal>
@@ -173,7 +194,7 @@ export default function EditClinicModal({
                         type="submit"
                         className="rounded-xl bg-blue-600 px-7 py-2.5 text-sm font-bold text-white shadow-lg shadow-blue-100 transition hover:bg-blue-700 active:scale-95"
                     >
-                        Сохранить изменения
+                        {isLoading ? 'Сохранение...' : 'Сохранить изменения'}
                     </button>
                 </div>
             </form>

@@ -2,79 +2,19 @@
 
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
-import { mockEmployees } from '@/src/mock/employees';
-import { EmployeeRole, EmployeeStatus } from '@/src/types/employee.types';
+import {
+    EmployeeRoleFilter,
+    employeeRoleOptions,
+} from '@/src/types/employee.types';
+
+import {
+    getKpiColor,
+    getStatusBadge,
+    getStatusLabel,
+} from '@/src/utils/employeesUtils';
 import CreateEmployeeModal from '@/src/components/Modals/CreateEmployeeModal';
+import {useGetUsersQuery} from "@/src/services/api/usersApi";
 
-const roleOptions: { label: string; value: 'ALL' | EmployeeRole }[] = [
-    { label: 'Все роли', value: 'ALL' },
-    { label: 'Техники', value: 'TECHNICIAN' },
-    { label: 'Операторы', value: 'OPERATOR' },
-    { label: 'Диспетчеры', value: 'DISPATCHER' },
-    { label: 'Админы', value: 'ADMIN' },
-];
-
-function getRoleLabel(role: EmployeeRole) {
-    switch (role) {
-        case 'TECHNICIAN':
-            return 'Техник';
-        case 'OPERATOR':
-            return 'Оператор';
-        case 'DISPATCHER':
-            return 'Диспетчер';
-        case 'ADMIN':
-            return 'Администратор';
-        default:
-            return role;
-    }
-}
-
-function getRoleBadge(role: EmployeeRole) {
-    switch (role) {
-        case 'TECHNICIAN':
-            return 'bg-blue-50 text-blue-700 border-blue-200';
-        case 'OPERATOR':
-            return 'bg-purple-50 text-purple-700 border-purple-200';
-        case 'DISPATCHER':
-            return 'bg-emerald-50 text-emerald-700 border-emerald-200';
-        case 'ADMIN':
-            return 'bg-slate-100 text-slate-700 border-slate-200';
-        default:
-            return 'bg-slate-100 text-slate-700 border-slate-200';
-    }
-}
-
-function getStatusLabel(status: EmployeeStatus) {
-    switch (status) {
-        case 'ACTIVE':
-            return 'Активен';
-        case 'BUSY':
-            return 'Занят';
-        case 'OFFLINE':
-            return 'Не в сети';
-        default:
-            return status;
-    }
-}
-
-function getStatusBadge(status: EmployeeStatus) {
-    switch (status) {
-        case 'ACTIVE':
-            return 'bg-green-50 text-green-700 border-green-200';
-        case 'BUSY':
-            return 'bg-orange-50 text-orange-700 border-orange-200';
-        case 'OFFLINE':
-            return 'bg-slate-100 text-slate-500 border-slate-200';
-        default:
-            return 'bg-slate-100 text-slate-500 border-slate-200';
-    }
-}
-
-function getKpiColor(rate: number) {
-    if (rate >= 95) return 'bg-green-100 text-green-700';
-    if (rate >= 85) return 'bg-yellow-100 text-yellow-700';
-    return 'bg-red-100 text-red-700';
-}
 
 function StatCard({
                       title,
@@ -96,25 +36,38 @@ function StatCard({
 
 export default function EmployeesPage() {
     const [search, setSearch] = useState('');
-    const [selectedRole, setSelectedRole] = useState<'ALL' | EmployeeRole>('ALL');
+    const [selectedRole, setSelectedRole] = useState<EmployeeRoleFilter>('ALL');
+    const [showFiredEmployees, setShowFiredEmployees] = useState(false);
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
+    const {
+        data: users = [],
+        isLoading,
+        isError,
+    } = useGetUsersQuery();
+
+
     const filteredEmployees = useMemo(() => {
-        return mockEmployees.filter((employee) => {
+        const normalizedSearch = search.trim().toLowerCase();
+
+        return users.filter((employee) => {
             const matchesRole =
                 selectedRole === 'ALL' || employee.role === selectedRole;
 
-            const normalizedSearch = search.trim().toLowerCase();
             const matchesSearch =
-                employee.name.toLowerCase().includes(normalizedSearch) ||
-                employee.specialization.toLowerCase().includes(normalizedSearch);
+                employee.fullName.toLowerCase().includes(normalizedSearch) ||
+                employee.specialization?.toLowerCase().includes(normalizedSearch);
 
-            return matchesRole && matchesSearch;
+            const matchesStatus =
+                showFiredEmployees || employee.status !== 'FIRED';
+
+            return matchesRole && matchesSearch && matchesStatus;
         });
-    }, [search, selectedRole]);
+    }, [users, search, selectedRole, showFiredEmployees]);
 
     const summary = useMemo(() => {
         const totalEmployees = filteredEmployees.length;
+
         const busyEmployees = filteredEmployees.filter(
             (employee) => employee.status === 'BUSY'
         ).length;
@@ -128,7 +81,7 @@ export default function EmployeesPage() {
             totalEmployees > 0
                 ? Math.round(
                     filteredEmployees.reduce(
-                        (sum, employee) => sum + employee.stats.onTimeRate,
+                        (sum, employee) => sum + employee.stats.timelyPercent,
                         0
                     ) / totalEmployees
                 )
@@ -141,6 +94,14 @@ export default function EmployeesPage() {
             averageOnTimeRate,
         };
     }, [filteredEmployees]);
+
+    if (isLoading) {
+        return <div className="text-sm text-slate-500">Загрузка сотрудников...</div>;
+    }
+
+    if (isError) {
+        return <div className="text-sm text-red-500">Ошибка загрузки сотрудников</div>;
+    }
 
     return (
         <div className="space-y-6">
@@ -181,7 +142,6 @@ export default function EmployeesPage() {
                     description="Общий показатель соблюдения сроков"
                 />
             </section>
-
             <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                     <div className="flex flex-1 flex-col gap-4 sm:flex-row">
@@ -195,30 +155,30 @@ export default function EmployeesPage() {
 
                         <select
                             value={selectedRole}
-                            onChange={(e) =>
-                                setSelectedRole(e.target.value as 'ALL' | EmployeeRole)
-                            }
+                            onChange={(e) => setSelectedRole(e.target.value as EmployeeRoleFilter)}
                             className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-500 focus:bg-white sm:w-56"
                         >
-                            {roleOptions.map((option) => (
-                                <option key={option.value} value={option.value}>
+                            {employeeRoleOptions.map((option) => (
+                                <option key={option.id} value={option.value}>
                                     {option.label}
                                 </option>
                             ))}
                         </select>
                         <label htmlFor="fired-employees" className="flex items-center gap-2">
-                            <input id="fired-employees" type="checkbox"/>
+                            <input
+                                id="fired-employees"
+                                type="checkbox"
+                                checked={showFiredEmployees}
+                                onChange={(e) => setShowFiredEmployees(e.target.checked)}
+                            />
                             <h3>Показывать уволенных сотрудников</h3>
                         </label>
-
                     </div>
-
                     <div className="text-xs font-medium text-slate-400">
                         Найдено: {filteredEmployees.length}
                     </div>
                 </div>
             </section>
-
             <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
                 <div className="border-b border-slate-200 bg-slate-50 px-4 py-3">
                     <h2 className="text-sm font-bold uppercase tracking-wider text-slate-500">
@@ -252,11 +212,11 @@ export default function EmployeesPage() {
                                 <td className="p-4">
                                     <div className="flex items-center gap-3">
                                         <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100 font-bold text-blue-700">
-                                            {employee.name[0]}
+                                            {employee.fullName[0]}
                                         </div>
                                         <div>
                                             <p className="text-sm font-bold text-slate-800">
-                                                {employee.name}
+                                                {employee.fullName}
                                             </p>
                                             <p className="text-xs text-slate-500">
                                                 {employee.specialization}
@@ -267,11 +227,9 @@ export default function EmployeesPage() {
 
                                 <td className="p-4">
                                         <span
-                                            className={`rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase ${getRoleBadge(
-                                                employee.role
-                                            )}`}
+                                            className={`rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase `}
                                         >
-                                            {getRoleLabel(employee.role)}
+                                            {employee.role}
                                         </span>
                                 </td>
 
@@ -298,20 +256,20 @@ export default function EmployeesPage() {
                                 </td>
 
                                 <td className="p-4 text-sm font-semibold text-slate-700">
-                                    {employee.stats.totalAssigned}
+                                    {employee.stats.totalTasks}
                                 </td>
 
                                 <td className="p-4 text-sm text-slate-600">
-                                    {employee.stats.averageDays} дн.
+                                    {employee.stats.avgDays} дн.
                                 </td>
 
                                 <td className="p-4">
                                         <span
                                             className={`rounded-lg px-2.5 py-1 text-xs font-bold ${getKpiColor(
-                                                employee.stats.onTimeRate
+                                                employee.stats.timelyPercent
                                             )}`}
                                         >
-                                            {employee.stats.onTimeRate}%
+                                            {employee.stats.timelyPercent}%
                                         </span>
                                 </td>
 
