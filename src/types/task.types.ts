@@ -30,6 +30,10 @@ export interface OrderBoardTask {
     type: string;
     techId: string;
     status: OrderTaskStatus;
+    comments?: TaskComment[];
+    attachments?: TaskAttachment[];
+    images?: TaskImage[];
+    description?: string;
 }
 
 export interface WorkBoardTask {
@@ -42,6 +46,7 @@ export interface WorkBoardTask {
     deadline: string;
     status: TaskStatus;
     techId: string;
+
 }
 
 export interface ProductionTask {
@@ -54,3 +59,25 @@ export interface ProductionTask {
     deadline: string;
     priority: TaskPriority;
 }
+
+export type TaskComment = {
+    id: string;
+    author: string;
+    text: string;
+    createdAt: string;
+};
+
+export type TaskAttachment = {
+    id: string;
+    name: string;
+    url: string;
+    size: string;
+    type: string;
+};
+
+export type TaskImage = {
+    id: string;
+    name: string;
+    url: string;
+    size: string;
+};

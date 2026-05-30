@@ -1,13 +1,13 @@
-import {useParams} from "next/navigation";
-import {updateOrderTasks, useOrders} from "@/src/lib/ordersStore";
-import {useState} from "react";
-import {DragEndEvent, DragStartEvent, PointerSensor, useSensor, useSensors} from "@dnd-kit/core";
-import {arrayMove, useSortable} from "@dnd-kit/sortable";
-import Link from "next/link";
-import {OrderTask} from "@/src/types/order.types";
+import { useSortable} from "@dnd-kit/sortable";
 import { CSS } from '@dnd-kit/utilities';
 
-export default function TaskCard ({ task }: { task: OrderTask }) {
+type TaskCardProps = {
+    task: Task;
+    onClick?: () => void;
+    isSelected?: boolean;
+};
+
+export default function TaskCard ({ task, onClick, isSelected }: TaskCardProps) {
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
         useSortable({
             id: task.id,
@@ -27,7 +27,8 @@ export default function TaskCard ({ task }: { task: OrderTask }) {
             }}
             {...attributes}
             {...listeners}
-            className="bg-white p-4 rounded-lg shadow-sm border border-slate-200 hover:border-blue-400 cursor-grab active:cursor-grabbing transition flex flex-col gap-3"
+            className={`bg-white p-4 rounded-lg shadow-sm border border-slate-200 hover:border-blue-400 cursor-grab active:cursor-grabbing transition flex flex-col gap-3 ${isSelected ? 'ring-2 ring-blue-500 border-blue-300' : 'border-slate-200'}`}
+            onClick={onClick}
         >
             <div className="flex justify-between items-center text-[10px]">
                 <span className="font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">

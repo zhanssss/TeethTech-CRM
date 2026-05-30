@@ -18,7 +18,8 @@ import {
     SortableContext,
     verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
-
+import TaskDetailsSidebar from '@/src/components/layout/TaskDetailsSidebar';
+import type { TaskAttachment, TaskComment, TaskImage } from '@/src/types/task.types';
 import { updateOrderTasks, useOrders } from '@/src/lib/ordersStore';
 import TaskCard from "@/src/components/ui/TaskCard";
 import DroppableColumn from "@/src/components/ui/DroppableColumn";
@@ -32,7 +33,8 @@ export default function OrderBoardPage() {
     const order = orders.find((item) => item.id === id);
     const tasks = order?.tasks ?? [];
     const [activeId, setActiveId] = useState<string | null>(null);
-
+    const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+    const selectedTask = tasks.find((task) => task.id === selectedTaskId) ?? null;
     const COLUMNS = PHYSIC_COPY_COLUMNS;
 
     const sensors = useSensors(
@@ -88,6 +90,62 @@ export default function OrderBoardPage() {
         }
 
         setActiveId(null);
+    };
+
+    const updateSelectedTask = (
+        updater: (task: typeof selectedTask) => typeof selectedTask
+    ) => {
+        if (!order || !selectedTask) return;
+
+        const updatedTasks = tasks.map((task) => {
+            if (task.id !== selectedTask.id) return task;
+
+            const updatedTask = updater(task);
+
+            return updatedTask ?? task;
+        });
+
+        updateOrderTasks(order.id, updatedTasks);
+    };
+
+    const handleAddComment = (text: string) => {
+        const newComment: TaskComment = {
+            id: crypto.randomUUID(),
+            author: 'Вы',
+            text,
+            createdAt: new Date().toLocaleString('ru-RU'),
+        };
+
+        updateSelectedTask((task) => {
+            if (!task) return task;
+
+            return {
+                ...task,
+                comments: [newComment, ...(task.comments ?? [])],
+            };
+        });
+    };
+
+    const handleAddAttachments = (files: TaskAttachment[]) => {
+        updateSelectedTask((task) => {
+            if (!task) return task;
+
+            return {
+                ...task,
+                attachments: [...(task.attachments ?? []), ...files],
+            };
+        });
+    };
+
+    const handleAddImages = (images: TaskImage[]) => {
+        updateSelectedTask((task) => {
+            if (!task) return task;
+
+            return {
+                ...task,
+                images: [...(task.images ?? []), ...images],
+            };
+        });
     };
 
     if (!order) {
@@ -227,7 +285,12 @@ export default function OrderBoardPage() {
                                 >
                                     <div className="p-3 space-y-3 overflow-y-auto flex-1 min-h-[150px]">
                                         {tasksInColumn.map((task) => (
-                                            <TaskCard key={task.id} task={task} />
+                                            <TaskCard
+                                                key={task.id}
+                                                task={task}
+                                                isSelected={selectedTaskId === task.id}
+                                                onClick={() => setSelectedTaskId(task.id)}
+                                            />
                                         ))}
                                         {tasksInColumn.length === 0 && (
                                             <div className="py-8 text-center text-xs italic text-slate-400">
@@ -249,6 +312,13 @@ export default function OrderBoardPage() {
                     </div>
                 ) : null}
             </DragOverlay>
+            <TaskDetailsSidebar
+                task={selectedTask}
+                onClose={() => setSelectedTaskId(null)}
+                onAddComment={handleAddComment}
+                onAddAttachments={handleAddAttachments}
+                onAddImages={handleAddImages}
+            />
         </DndContext>
     );
 }
