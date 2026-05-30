@@ -6,6 +6,6 @@ export const teethTechApi = createApi({
     baseQuery: fetchBaseQuery({
         baseUrl: "http://localhost:8081/api/v1"
     }),
-    tagTypes: ["Clinics", "Users", "Colors"],
+    tagTypes: ["Clinics", "Users", "Colors", "Materials", "WorkTypes"],
     endpoints: () => ({}),
 });

@@ -6,13 +6,22 @@ import { useDispatch, useSelector } from 'react-redux';
 import { logout } from '@/src/features/auth/authSlice';
 import { RootState } from '@/src/lib/store';
 
+type MenuItem = {
+    name: string;
+    href: string;
+    children?: {
+        name: string;
+        href: string;
+    }[];
+};
+
 export default function Sidebar() {
     const pathname = usePathname();
     const dispatch = useDispatch();
     const router = useRouter();
     const { role } = useSelector((state: RootState) => state.auth);
 
-    const menuItems =
+    const menuItems: MenuItem[] =
         role === 'TECHNICIAN'
             ? [
                 { name: 'Мой кабинет', href: '/employee' },
@@ -25,9 +34,17 @@ export default function Sidebar() {
                 { name: 'Заказы', href: '/orders' },
                 { name: 'Аналитика', href: '/analytics' },
                 { name: 'Сотрудники', href: '/employees' },
-                {name: 'Клиники', href: '/clinics' },
-                {name: 'Пациенты', href: '/patients' },
-                {name: 'Лаборатория', href: '/laboratory' },
+                { name: 'Клиники', href: '/clinics' },
+                { name: 'Пациенты', href: '/patients' },
+                {
+                    name: 'Лаборатория',
+                    href: '/laboratory',
+                    children: [
+                        { name: 'Цвета', href: '/laboratory/colors' },
+                        { name: 'Материалы', href: '/laboratory/materials' },
+                        { name: 'Типы работ', href: '/laboratory/work-types' },
+                    ],
+                },
             ];
 
     const handleLogout = () => {
@@ -46,20 +63,46 @@ export default function Sidebar() {
 
             <nav className="flex-1 space-y-2 p-4">
                 {menuItems.map((item) => {
-                    const isActive = pathname === item.href;
+                    const isParentActive =
+                        pathname === item.href ||
+                        pathname.startsWith(`${item.href}/`);
 
                     return (
-                        <Link
-                            key={item.href}
-                            href={item.href}
-                            className={`block rounded-lg p-3 text-sm font-medium transition-colors ${
-                                isActive
-                                    ? 'bg-blue-600 shadow-lg shadow-blue-900/20'
-                                    : 'text-slate-400 hover:bg-slate-800 hover:text-white'
-                            }`}
-                        >
-                            {item.name}
-                        </Link>
+                        <div key={item.href}>
+                            <Link
+                                href={item.href}
+                                className={`block rounded-lg p-3 text-sm font-medium transition-colors ${
+                                    isParentActive
+                                        ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/20'
+                                        : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                                }`}
+                            >
+                                {item.name}
+                            </Link>
+
+                            {item.children && isParentActive && (
+                                <div className="mt-2 space-y-1 pl-4">
+                                    {item.children.map((child) => {
+                                        const isChildActive =
+                                            pathname === child.href;
+
+                                        return (
+                                            <Link
+                                                key={child.href}
+                                                href={child.href}
+                                                className={`block rounded-lg px-3 py-2 text-sm transition-colors ${
+                                                    isChildActive
+                                                        ? 'bg-slate-800 text-white'
+                                                        : 'text-slate-500 hover:bg-slate-800 hover:text-white'
+                                                }`}
+                                            >
+                                                {child.name}
+                                            </Link>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </div>
                     );
                 })}
             </nav>
@@ -83,7 +126,10 @@ export default function Sidebar() {
                             d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
                         />
                     </svg>
-                    <span className="text-sm font-bold tracking-wide">Выйти из CRM</span>
+
+                    <span className="text-sm font-bold tracking-wide">
+                        Выйти из CRM
+                    </span>
                 </button>
             </div>
         </aside>

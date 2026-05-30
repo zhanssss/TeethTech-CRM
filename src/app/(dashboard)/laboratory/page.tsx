@@ -1,7 +1,7 @@
-export default function LaboratryPage() {
-    return (
-        <>
-            <h1>Лаб</h1>
-        </>
-    )
+// app/laboratory/page.tsx
+
+import { redirect } from 'next/navigation';
+
+export default function LaboratoryPage() {
+    redirect('/laboratory/colors');
 }
