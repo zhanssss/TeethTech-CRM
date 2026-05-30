@@ -15,7 +15,13 @@ type MenuItem = {
     }[];
 };
 
-export default function Sidebar() {
+type SidebarProps = {
+    onClose: () => void;
+};
+
+
+
+export default function Sidebar({ onClose }: SidebarProps) {
     const pathname = usePathname();
     const dispatch = useDispatch();
     const router = useRouter();
@@ -54,11 +60,21 @@ export default function Sidebar() {
 
     return (
         <aside className="flex h-screen w-64 flex-col bg-slate-900 text-white">
-            <div className="flex items-center gap-2 border-b border-slate-800 p-6 text-2xl font-bold">
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600 text-sm">
-                    TT
+            <div className="flex items-center justify-between border-b border-slate-800 p-6">
+                <div className="flex items-center gap-2 text-2xl font-bold">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600 text-sm">
+                        TT
+                    </div>
+                    TeethTech
                 </div>
-                TeethTech
+
+                <button
+                    onClick={onClose}
+                    className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-800 hover:text-white"
+                    aria-label="Закрыть сайдбар"
+                >
+                    ×
+                </button>
             </div>
 
             <nav className="flex-1 space-y-2 p-4">

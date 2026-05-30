@@ -1,202 +1,470 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 
-// Имитируем данные, которые в будущем будут приходить из Store или БД
-const initialOrders = [
+type OrderType = 'PHYSICAL_COPY' | 'DIGITAL_COPY' | 'PROSTHESIS';
+
+type TaskStage =
+    | 'todo'
+    | 'plaster'
+    | 'prosthetist'
+    | 'scanner'
+    | 'operator'
+    | 'ceramist'
+    | 'review'
+    | 'done';
+
+type TaskStatus =
+    | 'active'
+    | 'waiting_for_approval'
+    | 'remake'
+    | 'done';
+
+type Priority = 'low' | 'medium' | 'high';
+
+export type OrderTask = {
+    id: string;
+    orderId: string;
+    orderNumber?: string;
+    title: string;
+
+    orderType: OrderType;
+    stage: TaskStage;
+    status: TaskStatus;
+
+    patientName?: string;
+    clinicName?: string;
+    doctorName?: string;
+
+    assignedTo?: {
+        id: string;
+        name: string;
+        role: string;
+    } | null;
+
+    dueDate?: string | null;
+    units?: number;
+    color?: string;
+    priority?: Priority;
+    isOverdue?: boolean;
+};
+
+const tasks: OrderTask[] = [];
+
+const stages: {
+    id: TaskStage;
+    title: string;
+    subtitle: string;
+    border: string;
+}[] = [
     {
-        date: '08.04.2026',
-        clinic: 'Dental Care',
-        patient: 'Алиев К.',
-        doctor: 'Смирнов А.В.',
-        workType: 'Коронка цирконий',
-        units: 1,
-        impression: true,
-        transfer: false,
-        bite: true,
-        analog: false,
-        abutment: 'Стандарт',
-        color: 'A2',
-        technician: 'Алексей',
-        operator: 'Мария',
-        cost: 25000,
-        total: 25000,
-        paid: 0,
-        payDate: '-'
-    }
+        id: 'todo',
+        title: 'Нужно сделать',
+        subtitle: 'Новые задачи',
+        border: 'border-t-slate-500',
+    },
+    {
+        id: 'plaster',
+        title: 'Гипсовщик',
+        subtitle: 'Физический слепок / протез',
+        border: 'border-t-yellow-500',
+    },
+    {
+        id: 'prosthetist',
+        title: 'Протезист',
+        subtitle: 'Протезы',
+        border: 'border-t-cyan-500',
+    },
+    {
+        id: 'scanner',
+        title: 'Сканировщик',
+        subtitle: 'Физическая копия',
+        border: 'border-t-orange-500',
+    },
+    {
+        id: 'operator',
+        title: 'Оператор',
+        subtitle: 'Моделирование',
+        border: 'border-t-emerald-500',
+    },
+    {
+        id: 'ceramist',
+        title: 'Керамист',
+        subtitle: 'Финальная работа',
+        border: 'border-t-blue-600',
+    },
+    {
+        id: 'review',
+        title: 'На проверке',
+        subtitle: 'waiting_for_approval / remake',
+        border: 'border-t-purple-500',
+    },
 ];
 
+const orderTypeLabels: Record<OrderType, string> = {
+    PHYSICAL_COPY: 'Физическая копия',
+    DIGITAL_COPY: 'Электронная копия',
+    PROSTHESIS: 'Протез',
+};
+
+const statusLabels: Record<TaskStatus, string> = {
+    active: 'В работе',
+    waiting_for_approval: 'На подтверждении',
+    remake: 'Переделка',
+    done: 'Готово',
+};
+
+const priorityLabels: Record<Priority, string> = {
+    low: 'Низкий',
+    medium: 'Средний',
+    high: 'Срочный',
+};
+
+function getStatusClass(status: TaskStatus) {
+    switch (status) {
+        case 'waiting_for_approval':
+            return 'bg-purple-50 text-purple-700 border-purple-100';
+        case 'remake':
+            return 'bg-red-50 text-red-700 border-red-100';
+        case 'done':
+            return 'bg-green-50 text-green-700 border-green-100';
+        default:
+            return 'bg-blue-50 text-blue-700 border-blue-100';
+    }
+}
+
+function getPriorityClass(priority?: Priority) {
+    switch (priority) {
+        case 'high':
+            return 'bg-red-50 text-red-700 border-red-100';
+        case 'medium':
+            return 'bg-yellow-50 text-yellow-700 border-yellow-100';
+        case 'low':
+            return 'bg-slate-50 text-slate-600 border-slate-100';
+        default:
+            return 'bg-slate-50 text-slate-400 border-slate-100';
+    }
+}
+
 export default function Dashboard() {
-    const [orders] = useState(initialOrders);
-
     const [search, setSearch] = useState('');
-    const [clinicFilter, setClinicFilter] = useState('all');
-    const [paymentFilter, setPaymentFilter] = useState('all');
+    const [orderTypeFilter, setOrderTypeFilter] = useState<'all' | OrderType>('all');
+    const [stageFilter, setStageFilter] = useState<'all' | TaskStage>('all');
 
-    const clinics = Array.from(new Set(orders.map(order => order.clinic)));
+    const filteredTasks = useMemo(() => {
+        const searchValue = search.trim().toLowerCase();
 
-    const filteredOrders = orders.filter((order) => {
-        const searchValue = search.toLowerCase();
+        return tasks.filter((task) => {
+            const matchesSearch =
+                !searchValue ||
+                task.title.toLowerCase().includes(searchValue) ||
+                task.orderNumber?.toLowerCase().includes(searchValue) ||
+                task.patientName?.toLowerCase().includes(searchValue) ||
+                task.clinicName?.toLowerCase().includes(searchValue) ||
+                task.doctorName?.toLowerCase().includes(searchValue);
 
-        const matchesSearch =
-            order.patient.toLowerCase().includes(searchValue) ||
-            order.clinic.toLowerCase().includes(searchValue) ||
-            order.doctor.toLowerCase().includes(searchValue) ||
-            order.workType.toLowerCase().includes(searchValue);
+            const matchesOrderType =
+                orderTypeFilter === 'all' || task.orderType === orderTypeFilter;
 
-        const matchesClinic =
-            clinicFilter === 'all' || order.clinic === clinicFilter;
+            const matchesStage =
+                stageFilter === 'all' || task.stage === stageFilter;
 
-        const matchesPayment =
-            paymentFilter === 'all' ||
-            (paymentFilter === 'paid' && order.paid >= order.total) ||
-            (paymentFilter === 'unpaid' && order.paid < order.total);
+            return matchesSearch && matchesOrderType && matchesStage;
+        });
+    }, [search, orderTypeFilter, stageFilter]);
 
-        return matchesSearch && matchesClinic && matchesPayment;
-    });
+    const activeTasks = filteredTasks.filter((task) => task.stage !== 'done');
+    const completedTasks = filteredTasks
+        .filter((task) => task.stage === 'done')
+        .slice(0, 6);
+
+    const reviewCount = tasks.filter((task) => task.stage === 'review').length;
+    const overdueCount = tasks.filter((task) => task.isOverdue).length;
+    const completedCount = tasks.filter((task) => task.stage === 'done').length;
+
+    const groupedStages = stages.map((stage) => ({
+        ...stage,
+        tasks: activeTasks.filter((task) => task.stage === stage.id),
+    }));
 
     const resetFilters = () => {
         setSearch('');
-        setClinicFilter('all');
-        setPaymentFilter('all');
+        setOrderTypeFilter('all');
+        setStageFilter('all');
     };
 
     return (
         <div className="space-y-6">
-            {/* Заголовок */}
-            <header>
-                <h1 className="text-3xl font-bold text-slate-900">Панель управления</h1>
+            <header className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+                <div>
+                    <h1 className="text-3xl font-bold text-slate-900">
+                        Дэшборд задач заказов
+                    </h1>
+                    <p className="mt-1 text-sm text-slate-500">
+                        Этапы показывают, где сейчас находятся задачи внутри заказов.
+                    </p>
+                </div>
+
+                <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-500 shadow-sm">
+                    Активных задач:{' '}
+                    <span className="font-bold text-slate-900">{activeTasks.length}</span>
+                </div>
             </header>
 
-            {/* Карточки со статистикой */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="p-6 bg-white rounded-xl shadow-sm border border-slate-200">
-                    <p className="text-sm font-medium text-slate-500">Всего заказов</p>
-                    <p className="text-3xl font-bold mt-1">{orders.length + 123}</p>
+            <section className="grid grid-cols-1 gap-4 md:grid-cols-4">
+                <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                    <p className="text-sm font-medium text-slate-500">Всего задач</p>
+                    <p className="mt-2 text-3xl font-bold text-slate-900">{tasks.length}</p>
                 </div>
-                <div className="p-6 bg-white rounded-xl shadow-sm border border-slate-200 border-l-4 border-l-yellow-400">
-                    <p className="text-sm font-medium text-slate-500">В работе</p>
-                    <p className="text-3xl font-bold mt-1">18</p>
-                </div>
-                <div className="p-6 bg-white rounded-xl shadow-sm border border-slate-200 border-l-4 border-l-green-500">
-                    <p className="text-sm font-medium text-slate-500">Готовы к выдаче</p>
-                    <p className="text-3xl font-bold mt-1">7</p>
-                </div>
-            </div>
 
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="rounded-2xl border border-slate-200 border-l-4 border-l-blue-500 bg-white p-5 shadow-sm">
+                    <p className="text-sm font-medium text-slate-500">В работе</p>
+                    <p className="mt-2 text-3xl font-bold text-slate-900">{activeTasks.length}</p>
+                </div>
+
+                <div className="rounded-2xl border border-slate-200 border-l-4 border-l-purple-500 bg-white p-5 shadow-sm">
+                    <p className="text-sm font-medium text-slate-500">На проверке</p>
+                    <p className="mt-2 text-3xl font-bold text-slate-900">{reviewCount}</p>
+                </div>
+
+                <div className="rounded-2xl border border-slate-200 border-l-4 border-l-red-500 bg-white p-5 shadow-sm">
+                    <p className="text-sm font-medium text-slate-500">Просрочено</p>
+                    <p className="mt-2 text-3xl font-bold text-slate-900">{overdueCount}</p>
+                </div>
+            </section>
+
+            <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                <div className="grid grid-cols-1 gap-3 lg:grid-cols-4">
                     <input
-                        type="text"
                         value={search}
-                        onChange={(e) => setSearch(e.target.value)}
-                        placeholder="Поиск: пациент, клиника, врач, работа"
-                        className="md:col-span-2 rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none focus:border-blue-500"
+                        onChange={(event) => setSearch(event.target.value)}
+                        placeholder="Поиск: заказ, пациент, клиника, врач, задача"
+                        className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none transition focus:border-blue-500 lg:col-span-2"
                     />
 
                     <select
-                        value={clinicFilter}
-                        onChange={(e) => setClinicFilter(e.target.value)}
-                        className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none focus:border-blue-500 bg-white"
+                        value={orderTypeFilter}
+                        onChange={(event) =>
+                            setOrderTypeFilter(event.target.value as 'all' | OrderType)
+                        }
+                        className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm outline-none transition focus:border-blue-500"
                     >
-                        <option value="all">Все клиники</option>
-                        {clinics.map((clinic) => (
-                            <option key={clinic} value={clinic}>
-                                {clinic}
-                            </option>
-                        ))}
+                        <option value="all">Все типы заказов</option>
+                        <option value="PHYSICAL_COPY">Физическая копия</option>
+                        <option value="DIGITAL_COPY">Электронная копия</option>
+                        <option value="PROSTHESIS">Протез</option>
                     </select>
 
                     <select
-                        value={paymentFilter}
-                        onChange={(e) => setPaymentFilter(e.target.value)}
-                        className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none focus:border-blue-500 bg-white"
+                        value={stageFilter}
+                        onChange={(event) =>
+                            setStageFilter(event.target.value as 'all' | TaskStage)
+                        }
+                        className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm outline-none transition focus:border-blue-500"
                     >
-                        <option value="all">Любая оплата</option>
-                        <option value="paid">Оплачено</option>
-                        <option value="unpaid">Не оплачено</option>
+                        <option value="all">Все этапы</option>
+                        {stages.map((stage) => (
+                            <option key={stage.id} value={stage.id}>
+                                {stage.title}
+                            </option>
+                        ))}
                     </select>
                 </div>
 
-                <div className="mt-4 flex items-center justify-between">
+                <div className="mt-3 flex items-center justify-between">
                     <p className="text-xs text-slate-500">
-                        Найдено: <span className="font-bold text-slate-700">{filteredOrders.length}</span>
+                        Найдено задач:{' '}
+                        <span className="font-bold text-slate-800">{filteredTasks.length}</span>
                     </p>
 
                     <button
+                        type="button"
                         onClick={resetFilters}
-                        className="text-xs font-bold text-slate-500 hover:text-blue-600 transition"
+                        className="text-xs font-bold text-slate-500 transition hover:text-blue-600"
                     >
                         Сбросить фильтры
                     </button>
                 </div>
-            </div>
+            </section>
 
-            {/* Таблица на основе Excel-структуры */}
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                <div className="p-4 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
-                    <h2 className="font-bold text-slate-700">Последние наряды</h2>
-                    <span className="text-[10px] bg-blue-100 text-blue-700 px-2 py-1 rounded-full font-bold uppercase">Live Update</span>
+            <section className="grid grid-cols-1 gap-4 xl:grid-cols-3">
+                <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                    <p className="text-sm font-bold text-slate-900">Физическая копия</p>
+                    <p className="mt-2 text-xs leading-5 text-slate-500">
+                        Нужно сделать → Гипсовщик → Сканировщик → Оператор → Керамист → На проверке
+                    </p>
                 </div>
 
-                <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse min-w-300">
-                        <thead className="bg-slate-50 border-b border-slate-200 text-[10px] uppercase tracking-tighter text-slate-400">
-                        <tr>
-                            <th className="p-3 font-bold">Дата</th>
-                            <th className="p-3 font-bold">Клиника/Пациент</th>
-                            <th className="p-3 font-bold">Врач</th>
-                            <th className="p-3 font-bold">Вид работы</th>
-                            <th className="p-3 font-bold">Кол-во</th>
-                            <th className="p-3 font-bold">Комплектация</th>
-                            <th className="p-3 font-bold">Абатмент</th>
-                            <th className="p-3 font-bold">Цвет</th>
-                            <th className="p-3 font-bold">Техник/Оператор</th>
-                            <th className="p-3 font-bold text-right">Стоимость</th>
-                            <th className="p-3 font-bold text-right">Оплата</th>
-                        </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100">
-                        {filteredOrders.map((order, idx) => (
-                            <tr key={idx} className="hover:bg-blue-50/30 transition text-sm">
-                                <td className="p-3 text-slate-500">{order.date}</td>
-                                <td className="p-3">
-                                    <div className="font-bold text-slate-800">{order.patient}</div>
-                                    <div className="text-[10px] text-blue-600 font-medium">{order.clinic}</div>
-                                </td>
-                                <td className="p-3 text-slate-600 text-xs">{order.doctor}</td>
-                                <td className="p-3 font-medium">{order.workType}</td>
-                                <td className="p-3 text-center">{order.units}</td>
-                                <td className="p-3">
-                                    <div className="flex gap-1">
-                                        {order.impression && <span className="bg-slate-100 p-1 rounded text-[9px] font-bold" title="Слепок">С</span>}
-                                        {order.transfer && <span className="bg-slate-100 p-1 rounded text-[9px] font-bold" title="Трансфер">Т</span>}
-                                        {order.bite && <span className="bg-slate-100 p-1 rounded text-[9px] font-bold" title="Прикус">П</span>}
-                                        {order.analog && <span className="bg-slate-100 p-1 rounded text-[9px] font-bold" title="Аналог">А</span>}
+                <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                    <p className="text-sm font-bold text-slate-900">Электронная копия</p>
+                    <p className="mt-2 text-xs leading-5 text-slate-500">
+                        Нужно сделать → Оператор → Керамист → На проверке
+                    </p>
+                </div>
+
+                <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                    <p className="text-sm font-bold text-slate-900">Протез</p>
+                    <p className="mt-2 text-xs leading-5 text-slate-500">
+                        Нужно сделать → Гипсовщик → Протезист → На проверке
+                    </p>
+                </div>
+            </section>
+
+            <section className="overflow-x-auto pb-3">
+                <div className="flex min-w-max gap-4">
+                    {groupedStages.map((stage) => (
+                        <div
+                            key={stage.id}
+                            className={`flex h-[640px] w-80 shrink-0 flex-col rounded-2xl border border-slate-200 border-t-4 bg-white shadow-sm ${stage.border}`}
+                        >
+                            <div className="border-b border-slate-100 p-4">
+                                <div className="flex items-start justify-between gap-3">
+                                    <div>
+                                        <h2 className="font-bold text-slate-900">{stage.title}</h2>
+                                        <p className="mt-1 text-xs text-slate-500">{stage.subtitle}</p>
                                     </div>
-                                </td>
-                                <td className="p-3 text-xs text-slate-500">{order.abutment}</td>
-                                <td className="p-3">
-                                        <span className="bg-orange-50 text-orange-700 px-2 py-0.5 rounded text-[10px] font-bold border border-orange-100">
-                                            {order.color}
-                                        </span>
-                                </td>
-                                <td className="p-3">
-                                    <div className="text-xs">Т: <span className="font-semibold text-slate-700">{order.technician}</span></div>
-                                    <div className="text-xs">О: <span className="font-semibold text-slate-700">{order.operator}</span></div>
-                                </td>
-                                <td className="p-3 text-right font-mono text-xs font-bold text-slate-700">
-                                    {order.total.toLocaleString('ru-RU')} ₸
-                                </td>
-                                <td className="p-3 text-right">
-                                    <span className="text-[10px] text-slate-400 italic">не оплачено</span>
-                                </td>
-                            </tr>
-                        ))}
-                        </tbody>
-                    </table>
+
+                                    <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-600">
+                                        {stage.tasks.length}
+                                    </span>
+                                </div>
+                            </div>
+
+                            <div className="flex-1 space-y-3 overflow-y-auto p-3">
+                                {stage.tasks.length === 0 ? (
+                                    <div className="flex h-full items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 text-center text-sm text-slate-400">
+                                        Нет задач на этом этапе
+                                    </div>
+                                ) : (
+                                    stage.tasks.map((task) => (
+                                        <article
+                                            key={task.id}
+                                            className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition hover:border-blue-200 hover:shadow-md"
+                                        >
+                                            <div className="flex items-start justify-between gap-2">
+                                                <span className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-bold text-slate-600">
+                                                    {orderTypeLabels[task.orderType]}
+                                                </span>
+
+                                                <span
+                                                    className={`rounded-full border px-2 py-1 text-[10px] font-bold ${getPriorityClass(task.priority)}`}
+                                                >
+                                                    {task.priority ? priorityLabels[task.priority] : 'Без приоритета'}
+                                                </span>
+                                            </div>
+
+                                            <h3 className="mt-3 line-clamp-2 text-sm font-bold text-slate-900">
+                                                {task.title}
+                                            </h3>
+
+                                            <div className="mt-3 space-y-1 text-xs text-slate-500">
+                                                <p>
+                                                    Заказ:{' '}
+                                                    <span className="font-semibold text-slate-700">
+                                                        {task.orderNumber || task.orderId}
+                                                    </span>
+                                                </p>
+
+                                                {task.patientName && (
+                                                    <p>
+                                                        Пациент:{' '}
+                                                        <span className="font-semibold text-slate-700">
+                                                            {task.patientName}
+                                                        </span>
+                                                    </p>
+                                                )}
+
+                                                {task.clinicName && (
+                                                    <p>
+                                                        Клиника:{' '}
+                                                        <span className="font-semibold text-slate-700">
+                                                            {task.clinicName}
+                                                        </span>
+                                                    </p>
+                                                )}
+
+                                                {task.assignedTo && (
+                                                    <p>
+                                                        Исполнитель:{' '}
+                                                        <span className="font-semibold text-slate-700">
+                                                            {task.assignedTo.name}
+                                                        </span>
+                                                    </p>
+                                                )}
+                                            </div>
+
+                                            <div className="mt-4 flex items-center justify-between gap-2">
+                                                <span
+                                                    className={`rounded-full border px-2 py-1 text-[10px] font-bold ${getStatusClass(task.status)}`}
+                                                >
+                                                    {statusLabels[task.status]}
+                                                </span>
+
+                                                {task.dueDate && (
+                                                    <span
+                                                        className={`text-xs font-medium ${
+                                                            task.isOverdue ? 'text-red-600' : 'text-slate-400'
+                                                        }`}
+                                                    >
+                                                        {task.dueDate}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </article>
+                                    ))
+                                )}
+                            </div>
+                        </div>
+                    ))}
                 </div>
-            </div>
+            </section>
+
+            <section className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+                <div className="flex items-center justify-between border-b border-slate-100 p-4">
+                    <div>
+                        <h2 className="font-bold text-slate-900">Последние готовые задачи</h2>
+                        <p className="mt-1 text-xs text-slate-500">
+                            Показываем только последние 5–6, остальное лучше хранить в архиве заказов.
+                        </p>
+                    </div>
+
+                    <span className="rounded-full bg-green-50 px-3 py-1 text-xs font-bold text-green-700">
+                        Всего готово: {completedCount}
+                    </span>
+                </div>
+
+                <div className="divide-y divide-slate-100">
+                    {completedTasks.length === 0 ? (
+                        <div className="p-6 text-sm text-slate-400">
+                            Пока нет готовых задач
+                        </div>
+                    ) : (
+                        completedTasks.map((task) => (
+                            <div
+                                key={task.id}
+                                className="grid grid-cols-1 gap-3 p-4 text-sm md:grid-cols-5 md:items-center"
+                            >
+                                <div className="md:col-span-2">
+                                    <p className="font-bold text-slate-900">{task.title}</p>
+                                    <p className="mt-1 text-xs text-slate-500">
+                                        {task.orderNumber || task.orderId}
+                                    </p>
+                                </div>
+
+                                <p className="text-slate-500">{orderTypeLabels[task.orderType]}</p>
+
+                                <p className="text-slate-500">{task.patientName || 'Пациент не указан'}</p>
+
+                                <div className="text-left md:text-right">
+                                    <span className="rounded-full border border-green-100 bg-green-50 px-2 py-1 text-xs font-bold text-green-700">
+                                        Готово
+                                    </span>
+                                </div>
+                            </div>
+                        ))
+                    )}
+                </div>
+            </section>
         </div>
     );
 }
