@@ -12,6 +12,7 @@ import {
     EmployeeTask,
     TaskStatus,
 } from '@/src/types/employee.types';
+import ErrorModal from '@/src/components/ui/ErrorModal';
 
 
 function getRoleLabel(role: EmployeeRole) {
@@ -150,20 +151,17 @@ export default function EmployeeDetailsPage() {
 
     if (!employee) {
         return (
-            <div className="space-y-4">
-                <Link
-                    href="/employees"
-                    className="inline-flex items-center gap-1 text-xs font-bold uppercase tracking-wider text-blue-600 hover:underline"
-                >
-                    ← Сотрудники
-                </Link>
-                <div className="rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
-                    <h1 className="text-2xl font-bold text-slate-900">Сотрудник не найден</h1>
-                    <p className="mt-2 text-sm text-slate-500">
-                        Проверь id или вернись в список сотрудников.
-                    </p>
+            <ErrorModal title="Сотрудник не найден" isDismissible={false}>
+                <div className="space-y-4">
+                    <p>Проверь id или вернись в список сотрудников.</p>
+                    <Link
+                        href="/employees"
+                        className="inline-flex items-center gap-1 text-xs font-bold uppercase tracking-wider text-blue-600 hover:underline"
+                    >
+                        ← Сотрудники
+                    </Link>
                 </div>
-            </div>
+            </ErrorModal>
         );
     }
 

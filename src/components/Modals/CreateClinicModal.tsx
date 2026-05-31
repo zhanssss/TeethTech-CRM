@@ -4,6 +4,7 @@ import {useState} from 'react';
 import {  CreateClinicDto} from '@/src/types/clinic.types';
 import Modal from "../ui/Modal";
 import {useCreateClinicMutation} from "@/src/services/api/clinicsApi";
+import ErrorModal from '@/src/components/ui/ErrorModal';
 
 type CreateClinicModalProps = {
     isOpen: boolean;
@@ -22,6 +23,7 @@ export default function CreateClinicModal({
         address: '',
         bin: '',
     });
+    const [errorMessage, setErrorMessage] = useState('');
 
     const [createClinic, {isLoading}] = useCreateClinicMutation();
 
@@ -29,30 +31,36 @@ export default function CreateClinicModal({
 
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
+        setErrorMessage('');
 
         console.log(formData)
         try {
             await createClinic(formData).unwrap();
+            setFormData({
+                name: '',
+                contactPerson: '',
+                phone: '',
+                email: '',
+                address: '',
+                bin: ''
+            });
             onClose();
         } catch (e) {
-            console.log(e);
+            console.error(e);
+            setErrorMessage('Не удалось создать клинику');
         }
-        onClose();
-
-        setFormData({
-            name: '',
-            contactPerson: '',
-            phone: '',
-            email: '',
-            address: '',
-            bin: ''
-        });
     };
 
 
 
     return (
         <Modal>
+            {errorMessage && (
+                <ErrorModal onClose={() => setErrorMessage('')}>
+                    {errorMessage}
+                </ErrorModal>
+            )}
+
             <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50 px-6 py-4">
                 <div>
                     <h2 className="text-xl font-bold text-slate-900">

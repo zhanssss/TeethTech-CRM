@@ -9,11 +9,15 @@ import {
     useDeleteColorMutation,
 } from '@/src/services/api/laboratory/colorsApi';
 
-import type { Color } from '@/src/types/laboratory-types/colors.types';
+import type {
+    Color,
+    CreateColorDto,
+    UpdateColorDto,
+} from '@/src/types/laboratory-types/colors.types';
 
 export default function LaboratoryColorsPage() {
     return (
-        <LaboratoryCrudPage<Color>
+        <LaboratoryCrudPage<Color, boolean | void, CreateColorDto, UpdateColorDto>
             pageTitle="Цвета"
             pageDescription="Управление цветами для лабораторных заказов"
             formTitle="цвет"

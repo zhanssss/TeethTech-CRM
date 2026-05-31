@@ -14,6 +14,7 @@ import {
 } from '@/src/utils/employeesUtils';
 import CreateEmployeeModal from '@/src/components/Modals/CreateEmployeeModal';
 import {useGetUsersQuery} from "@/src/services/api/usersApi";
+import ErrorModal from '@/src/components/ui/ErrorModal';
 
 
 function StatCard({
@@ -100,7 +101,11 @@ export default function EmployeesPage() {
     }
 
     if (isError) {
-        return <div className="text-sm text-red-500">Ошибка загрузки сотрудников</div>;
+        return (
+            <ErrorModal isDismissible={false}>
+                Ошибка загрузки сотрудников
+            </ErrorModal>
+        );
     }
 
     return (

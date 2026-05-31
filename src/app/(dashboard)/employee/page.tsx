@@ -6,6 +6,7 @@ import { useSelector } from 'react-redux';
 import { RootState } from '@/src/lib/store';
 import { mockEmployees } from '@/src/mock/employees';
 import { mockTasks } from '@/src/mock/tasks';
+import ErrorModal from '@/src/components/ui/ErrorModal';
 
 function StatCard({
                       title,
@@ -98,14 +99,9 @@ export default function EmployeePage() {
 
     if (!currentEmployee) {
         return (
-            <div className="rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
-                <h1 className="text-2xl font-bold text-slate-900">
-                    Сотрудник не найден
-                </h1>
-                <p className="mt-2 text-sm text-slate-500">
-                    Для личного кабинета нужен пользователь с ролью TECHNICIAN.
-                </p>
-            </div>
+            <ErrorModal title="Сотрудник не найден" isDismissible={false}>
+                Для личного кабинета нужен пользователь с ролью TECHNICIAN.
+            </ErrorModal>
         );
     }
 

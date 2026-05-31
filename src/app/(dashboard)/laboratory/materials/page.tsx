@@ -9,11 +9,15 @@ import {
     useDeleteMaterialMutation,
 } from '@/src/services/api/laboratory/materialApi';
 
-import type { Material } from '@/src/types/laboratory-types/materials.types';
+import type {
+    CreateMaterialDto,
+    Material,
+    UpdateMaterialDto,
+} from '@/src/types/laboratory-types/materials.types';
 
 export default function LaboratoryMaterialsPage() {
     return (
-        <LaboratoryCrudPage<Material>
+        <LaboratoryCrudPage<Material, void, CreateMaterialDto, UpdateMaterialDto>
             pageTitle="Материалы"
             pageDescription="Управление материалами для лабораторных работ"
             formTitle="материал"

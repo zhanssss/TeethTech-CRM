@@ -5,6 +5,7 @@ import { useDispatch } from 'react-redux';
 import { useRouter } from 'next/navigation';
 import { setUser } from '@/src/features/auth/authSlice';
 import { mockUsers } from '@/src/mock/users';
+import ErrorModal from '@/src/components/ui/ErrorModal';
 
 export default function LoginPage() {
     const dispatch = useDispatch();
@@ -50,7 +51,14 @@ export default function LoginPage() {
         router.push('/orders');
     };
     return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-100 via-white to-blue-50">
+        <>
+            {error && (
+                <ErrorModal onClose={() => setError('')}>
+                    {error}
+                </ErrorModal>
+            )}
+
+            <div className="min-h-screen bg-gradient-to-br from-slate-100 via-white to-blue-50">
             <div className="mx-auto flex min-h-screen max-w-7xl items-center justify-center px-4 py-10">
                 <div className="grid w-full max-w-5xl overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl lg:grid-cols-2">
                     <div className="hidden flex-col justify-between bg-slate-900 p-10 text-white lg:flex">
@@ -104,12 +112,6 @@ export default function LoginPage() {
                             </div>
 
                             <form onSubmit={handleLogin} className="space-y-5">
-                                {error && (
-                                    <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-600">
-                                        {error}
-                                    </div>
-                                )}
-
                                 <div>
                                     <label className="mb-2 block text-sm font-semibold text-slate-700">
                                         Логин
@@ -152,5 +154,6 @@ export default function LoginPage() {
                 </div>
             </div>
         </div>
+        </>
     );
 }

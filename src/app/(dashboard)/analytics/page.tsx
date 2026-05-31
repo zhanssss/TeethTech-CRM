@@ -16,6 +16,7 @@ import {
 
 import { StatCard } from '@/src/components/ui/Statcard';
 import { useGetAnalyticsQuery } from '@/src/services/api/analyticsApi';
+import ErrorModal from '@/src/components/ui/ErrorModal';
 
 import type { Analytics } from '@/src/types/analytics.types';
 
@@ -136,11 +137,9 @@ export default function AnalyticsPage() {
 
     if (isError) {
         return (
-            <div className="h-full overflow-y-auto bg-slate-50 p-6">
-                <div className="rounded-2xl bg-red-50 px-6 py-8 text-center text-sm text-red-600 shadow-sm">
-                    Не удалось загрузить аналитику
-                </div>
-            </div>
+            <ErrorModal isDismissible={false}>
+                Не удалось загрузить аналитику
+            </ErrorModal>
         );
     }
 

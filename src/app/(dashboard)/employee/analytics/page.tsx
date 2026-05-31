@@ -5,6 +5,7 @@ import { useSelector } from 'react-redux';
 import { RootState } from '@/src/lib/store';
 import { mockTasks } from '@/src/mock/tasks';
 import { mockEmployees } from '@/src/mock/employees';
+import ErrorModal from '@/src/components/ui/ErrorModal';
 
 function StatCard({
                       title,
@@ -106,14 +107,9 @@ export default function EmployeeAnalyticsPage() {
 
     if (!currentEmployee) {
         return (
-            <div className="rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
-                <h1 className="text-2xl font-bold text-slate-900">
-                    Аналитика недоступна
-                </h1>
-                <p className="mt-2 text-sm text-slate-500">
-                    Не удалось найти текущего сотрудника.
-                </p>
-            </div>
+            <ErrorModal title="Аналитика недоступна" isDismissible={false}>
+                Не удалось найти текущего сотрудника.
+            </ErrorModal>
         );
     }
 

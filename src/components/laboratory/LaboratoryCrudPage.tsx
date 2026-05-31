@@ -1,6 +1,7 @@
 'use client';
 
 import React, { FormEvent, useState } from 'react';
+import ErrorModal from '@/src/components/ui/ErrorModal';
 
 type FormValue = string | boolean;
 type FormState = Record<string, FormValue>;
@@ -35,7 +36,12 @@ type MutationState = {
     isLoading: boolean;
 };
 
-type Props<TItem extends DictionaryItem> = {
+type Props<
+    TItem extends DictionaryItem,
+    TQueryArg = void,
+    TCreateBody = unknown,
+    TUpdateBody = unknown
+> = {
     pageTitle: string;
     pageDescription: string;
 
@@ -49,16 +55,16 @@ type Props<TItem extends DictionaryItem> = {
     fields: FieldConfig[];
     initialFormState: FormState;
 
-    useGetQuery: (arg?: any) => QueryResult<TItem>;
-    queryArg?: any;
+    useGetQuery: (arg?: TQueryArg) => QueryResult<TItem>;
+    queryArg?: TQueryArg;
 
     useCreateMutation: () => [
-        (body: any) => MutationResult,
+        (body: TCreateBody) => MutationResult,
         MutationState
     ];
 
     useUpdateMutation: () => [
-        (args: { id: string; body: any }) => MutationResult,
+        (args: { id: string; body: TUpdateBody }) => MutationResult,
         MutationState
     ];
 
@@ -68,11 +74,16 @@ type Props<TItem extends DictionaryItem> = {
     ];
 
     getEditForm: (item: TItem) => FormState;
-    getCreateBody: (form: FormState) => any;
-    getUpdateBody: (form: FormState) => any;
+    getCreateBody: (form: FormState) => TCreateBody;
+    getUpdateBody: (form: FormState) => TUpdateBody;
 };
 
-export default function LaboratoryCrudPage<TItem extends DictionaryItem>({
+export default function LaboratoryCrudPage<
+    TItem extends DictionaryItem,
+    TQueryArg = void,
+    TCreateBody = unknown,
+    TUpdateBody = unknown
+>({
                                                                              pageTitle,
                                                                              pageDescription,
                                                                              formTitle,
@@ -90,7 +101,7 @@ export default function LaboratoryCrudPage<TItem extends DictionaryItem>({
                                                                              getEditForm,
                                                                              getCreateBody,
                                                                              getUpdateBody,
-                                                                         }: Props<TItem>) {
+                                                                         }: Props<TItem, TQueryArg, TCreateBody, TUpdateBody>) {
     const {
         data: items = [],
         isLoading,
@@ -175,7 +186,14 @@ export default function LaboratoryCrudPage<TItem extends DictionaryItem>({
     };
 
     return (
-        <section className="min-h-full w-full bg-slate-50 p-6">
+        <>
+            {errorMessage && (
+                <ErrorModal onClose={() => setErrorMessage('')}>
+                    {errorMessage}
+                </ErrorModal>
+            )}
+
+            <section className="min-h-full w-full bg-slate-50 p-6">
             <div className="mb-6 rounded-2xl bg-white px-6 py-5 shadow-sm">
                 <h1 className="text-2xl font-semibold text-slate-900">
                     {pageTitle}
@@ -262,12 +280,6 @@ export default function LaboratoryCrudPage<TItem extends DictionaryItem>({
                             );
                         })}
 
-                        {errorMessage && (
-                            <p className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">
-                                {errorMessage}
-                            </p>
-                        )}
-
                         <div className="flex gap-3 pt-2">
                             <button
                                 type="submit"
@@ -310,9 +322,9 @@ export default function LaboratoryCrudPage<TItem extends DictionaryItem>({
                     )}
 
                     {isError && (
-                        <div className="rounded-2xl bg-red-50 px-4 py-8 text-center text-sm text-red-600">
+                        <ErrorModal>
                             Не удалось загрузить данные
-                        </div>
+                        </ErrorModal>
                     )}
 
                     {!isLoading && !isError && items.length === 0 && (
@@ -392,6 +404,7 @@ export default function LaboratoryCrudPage<TItem extends DictionaryItem>({
                     )}
                 </div>
             </section>
-        </section>
+            </section>
+        </>
     );
 }

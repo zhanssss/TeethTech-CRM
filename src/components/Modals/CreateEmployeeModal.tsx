@@ -6,6 +6,7 @@ import {
 } from '@/src/types/employee.types';
 import { useRegisterUserMutation } from '@/src/services/api/authApi';
 import type { Register } from '@/src/types/auth.types';
+import ErrorModal from '@/src/components/ui/ErrorModal';
 
 type CreateEmployeeModalProps = {
     onClose: () => void;
@@ -17,11 +18,13 @@ export default function CreateEmployeeModal({ onClose }: CreateEmployeeModalProp
     const [phone, setPhone] = useState('');
     const [role, setRole] = useState<EmployeeRole>('Оператор / Моделировщик');
     const [tempPassword, setTempPassword] = useState('');
+    const [errorMessage, setErrorMessage] = useState('');
 
     const [registerUser, { isLoading }] = useRegisterUserMutation();
 
     const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
         e.preventDefault();
+        setErrorMessage('');
 
         const body: Register = {
             fullName: name,
@@ -36,11 +39,18 @@ export default function CreateEmployeeModal({ onClose }: CreateEmployeeModalProp
             onClose();
         } catch (error) {
             console.error('Ошибка создания сотрудника:', error);
+            setErrorMessage('Не удалось создать сотрудника');
         }
     };
 
     return (
         <Modal>
+            {errorMessage && (
+                <ErrorModal onClose={() => setErrorMessage('')}>
+                    {errorMessage}
+                </ErrorModal>
+            )}
+
             <form onSubmit={handleSubmit} className="space-y-4 flex flex-col gap-y-5 p-4">
                 <div className='flex justify-between'>
                     <h2>Добавить Сотрудника</h2>

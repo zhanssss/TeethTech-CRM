@@ -7,6 +7,7 @@ import EditClinicModal from '@/src/components/Modals/EditClinicModal';
 import {useGetClinicsByIdQuery} from '@/src/services/api/clinicsApi';
 import InfoItem from '@/src/components/ui/InfoItem'
 import DeleteClinicApproval from "@/src/components/Modals/DeleteClinicApproval";
+import ErrorModal from '@/src/components/ui/ErrorModal';
 
 type ClinicPageProps = {
     params: Promise<{
@@ -29,28 +30,28 @@ export default function ClinicDetailsPage() {
     } = useGetClinicsByIdQuery(id);
 
     if (isLoading) return <p>Загрузка клиники...</p>;
-    if (isError) return <p>Ошибка загрузки клиники</p>;
+    if (isError) {
+        return (
+            <ErrorModal isDismissible={false}>
+                Ошибка загрузки клиники
+            </ErrorModal>
+        );
+    }
 
 
     if (!clinic) {
         return (
-            <div className="space-y-4">
-                <Link
-                    href="/clinics"
-                    className="text-sm font-bold text-blue-600 hover:underline"
-                >
-                    ← Назад к клиникам
-                </Link>
-
-                <div className="rounded-2xl border border-red-200 bg-red-50 p-6">
-                    <h1 className="text-xl font-bold text-red-700">
-                        Клиника не найдена
-                    </h1>
-                    <p className="mt-2 text-sm text-red-500">
-                        Проверь ID клиники или данные в mockClinics.
-                    </p>
+            <ErrorModal title="Клиника не найдена" isDismissible={false}>
+                <div className="space-y-4">
+                    <p>Проверь ID клиники или данные в mockClinics.</p>
+                    <Link
+                        href="/clinics"
+                        className="text-sm font-bold text-blue-600 hover:underline"
+                    >
+                        ← Назад к клиникам
+                    </Link>
                 </div>
-            </div>
+            </ErrorModal>
         );
     }
 

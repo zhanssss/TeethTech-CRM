@@ -24,6 +24,7 @@ import { updateOrderTasks, useOrders } from '@/src/lib/ordersStore';
 import TaskCard from "@/src/components/ui/TaskCard";
 import DroppableColumn from "@/src/components/ui/DroppableColumn";
 import { PHYSIC_COPY_COLUMNS } from '@/src/utils/orderUtils'
+import ErrorModal from '@/src/components/ui/ErrorModal';
 
 
 export default function OrderBoardPage() {
@@ -150,21 +151,17 @@ export default function OrderBoardPage() {
 
     if (!order) {
         return (
-            <div className="space-y-4">
-                <Link
-                    href="/orders"
-                    className="inline-flex items-center gap-1 text-xs font-bold uppercase tracking-wider text-blue-600 hover:underline"
-                >
-                    ← Реестр заказов
-                </Link>
-
-                <div className="rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
-                    <h1 className="text-2xl font-bold text-slate-900">Заказ не найден</h1>
-                    <p className="mt-2 text-sm text-slate-500">
-                        Проверь ID заказа или вернись в реестр.
-                    </p>
+            <ErrorModal title="Заказ не найден" isDismissible={false}>
+                <div className="space-y-4">
+                    <p>Проверь ID заказа или вернись в реестр.</p>
+                    <Link
+                        href="/orders"
+                        className="inline-flex items-center gap-1 text-xs font-bold uppercase tracking-wider text-blue-600 hover:underline"
+                    >
+                        ← Реестр заказов
+                    </Link>
                 </div>
-            </div>
+            </ErrorModal>
         );
     }
 

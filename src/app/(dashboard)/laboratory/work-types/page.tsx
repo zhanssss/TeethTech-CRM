@@ -9,11 +9,15 @@ import {
     useDeleteWorkTypeMutation,
 } from '@/src/services/api/laboratory/workTypesApi';
 
-import type { WorkTypes } from '@/src/types/laboratory-types/worktypes.types';
+import type {
+    CreateWorkTypeDto,
+    UpdateWorkTypesDto,
+    WorkTypes,
+} from '@/src/types/laboratory-types/worktypes.types';
 
 export default function LaboratoryWorkTypesPage() {
     return (
-        <LaboratoryCrudPage<WorkTypes>
+        <LaboratoryCrudPage<WorkTypes, void, CreateWorkTypeDto, UpdateWorkTypesDto>
             pageTitle="Типы работ"
             pageDescription="Управление типами лабораторных работ"
             formTitle="тип работы"

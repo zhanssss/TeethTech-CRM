@@ -5,6 +5,7 @@ import Section from '@/src/components/ui/Section';
 import CreateClinicModal from '@/src/components/Modals/CreateClinicModal';
 import Link from 'next/link';
 import {useGetClinicsQuery} from "@/src/services/api/clinicsApi";
+import ErrorModal from '@/src/components/ui/ErrorModal';
 
 type ClinicTableRow = {
     id: string | number;
@@ -37,7 +38,13 @@ export default function ClinicsPage() {
     }, [ data]);
 
     if (isLoading) return <p>Загрузка...</p>
-    if (isError) return <p>Ошибка в загрузке клиник...</p>
+    if (isError) {
+        return (
+            <ErrorModal isDismissible={false}>
+                Ошибка в загрузке клиник...
+            </ErrorModal>
+        );
+    }
 
     return (
         <div className="space-y-6">
