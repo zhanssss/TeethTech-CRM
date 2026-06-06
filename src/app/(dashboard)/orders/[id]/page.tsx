@@ -20,11 +20,16 @@ import {
 } from '@dnd-kit/sortable';
 import TaskDetailsSidebar from '@/src/components/layout/TaskDetailsSidebar';
 import type { TaskAttachment, TaskComment, TaskImage } from '@/src/types/task.types';
+import type { OrderApiListItem, OrderKanbanColumn } from '@/src/types/order.types';
 import { updateOrderTasks, useOrders } from '@/src/lib/ordersStore';
 import TaskCard from "@/src/components/ui/TaskCard";
 import DroppableColumn from "@/src/components/ui/DroppableColumn";
 import { PHYSIC_COPY_COLUMNS } from '@/src/utils/orderUtils'
 import ErrorModal from '@/src/components/ui/ErrorModal';
+import {
+    useGetOrderKanbanQuery,
+    useGetOrdersQuery,
+} from '@/src/services/api/ordersApi';
 
 
 export default function OrderBoardPage() {
@@ -32,6 +37,10 @@ export default function OrderBoardPage() {
     const id = Array.isArray(params.id) ? params.id[0] : params.id;
     const orders = useOrders();
     const order = orders.find((item) => item.id === id);
+    const { data: serverOrders, isLoading: isServerOrdersLoading } = useGetOrdersQuery();
+    const { data: serverKanbanColumns, isLoading: isKanbanLoading } = useGetOrderKanbanQuery(id, { skip: !id });
+    const serverOrder = serverOrders?.find((item) => item.id === id);
+    const hasServerKanban = Boolean(serverKanbanColumns?.length);
     const tasks = order?.tasks ?? [];
     const [activeId, setActiveId] = useState<string | null>(null);
     const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
@@ -148,6 +157,20 @@ export default function OrderBoardPage() {
             };
         });
     };
+
+    if (!order && (isServerOrdersLoading || isKanbanLoading)) {
+        return <div className="text-sm text-slate-500">Загрузка заказа...</div>;
+    }
+
+    if (hasServerKanban && serverKanbanColumns) {
+        return (
+            <ServerKanbanBoard
+                orderId={id}
+                order={serverOrder}
+                columns={serverKanbanColumns}
+            />
+        );
+    }
 
     if (!order) {
         return (

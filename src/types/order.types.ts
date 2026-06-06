@@ -49,6 +49,7 @@ export interface CreateOrderPayload {
 
 export interface OrderListItem {
     id: string;
+    orderNumber?: string;
     patient: string;
     clinic?: string;
     clinicName?: string;
@@ -75,4 +76,74 @@ export interface OrderListItem {
     clinicId?: string;
     comment?: string;
     tasks?: OrderTask[];
+}
+
+export interface OrderApiListItem {
+    id: string;
+    orderNumber: string;
+    patientFullName: string;
+    summaryWorkType: string;
+    isActive: boolean;
+    quantity: number;
+    pricePerUnit: number;
+    discount: number;
+    totalPrice: number;
+}
+
+export interface CreateOrderTaskDto {
+    workTypeId: string;
+    quantity: number;
+    toothNumbers: number[];
+    orderId?: string;
+    colorId: string;
+    materialId: string;
+    pricePerUnit: number;
+    discountPercent: number;
+}
+
+export interface CreateOrderDto {
+    clinicId: string;
+    patientFullName: string;
+    doctorFullName: string;
+    deadline: string;
+    dentalTechnicianId: string;
+    cadCamOperatorId: string;
+    comment: string;
+    tasks: CreateOrderTaskDto[];
+}
+
+export interface OrderKanbanAssignee {
+    id: string;
+    fullName: string;
+}
+
+export interface OrderKanbanTask {
+    id: string;
+    taskNumber: string;
+    workTypeName: string;
+    materialName: string;
+    colorCode: string;
+    quantity: number;
+    technician: OrderKanbanAssignee;
+    operator: OrderKanbanAssignee;
+    pricePerUnit: number;
+    totalPrice: number;
+}
+
+export interface OrderKanbanColumn {
+    statusId?: string;
+    statusName: string;
+    title: string;
+    taskCount: number;
+    tasks: OrderKanbanTask[];
+}
+
+export interface UpdateTaskStatusDto {
+    nextStatusId: string;
+    comment: string;
+}
+
+export interface UpdateTaskStatusArgs {
+    taskId: string;
+    body: UpdateTaskStatusDto;
 }
