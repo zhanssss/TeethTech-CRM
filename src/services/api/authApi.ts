@@ -11,10 +11,11 @@ export const authApi = teethTechApi.injectEndpoints({
     endpoints: builder => ({
         registerUser: builder.mutation<string, Register>({
             query: (body) => ({
-               url: '/auth/register',
+               url: '/users',
                method: 'POST',
                body,
-            })
+            }),
+            invalidatesTags: ["Users"]
         }),
         loginUser: builder.mutation<LoginResponse, Login>({
             query: (body) => ({

@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
-import { useParams } from 'next/navigation';
+import {useState} from 'react';
+import {useParams} from 'next/navigation';
 import Link from 'next/link';
+import {useSelector} from 'react-redux';
 import {
     DndContext,
     closestCorners,
@@ -19,27 +20,44 @@ import {
     verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import TaskDetailsSidebar from '@/src/components/layout/TaskDetailsSidebar';
-import type { TaskAttachment, TaskComment, TaskImage } from '@/src/types/task.types';
-import type { OrderApiListItem, OrderKanbanColumn } from '@/src/types/order.types';
-import { updateOrderTasks, useOrders } from '@/src/lib/ordersStore';
+import TaskHistoryTimeline from '@/src/components/tasks/TaskHistoryTimeline';
+import type {TaskAttachment, TaskComment, TaskImage} from '@/src/types/task.types';
+import type {OrderApiListItem, OrderKanbanColumn, OrderKanbanTask} from '@/src/types/order.types';
+import {updateOrderTasks, useOrders} from '@/src/lib/ordersStore';
 import TaskCard from "@/src/components/ui/TaskCard";
 import DroppableColumn from "@/src/components/ui/DroppableColumn";
-import { PHYSIC_COPY_COLUMNS } from '@/src/utils/orderUtils'
+import {PHYSIC_COPY_COLUMNS} from '@/src/utils/orderUtils'
 import ErrorModal from '@/src/components/ui/ErrorModal';
 import {
     useGetOrderKanbanQuery,
     useGetOrdersQuery,
 } from '@/src/services/api/ordersApi';
+import type {RootState} from '@/src/lib/store';
 
+const ORDER_LOOKUP_PARAMS = {
+    page: 0,
+    size: 100,
+    sort: 'deadline,ASC',
+};
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function isUuid(value: string | null | undefined) {
+    return Boolean(value && UUID_PATTERN.test(value));
+}
 
 export default function OrderBoardPage() {
     const params = useParams<{ id: string | string[] }>();
     const id = Array.isArray(params.id) ? params.id[0] : params.id;
+    const userId = useSelector((state: RootState) => state.auth.id);
     const orders = useOrders();
     const order = orders.find((item) => item.id === id);
-    const { data: serverOrders, isLoading: isServerOrdersLoading } = useGetOrdersQuery();
-    const { data: serverKanbanColumns, isLoading: isKanbanLoading } = useGetOrderKanbanQuery(id, { skip: !id });
-    const serverOrder = serverOrders?.find((item) => item.id === id);
+    const {data: serverOrders, isLoading: isServerOrdersLoading} = useGetOrdersQuery(ORDER_LOOKUP_PARAMS);
+    const canLoadServerKanban = isUuid(id) && isUuid(userId);
+    const {data: serverKanbanColumns, isLoading: isKanbanLoading} = useGetOrderKanbanQuery(
+        {id, userId: userId ?? ''},
+        {skip: !canLoadServerKanban}
+    );
+    const serverOrder = serverOrders?.content.find((item) => item.id === id);
     const hasServerKanban = Boolean(serverKanbanColumns?.length);
     const tasks = order?.tasks ?? [];
     const [activeId, setActiveId] = useState<string | null>(null);
@@ -48,7 +66,7 @@ export default function OrderBoardPage() {
     const COLUMNS = PHYSIC_COPY_COLUMNS;
 
     const sensors = useSensors(
-        useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
+        useSensor(PointerSensor, {activationConstraint: {distance: 8}})
     );
 
     const activeTask = tasks.find((task) => task.id === activeId);
@@ -61,7 +79,7 @@ export default function OrderBoardPage() {
     };
 
     const handleDragEnd = (event: DragEndEvent) => {
-        const { active, over } = event;
+        const {active, over} = event;
 
         if (!order || !over) {
             setActiveId(null);
@@ -207,17 +225,20 @@ export default function OrderBoardPage() {
                         <h1 className="text-3xl font-black text-slate-900">Заказ #{order.id}</h1>
                     </div>
                     <div className="flex gap-2">
-                        <span className="bg-yellow-100 text-yellow-700 px-3 py-1 rounded-full text-[10px] font-black uppercase">
+                        <span
+                            className="bg-yellow-100 text-yellow-700 px-3 py-1 rounded-full text-[10px] font-black uppercase">
                             {order.status}
                         </span>
-                        <span className="bg-slate-100 text-slate-600 px-3 py-1 rounded-full text-[10px] font-black uppercase">
+                        <span
+                            className="bg-slate-100 text-slate-600 px-3 py-1 rounded-full text-[10px] font-black uppercase">
                             Срок: {order.deadline || '-'}
                         </span>
                     </div>
                 </header>
 
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                    <div className="md:col-span-2 bg-white p-5 rounded-2xl border border-slate-200 shadow-sm grid grid-cols-2 gap-4">
+                    <div
+                        className="md:col-span-2 bg-white p-5 rounded-2xl border border-slate-200 shadow-sm grid grid-cols-2 gap-4">
                         <div>
                             <p className="text-[10px] font-bold text-slate-400 uppercase">Пациент</p>
                             <p className="font-bold text-slate-800 text-lg">{order.patient}</p>
@@ -256,10 +277,14 @@ export default function OrderBoardPage() {
                             </div>
                         </div>
                         <div className="mt-4 pt-4 border-t border-slate-800 flex gap-2">
-                            {primaryTask?.impressionQty ? <span className="bg-white/10 text-[9px] px-2 py-1 rounded font-bold">СЛЕПОК</span> : null}
-                            {primaryTask?.transferQty ? <span className="bg-white/10 text-[9px] px-2 py-1 rounded font-bold">ТРАНСФЕР</span> : null}
-                            {primaryTask?.biteQty ? <span className="bg-white/10 text-[9px] px-2 py-1 rounded font-bold">ПРИКУС</span> : null}
-                            {primaryTask?.analogQty ? <span className="bg-white/10 text-[9px] px-2 py-1 rounded font-bold">АНАЛОГ</span> : null}
+                            {primaryTask?.impressionQty ? <span
+                                className="bg-white/10 text-[9px] px-2 py-1 rounded font-bold">СЛЕПОК</span> : null}
+                            {primaryTask?.transferQty ? <span
+                                className="bg-white/10 text-[9px] px-2 py-1 rounded font-bold">ТРАНСФЕР</span> : null}
+                            {primaryTask?.biteQty ? <span
+                                className="bg-white/10 text-[9px] px-2 py-1 rounded font-bold">ПРИКУС</span> : null}
+                            {primaryTask?.analogQty ? <span
+                                className="bg-white/10 text-[9px] px-2 py-1 rounded font-bold">АНАЛОГ</span> : null}
                         </div>
                     </div>
 
@@ -284,17 +309,20 @@ export default function OrderBoardPage() {
                     </div>
                 </div>
 
-                <div className="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-x-10 gap-y-5 overflow-x-auto pb-4 items-start pt-4 ">
+                <div
+                    className="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-x-10 gap-y-5 overflow-x-auto pb-4 items-start pt-4 ">
                     {COLUMNS.map((column) => {
                         const tasksInColumn = tasks.filter((task) => task.status === column.id);
 
                         return (
                             <DroppableColumn key={column.id} id={column.id} column={column}>
-                                <div className={`p-4 flex  justify-between items-center border-b border-slate-200 bg-white/50 rounded-t-xl`} >
+                                <div
+                                    className={`p-4 flex  justify-between items-center border-b border-slate-200 bg-white/50 rounded-t-xl`}>
                                     <h2 className="font-bold text-xs text-slate-800 uppercase tracking-widest">
                                         {column.title}
                                     </h2>
-                                    <span className="bg-slate-200 text-slate-700 text-[10px] font-black px-2 py-0.5 rounded">
+                                    <span
+                                        className="bg-slate-200 text-slate-700 text-[10px] font-black px-2 py-0.5 rounded">
                                         {tasksInColumn.length}
                                     </span>
                                 </div>
@@ -328,7 +356,7 @@ export default function OrderBoardPage() {
             <DragOverlay>
                 {activeTask ? (
                     <div className="rotate-2 opacity-80 cursor-grabbing">
-                        <TaskCard task={activeTask} />
+                        <TaskCard task={activeTask}/>
                     </div>
                 ) : null}
             </DragOverlay>
@@ -340,5 +368,213 @@ export default function OrderBoardPage() {
                 onAddImages={handleAddImages}
             />
         </DndContext>
+    );
+}
+
+function ServerKanbanBoard({
+                               orderId,
+                               order,
+                               columns,
+                           }: {
+    orderId: string;
+    order?: OrderApiListItem;
+    columns: OrderKanbanColumn[];
+}) {
+    const taskCount = columns.reduce((sum, column) => sum + column.taskCount, 0);
+    const [selectedHistoryTask, setSelectedHistoryTask] = useState<OrderKanbanTask | null>(null);
+
+    return (
+        <div className="h-full flex flex-col space-y-6">
+            <header className="flex justify-between items-start">
+                <div>
+                    <Link
+                        href="/orders"
+                        className="text-blue-600 text-xs font-bold hover:underline flex items-center gap-1 mb-2 uppercase tracking-wider"
+                    >
+                        ← Реестр заказов
+                    </Link>
+                    <h1 className="text-3xl font-black text-slate-900">
+                        Заказ #{order?.orderNumber ?? orderId}
+                    </h1>
+                </div>
+                <div className="flex gap-2">
+                    <span
+                        className="bg-yellow-100 text-yellow-700 px-3 py-1 rounded-full text-[10px] font-black uppercase">
+                        {order?.isActive ? 'Активен' : 'Закрыт'}
+                    </span>
+                </div>
+            </header>
+
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div
+                    className="md:col-span-2 bg-white p-5 rounded-2xl border border-slate-200 shadow-sm grid grid-cols-2 gap-4">
+                    <div>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase">Пациент</p>
+                        <p className="font-bold text-slate-800 text-lg">{order?.patientFullName ?? '-'}</p>
+                    </div>
+                    <div>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase">Вид работы</p>
+                        <p className="text-slate-700 text-sm font-medium">{order?.summaryWorkType ?? '-'}</p>
+                    </div>
+                    <div>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase">Кол-во</p>
+                        <p className="text-slate-700 text-sm font-medium">{order?.quantity ?? 0} ед.</p>
+                    </div>
+                    <div>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase">Итого</p>
+                        <p className="font-black text-slate-900 text-lg">
+                            {(order?.totalPrice ?? 0).toLocaleString('ru-RU')} ₸
+                        </p>
+                    </div>
+                </div>
+
+                <div
+                    className="md:col-span-2 bg-slate-900 text-white p-5 rounded-2xl shadow-lg flex flex-col justify-between">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase">Состав заказа</p>
+                    <p className="mt-2 text-sm font-semibold text-slate-100">
+                        {taskCount} задач на доске
+                    </p>
+                </div>
+            </div>
+
+            <div
+                className="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-x-10 gap-y-5 overflow-x-auto pb-4 items-start pt-4">
+                {columns.map((column) => (
+                    <section
+                        key={`${column.statusName}-${column.title}`}
+                        className="min-h-[280px] rounded-xl border border-slate-200 border-t-4 border-t-blue-500 bg-slate-50/60 shadow-sm"
+                    >
+                        <div
+                            className="p-4 flex justify-between items-center border-b border-slate-200 bg-white/50 rounded-t-xl">
+                            <h2 className="font-bold text-xs text-slate-800 uppercase tracking-widest">
+                                {column.title || column.statusName}
+                            </h2>
+                            <span className="bg-slate-200 text-slate-700 text-[10px] font-black px-2 py-0.5 rounded">
+                                {column.taskCount}
+                            </span>
+                        </div>
+
+                        <div className="p-3 space-y-3 overflow-y-auto flex-1 min-h-[150px]">
+                            {column.tasks.map((task) => (
+                                <button
+                                    type="button"
+                                    key={task.id}
+                                    onClick={() => setSelectedHistoryTask(task)}
+                                    className="w-full bg-white p-4 rounded-lg shadow-sm border border-slate-200 flex flex-col gap-3 text-left transition hover:border-blue-400 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                >
+                                    <div className="flex justify-between items-center text-[10px]">
+                                        <span className="font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">
+                                            {task.taskNumber ?? task.workTypeCode ?? task.id.slice(0, 8)}
+                                        </span>
+                                        <span className="text-slate-400 italic">{task.quantity} ед.</span>
+                                    </div>
+
+                                    <div>
+                                        <h3 className="text-slate-900 font-semibold text-sm">
+                                            {task.workTypeName}
+                                        </h3>
+                                        <p className="mt-1 text-xs text-slate-500">
+                                            {task.materialName || 'Материал не указан'}
+                                            {task.colorCode ? ` · цвет ${task.colorCode}` : ''}
+                                        </p>
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-2 text-[10px] text-slate-500">
+                                        <div>
+                                            <p className="font-bold uppercase text-slate-400">Техник</p>
+                                            <p className="font-semibold text-slate-700">
+                                                {task.dentalTechnicianFullName || task.technician?.fullName || '-'}
+                                            </p>
+                                        </div>
+                                        <div>
+                                            <p className="font-bold uppercase text-slate-400">Статус</p>
+                                            <p className="font-semibold text-slate-700">
+                                                {task.currentStatusFormName || task.currentStatusCode || task.operator?.fullName || '-'}
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex items-center justify-between border-t border-slate-100 pt-3">
+                                        <span className="text-[10px] text-slate-400">
+                                            {task.toothNumbers?.length ? `Зубы: ${task.toothNumbers.join(', ')}` : 'Зубы не указаны'}
+                                        </span>
+                                        <span className="text-xs font-black text-slate-800">
+                                            {(task.totalAmount ?? task.totalPrice ?? 0).toLocaleString('ru-RU')} ₸
+                                        </span>
+                                    </div>
+                                </button>
+                            ))}
+
+                            {column.tasks.length === 0 && (
+                                <div className="py-8 text-center text-xs italic text-slate-400">
+                                    Пусто
+                                </div>
+                            )}
+                        </div>
+                    </section>
+                ))}
+            </div>
+w
+            <TaskHistorySidebar
+                task={selectedHistoryTask}
+                onClose={() => setSelectedHistoryTask(null)}
+            />
+        </div>
+    );
+}
+
+function TaskHistorySidebar({
+                                task,
+                                onClose,
+                            }: {
+    task: OrderKanbanTask | null;
+    onClose: () => void;
+}) {
+    if (!task) return null;
+
+    const taskTitle = task.workTypeName || task.taskNumber || task.id;
+    const taskStatus = task.currentStatusFormName || task.currentStatusCode || '-';
+    const taskAssignee = task.dentalTechnicianFullName || task.technician?.fullName || '-';
+
+    return (
+        <>
+            <div
+                onClick={onClose}
+                className="fixed inset-0 z-40 bg-slate-900/20 backdrop-blur-[1px]"
+            />
+
+            <aside className="fixed right-0 top-0 z-50 flex h-screen w-full max-w-[36rem] flex-col border-l border-slate-200 bg-white shadow-2xl">
+                <div className="flex items-start justify-between gap-4 border-b border-slate-200 p-5">
+                    <div className="min-w-0">
+                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                            Журнал задачи
+                        </p>
+                        <h2 className="mt-1 truncate text-xl font-black text-slate-900">
+                            {taskTitle}
+                        </h2>
+                        <div className="mt-3 flex flex-wrap gap-2">
+                            <span className="rounded-lg bg-blue-50 px-2.5 py-1 text-[10px] font-black uppercase text-blue-700">
+                                {taskStatus}
+                            </span>
+                            <span className="rounded-lg bg-slate-100 px-2.5 py-1 text-[10px] font-black uppercase text-slate-600">
+                                Техник: {taskAssignee}
+                            </span>
+                        </div>
+                    </div>
+
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-500 hover:bg-slate-100"
+                    >
+                        Закрыть
+                    </button>
+                </div>
+
+                <div className="flex-1 overflow-y-auto p-5">
+                    <TaskHistoryTimeline taskId={task.id} />
+                </div>
+            </aside>
+        </>
     );
 }

@@ -70,16 +70,16 @@ const stages: {
         border: 'border-t-yellow-500',
     },
     {
-        id: 'prosthetist',
-        title: 'Протезист',
-        subtitle: 'Протезы',
-        border: 'border-t-cyan-500',
-    },
-    {
         id: 'scanner',
         title: 'Сканировщик',
         subtitle: 'Физическая копия',
         border: 'border-t-orange-500',
+    },
+    {
+        id: 'prosthetist',
+        title: 'Протезист',
+        subtitle: 'Протезы',
+        border: 'border-t-cyan-500',
     },
     {
         id: 'operator',
@@ -286,30 +286,6 @@ export default function Dashboard() {
                     </button>
                 </div>
             </section>
-
-            <section className="grid grid-cols-1 gap-4 xl:grid-cols-3">
-                <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-                    <p className="text-sm font-bold text-slate-900">Физическая копия</p>
-                    <p className="mt-2 text-xs leading-5 text-slate-500">
-                        Нужно сделать → Гипсовщик → Сканировщик → Оператор → Керамист → На проверке
-                    </p>
-                </div>
-
-                <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-                    <p className="text-sm font-bold text-slate-900">Электронная копия</p>
-                    <p className="mt-2 text-xs leading-5 text-slate-500">
-                        Нужно сделать → Оператор → Керамист → На проверке
-                    </p>
-                </div>
-
-                <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-                    <p className="text-sm font-bold text-slate-900">Протез</p>
-                    <p className="mt-2 text-xs leading-5 text-slate-500">
-                        Нужно сделать → Гипсовщик → Протезист → На проверке
-                    </p>
-                </div>
-            </section>
-
             <section className="overflow-x-auto pb-3">
                 <div className="flex min-w-max gap-4">
                     {groupedStages.map((stage) => (

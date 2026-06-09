@@ -4,23 +4,85 @@ import {useParams} from 'next/navigation';
 import Link from 'next/link';
 import {useState} from 'react';
 import EditClinicModal from '@/src/components/Modals/EditClinicModal';
-import {useGetClinicsByIdQuery} from '@/src/services/api/clinicsApi';
+import {
+    useGetClinicDoctorsQuery,
+    useGetClinicOrdersQuery,
+    useGetClinicPatientsQuery,
+    useGetClinicsByIdQuery,
+} from '@/src/services/api/clinicsApi';
 import InfoItem from '@/src/components/ui/InfoItem'
 import DeleteClinicApproval from "@/src/components/Modals/DeleteClinicApproval";
 import ErrorModal from '@/src/components/ui/ErrorModal';
 
-type ClinicPageProps = {
-    params: Promise<{
-        id: string;
-    }>;
-};
+const DEFAULT_RELATED_PAGE_SIZE = 10;
+const DOCTORS_SORT = 'fullName,ASC';
+const ORDERS_SORT = 'createdAt,DESC';
+const PATIENTS_SORT = 'fullName,ASC';
 
+function formatMoney(value?: number) {
+    return `${(value ?? 0).toLocaleString('ru-RU')} ₸`;
+}
+
+function getOrderStatusLabel(isActive: boolean) {
+    return isActive ? 'Активен' : 'Закрыт';
+}
+
+function getOrderStatusClass(isActive: boolean) {
+    return isActive
+        ? 'bg-emerald-100 text-emerald-700'
+        : 'bg-slate-100 text-slate-600';
+}
+
+function RelatedPager({
+                          pageInfo,
+                          isLoading,
+                          onPrevious,
+                          onNext,
+                      }: {
+    pageInfo?: {
+        number: number;
+        totalPages?: number;
+        first: boolean;
+        last: boolean;
+    };
+    isLoading: boolean;
+    onPrevious: () => void;
+    onNext: () => void;
+}) {
+    return (
+        <div className="flex items-center gap-2 text-xs font-bold text-slate-600">
+            <button
+                type="button"
+                disabled={isLoading || !pageInfo || pageInfo.first}
+                onClick={onPrevious}
+                className="rounded-lg border border-slate-200 px-3 py-1.5 transition hover:border-blue-500 hover:text-blue-600 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+                Назад
+            </button>
+            <span className="min-w-20 text-center">
+                Стр. {(pageInfo?.number ?? 0) + 1}
+                {pageInfo?.totalPages ? ` из ${pageInfo.totalPages}` : ''}
+            </span>
+            <button
+                type="button"
+                disabled={isLoading || !pageInfo || pageInfo.last}
+                onClick={onNext}
+                className="rounded-lg border border-slate-200 px-3 py-1.5 transition hover:border-blue-500 hover:text-blue-600 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+                Вперёд
+            </button>
+        </div>
+    );
+}
 
 export default function ClinicDetailsPage() {
     const params = useParams();
     const id = params.id as string;
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [isApproveModalOpen, setIsApproveModalOpen] = useState(false);
+    const [doctorsPage, setDoctorsPage] = useState(0);
+    const [ordersPage, setOrdersPage] = useState(0);
+    const [patientsPage, setPatientsPage] = useState(0);
 
     const {
         data: clinic,
@@ -28,6 +90,36 @@ export default function ClinicDetailsPage() {
         isError,
 
     } = useGetClinicsByIdQuery(id);
+    const {
+        data: doctorsData,
+        isFetching: isDoctorsLoading,
+        isError: isDoctorsError,
+    } = useGetClinicDoctorsQuery({
+        id,
+        page: doctorsPage,
+        size: DEFAULT_RELATED_PAGE_SIZE,
+        sort: DOCTORS_SORT,
+    }, {skip: !id});
+    const {
+        data: ordersData,
+        isFetching: isOrdersLoading,
+        isError: isOrdersError,
+    } = useGetClinicOrdersQuery({
+        id,
+        page: ordersPage,
+        size: DEFAULT_RELATED_PAGE_SIZE,
+        sort: ORDERS_SORT,
+    }, {skip: !id});
+    const {
+        data: patientsData,
+        isFetching: isPatientsLoading,
+        isError: isPatientsError,
+    } = useGetClinicPatientsQuery({
+        id,
+        page: patientsPage,
+        size: DEFAULT_RELATED_PAGE_SIZE,
+        sort: PATIENTS_SORT,
+    }, {skip: !id});
 
     if (isLoading) return <p>Загрузка клиники...</p>;
     if (isError) {
@@ -55,17 +147,13 @@ export default function ClinicDetailsPage() {
         );
     }
 
-    const totalOrdersSum = clinic.orders.reduce(
-        (sum, order) => sum + order.totalAmount,
-        0
-    );
-
-    const totalPaidSum = clinic.orders.reduce(
-        (sum, order) => sum + order.paidAmount,
-        0
-    );
-
-    const debt = totalOrdersSum - totalPaidSum;
+    const doctors = doctorsData?.content ?? [];
+    const clinicOrders = ordersData?.content ?? [];
+    const patients = patientsData?.content ?? [];
+    const totalOrdersCount = clinic.totalOrdersCount ?? ordersData?.numberOfElements ?? 0;
+    const totalOrdersSum = clinic.totalAmount ?? 0;
+    const totalPaidSum = clinic.totalPaid ?? 0;
+    const debt = clinic.totalDebt ?? totalOrdersSum - totalPaidSum;
 
     return (
         <div className="space-y-6">
@@ -108,7 +196,7 @@ export default function ClinicDetailsPage() {
                         Всего заказов
                     </p>
                     <p className="mt-2 text-3xl font-black text-slate-900">
-                        {clinic.orders.length}
+                        {totalOrdersCount}
                     </p>
                 </div>
 
@@ -117,7 +205,7 @@ export default function ClinicDetailsPage() {
                         Общая сумма
                     </p>
                     <p className="mt-2 text-2xl font-black text-slate-900">
-                        {totalOrdersSum.toLocaleString('ru-RU')} ₸
+                        {formatMoney(totalOrdersSum)}
                     </p>
                 </div>
 
@@ -126,7 +214,7 @@ export default function ClinicDetailsPage() {
                         Оплачено
                     </p>
                     <p className="mt-2 text-2xl font-black text-green-600">
-                        {totalPaidSum.toLocaleString('ru-RU')} ₸
+                        {formatMoney(totalPaidSum)}
                     </p>
                 </div>
 
@@ -135,7 +223,7 @@ export default function ClinicDetailsPage() {
                         Долг
                     </p>
                     <p className="mt-2 text-2xl font-black text-red-600">
-                        {debt.toLocaleString('ru-RU')} ₸
+                        {formatMoney(debt)}
                     </p>
                 </div>
             </div>
@@ -158,14 +246,44 @@ export default function ClinicDetailsPage() {
             </div>
 
             <section className="rounded-2xl border border-slate-200 bg-white shadow-sm">
-                <div className="border-b border-slate-200 bg-slate-50 px-5 py-4">
-                    <h2 className="text-sm font-bold uppercase tracking-wider text-slate-500">
-                        Врачи клиники
-                    </h2>
+                <div className="flex flex-col gap-3 border-b border-slate-200 bg-slate-50 px-5 py-4 md:flex-row md:items-center md:justify-between">
+                    <div>
+                        <h2 className="text-sm font-bold uppercase tracking-wider text-slate-500">
+                            Врачи клиники
+                        </h2>
+                        <p className="mt-1 text-xs text-slate-400">
+                            На странице: {doctors.length}
+                        </p>
+                    </div>
+
+                    <RelatedPager
+                        pageInfo={doctorsData}
+                        isLoading={isDoctorsLoading}
+                        onPrevious={() => setDoctorsPage((currentPage) => Math.max(currentPage - 1, 0))}
+                        onNext={() => setDoctorsPage((currentPage) => currentPage + 1)}
+                    />
                 </div>
 
                 <div className="grid grid-cols-1 gap-4 p-5 md:grid-cols-2">
-                    {clinic.doctors.map((doctor) => (
+                    {isDoctorsError && (
+                        <div className="rounded-2xl border border-red-100 bg-red-50 p-4 text-sm font-semibold text-red-700 md:col-span-2">
+                            Не удалось загрузить врачей клиники
+                        </div>
+                    )}
+
+                    {isDoctorsLoading && !doctorsData && (
+                        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-400 md:col-span-2">
+                            Загрузка врачей...
+                        </div>
+                    )}
+
+                    {!isDoctorsLoading && !isDoctorsError && doctors.length === 0 && (
+                        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-400 md:col-span-2">
+                            Врачи не найдены
+                        </div>
+                    )}
+
+                    {doctors.map((doctor) => (
                         <div
                             key={doctor.fullName}
                             className="rounded-2xl border border-slate-200 bg-slate-50 p-4"
@@ -178,11 +296,74 @@ export default function ClinicDetailsPage() {
                 </div>
             </section>
 
+            <section className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+                <div className="flex flex-col gap-3 border-b border-slate-200 bg-slate-50 px-5 py-4 md:flex-row md:items-center md:justify-between">
+                    <div>
+                        <h2 className="text-sm font-bold uppercase tracking-wider text-slate-500">
+                            Пациенты клиники
+                        </h2>
+                        <p className="mt-1 text-xs text-slate-400">
+                            На странице: {patients.length}
+                        </p>
+                    </div>
+
+                    <RelatedPager
+                        pageInfo={patientsData}
+                        isLoading={isPatientsLoading}
+                        onPrevious={() => setPatientsPage((currentPage) => Math.max(currentPage - 1, 0))}
+                        onNext={() => setPatientsPage((currentPage) => currentPage + 1)}
+                    />
+                </div>
+
+                <div className="grid grid-cols-1 gap-4 p-5 md:grid-cols-2">
+                    {isPatientsError && (
+                        <div className="rounded-2xl border border-red-100 bg-red-50 p-4 text-sm font-semibold text-red-700 md:col-span-2">
+                            Не удалось загрузить пациентов клиники
+                        </div>
+                    )}
+
+                    {isPatientsLoading && !patientsData && (
+                        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-400 md:col-span-2">
+                            Загрузка пациентов...
+                        </div>
+                    )}
+
+                    {!isPatientsLoading && !isPatientsError && patients.length === 0 && (
+                        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-400 md:col-span-2">
+                            Пациенты не найдены
+                        </div>
+                    )}
+
+                    {patients.map((patient) => (
+                        <div
+                            key={patient.fullName}
+                            className="rounded-2xl border border-slate-200 bg-slate-50 p-4"
+                        >
+                            <p className="font-bold text-slate-900">
+                                {patient.fullName}
+                            </p>
+                        </div>
+                    ))}
+                </div>
+            </section>
+
             <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-                <div className="border-b border-slate-200 bg-slate-50 px-5 py-4">
-                    <h2 className="text-sm font-bold uppercase tracking-wider text-slate-500">
-                        Заказы клиники
-                    </h2>
+                <div className="flex flex-col gap-3 border-b border-slate-200 bg-slate-50 px-5 py-4 md:flex-row md:items-center md:justify-between">
+                    <div>
+                        <h2 className="text-sm font-bold uppercase tracking-wider text-slate-500">
+                            Заказы клиники
+                        </h2>
+                        <p className="mt-1 text-xs text-slate-400">
+                            На странице: {clinicOrders.length}
+                        </p>
+                    </div>
+
+                    <RelatedPager
+                        pageInfo={ordersData}
+                        isLoading={isOrdersLoading}
+                        onPrevious={() => setOrdersPage((currentPage) => Math.max(currentPage - 1, 0))}
+                        onNext={() => setOrdersPage((currentPage) => currentPage + 1)}
+                    />
                 </div>
 
                 <div className="overflow-x-auto">
@@ -201,7 +382,31 @@ export default function ClinicDetailsPage() {
                         </thead>
 
                         <tbody className="divide-y divide-slate-100">
-                        {clinic.orders.map((order) => (
+                        {isOrdersError && (
+                            <tr>
+                                <td colSpan={7} className="p-8 text-center text-sm font-semibold text-red-600">
+                                    Не удалось загрузить заказы клиники
+                                </td>
+                            </tr>
+                        )}
+
+                        {isOrdersLoading && !ordersData && (
+                            <tr>
+                                <td colSpan={7} className="p-8 text-center text-sm text-slate-400">
+                                    Загрузка заказов...
+                                </td>
+                            </tr>
+                        )}
+
+                        {!isOrdersLoading && !isOrdersError && clinicOrders.length === 0 && (
+                            <tr>
+                                <td colSpan={7} className="p-8 text-center text-sm text-slate-400">
+                                    Заказы не найдены
+                                </td>
+                            </tr>
+                        )}
+
+                        {clinicOrders.map((order) => (
                             <tr
                                 key={order.id}
                                 className="transition hover:bg-blue-50/30"
@@ -220,17 +425,17 @@ export default function ClinicDetailsPage() {
 
                                 <td className="p-4">
                                         <span
-                                            className="rounded-lg bg-yellow-100 px-2 py-1 text-[10px] font-bold uppercase text-yellow-700">
-                                            {order.status}
+                                            className={`${getOrderStatusClass(order.isActive)} rounded-lg px-2 py-1 text-[10px] font-bold uppercase`}>
+                                            {getOrderStatusLabel(order.isActive)}
                                         </span>
                                 </td>
 
                                 <td className="p-4 text-sm font-bold text-slate-700">
-                                    {order.totalAmount.toLocaleString('ru-RU')} ₸
+                                    {formatMoney(order.totalAmount)}
                                 </td>
 
                                 <td className="p-4 text-sm font-bold text-green-600">
-                                    {order.paidAmount.toLocaleString('ru-RU')} ₸
+                                    {formatMoney(order.paidAmount)}
                                 </td>
 
                                 <td className="p-4 text-right">

@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import type { Task, TaskAttachment, TaskComment, TaskImage } from '@/src/types/task.types';
+import type { Task, TaskAttachment, TaskImage } from '@/src/types/task.types';
+import TaskHistoryTimeline from '@/src/components/tasks/TaskHistoryTimeline';
 
 type TaskDetailsSidebarProps = {
     task: Task | null;
@@ -113,6 +114,11 @@ export default function TaskDetailsSidebar({
                             <InfoItem label="Оператор" value={task.operatorId} />
                         </div>
                     </section>
+
+                    <TaskHistoryTimeline
+                        taskId={task.id}
+                        className="rounded-2xl border border-slate-200 bg-white p-4"
+                    />
 
                     <section>
                         <div className="flex items-center justify-between gap-3">

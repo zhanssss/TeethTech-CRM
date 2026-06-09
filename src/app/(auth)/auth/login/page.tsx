@@ -1,54 +1,88 @@
 'use client';
 
-import { useState } from 'react';
+import { type FormEvent, useState } from 'react';
 import { useDispatch } from 'react-redux';
 import { useRouter } from 'next/navigation';
-import { setUser } from '@/src/features/auth/authSlice';
-import { mockUsers } from '@/src/mock/users';
+import { setUser, type AuthRole } from '@/src/features/auth/authSlice';
+import { useLoginUserMutation } from '@/src/services/api/authApi';
 import ErrorModal from '@/src/components/ui/ErrorModal';
+
+function normalizeAuthRole(roles: string[]): AuthRole {
+    const normalizedRoles = roles.map((role) =>
+        role.toUpperCase().replace(/^ROLE_/, '')
+    );
+
+    if (normalizedRoles.includes('ADMIN')) return 'ADMIN';
+    if (normalizedRoles.includes('TECHNICIAN')) return 'TECHNICIAN';
+    if (normalizedRoles.includes('DISPATCHER')) return 'DISPATCHER';
+
+    return 'DISPATCHER';
+}
 
 export default function LoginPage() {
     const dispatch = useDispatch();
     const router = useRouter();
+    const [loginUser, { isLoading }] = useLoginUserMutation();
 
-    const [login, setLogin] = useState('');
+    const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
 
-    const handleLogin = (e: React.FormEvent<HTMLFormElement>) => {
+    const handleLogin = async (e: FormEvent<HTMLFormElement>) => {
         e.preventDefault();
 
-        if (!login.trim() || !password.trim()) {
-            setError('Заполните логин и пароль');
+        const emailValue = email.trim();
+        const passwordValue = password.trim();
+
+        if (!emailValue || !passwordValue) {
+            setError('Заполните email и пароль');
             return;
         }
 
-        const foundUser = mockUsers.find(
-            (user) => user.login === login.trim() && user.password === password.trim()
-        );
+        if (emailValue === 'admin' && passwordValue === 'admin') {
+            setError('');
 
-        if (!foundUser) {
-            setError('Неверный логин или пароль');
+            dispatch(
+                setUser({
+                    id: 'dev-admin',
+                    name: 'Админ системы',
+                    role: 'ADMIN',
+                    avatarUrl: '',
+                    token: 'dev-admin-token',
+                    roles: ['ADMIN'],
+                })
+            );
+
+            router.push('/orders');
             return;
         }
 
-        setError('');
+        try {
+            const response = await loginUser({
+                email: emailValue,
+                password: passwordValue,
+            }).unwrap();
 
-        dispatch(
-            setUser({
-                id: foundUser.id,
-                name: foundUser.name,
-                role: foundUser.role,
-                avatarUrl: foundUser.avatarUrl,
-            })
-        );
+            const role = normalizeAuthRole(response.roles);
 
-        if (foundUser.role === 'TECHNICIAN') {
-            router.push('/employee');
-            return;
+            setError('');
+
+            dispatch(
+                setUser({
+                    id: response.id,
+                    name: response.email,
+                    role,
+                    avatarUrl: '',
+                    token: response.token,
+                    roles: response.roles,
+                })
+            );
+
+            router.push(role === 'TECHNICIAN' ? '/employee' : '/orders');
+        } catch (requestError) {
+            console.error('Ошибка входа:', requestError);
+            setError('Неверный email или пароль');
         }
-
-        router.push('/orders');
     };
     return (
         <>
@@ -107,20 +141,20 @@ export default function LoginPage() {
                                     Добро пожаловать
                                 </h2>
                                 <p className="mt-2 text-sm text-slate-500">
-                                    Введите логин и пароль для входа в рабочую панель
+                                    Введите email и пароль для входа в рабочую панель
                                 </p>
                             </div>
 
                             <form onSubmit={handleLogin} className="space-y-5">
                                 <div>
                                     <label className="mb-2 block text-sm font-semibold text-slate-700">
-                                        Логин
+                                        Email
                                     </label>
                                     <input
                                         type="text"
-                                        value={login}
-                                        onChange={(e) => setLogin(e.target.value)}
-                                        placeholder="Введите логин"
+                                        value={email}
+                                        onChange={(e) => setEmail(e.target.value)}
+                                        placeholder="admin или email@example.com"
                                         className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-500 focus:bg-white"
                                     />
                                 </div>
@@ -140,14 +174,15 @@ export default function LoginPage() {
 
                                 <button
                                     type="submit"
-                                    className="w-full rounded-2xl bg-slate-900 px-4 py-3 text-sm font-bold text-white transition hover:bg-blue-600 active:scale-[0.99]"
+                                    disabled={isLoading}
+                                    className="w-full rounded-2xl bg-slate-900 px-4 py-3 text-sm font-bold text-white transition hover:bg-blue-600 active:scale-[0.99] disabled:cursor-not-allowed disabled:bg-slate-400"
                                 >
-                                    Войти
+                                    {isLoading ? 'Вход...' : 'Войти'}
                                 </button>
                             </form>
 
                             <div className="mt-6 rounded-2xl bg-slate-50 p-4 text-sm text-slate-500">
-                                Для мокапа можешь входить с любыми значениями.
+                                Для разработки доступен быстрый вход: admin / admin.
                             </div>
                         </div>
                     </div>

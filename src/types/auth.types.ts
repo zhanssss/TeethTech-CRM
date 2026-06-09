@@ -1,19 +1,19 @@
 export type Login = {
-    email: string,
-    password: string
+    email: string;
+    password: string;
 }
 
 export type LoginResponse = {
-    userId: string,
-    email: string,
-    jwt: string,
-    role: string
+    id: string;
+    email: string;
+    token: string;
+    roles: string[];
 }
 
 export type Register = {
-    fullName: string,
-    email: string,
-    phone: string,
-    role: string,
-    password: string
+    fullName: string;
+    email: string;
+    phone: string;
+    role: string;
+    password: string;
 }

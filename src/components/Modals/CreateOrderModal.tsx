@@ -1,7 +1,8 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { type ChangeEvent, type FormEvent, useMemo, useState } from 'react';
 import type { CreateOrderDto, CreateOrderTaskDto } from '@/src/types/order.types';
+import type { TaskAttachment, TaskImage } from '@/src/types/task.types';
 import Modal from '@/src/components/ui/Modal';
 import ErrorModal from '@/src/components/ui/ErrorModal';
 import { useGetClinicsQuery } from '@/src/services/api/clinicsApi';
@@ -20,6 +21,11 @@ type CreateOrderModalProps = {
 
 const upperTeeth = [18, 17, 16, 15, 14, 13, 12, 11, 21, 22, 23, 24, 25, 26, 27, 28];
 const lowerTeeth = [48, 47, 46, 45, 44, 43, 42, 41, 31, 32, 33, 34, 35, 36, 37, 38];
+const CLINICS_LOOKUP_PARAMS = {
+    page: 0,
+    size: 100,
+    sort: 'name,ASC',
+};
 
 const createEmptyTask = (): CreateOrderTaskDto => ({
     workTypeId: '',
@@ -30,24 +36,60 @@ const createEmptyTask = (): CreateOrderTaskDto => ({
     materialId: '',
     pricePerUnit: 0,
     discountPercent: 0,
+    attachments: [],
+    images: [],
 });
 
-function includesAny(value: string | undefined, tokens: string[]) {
-    const normalizedValue = value?.toLowerCase() ?? '';
-    return tokens.some((token) => normalizedValue.includes(token));
+function normalizeRoleValue(value: string | undefined) {
+    return (value ?? '').toLowerCase().replace(/[-_/]+/g, ' ');
 }
 
 function filterUsersByRole(users: User[], tokens: string[]) {
-    const filtered = users.filter((user) =>
-        includesAny(`${user.role} ${user.specialization}`, tokens)
-    );
+    const normalizedTokens = tokens.map(normalizeRoleValue);
 
-    return filtered.length ? filtered : users;
+    return users.filter((user) =>
+        normalizedTokens.some((token) =>
+            normalizeRoleValue(`${user.role} ${user.specialization}`).includes(token)
+        )
+    );
 }
 
 function getUserLabel(user: User) {
     const meta = [user.role, user.specialization].filter(Boolean).join(' / ');
     return meta ? `${user.fullName} (${meta})` : user.fullName;
+}
+
+function formatFileSize(size: number) {
+    if (size < 1024) return `${size} B`;
+    if (size < 1024 * 1024) return `${Math.round(size / 1024)} KB`;
+    return `${(size / 1024 / 1024).toFixed(1)} MB`;
+}
+
+function createPreviewId() {
+    if (globalThis.crypto?.randomUUID) {
+        return globalThis.crypto.randomUUID();
+    }
+
+    return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+function prepareAttachments(files: File[]): TaskAttachment[] {
+    return files.map((file) => ({
+        id: createPreviewId(),
+        name: file.name,
+        url: URL.createObjectURL(file),
+        size: formatFileSize(file.size),
+        type: file.type || 'file',
+    }));
+}
+
+function prepareImages(files: File[]): TaskImage[] {
+    return files.map((file) => ({
+        id: createPreviewId(),
+        name: file.name,
+        url: URL.createObjectURL(file),
+        size: formatFileSize(file.size),
+    }));
 }
 
 export default function CreateOrderModal({
@@ -56,7 +98,8 @@ export default function CreateOrderModal({
     onClose,
     onSubmit,
 }: CreateOrderModalProps) {
-    const { data: clinics = [], isLoading: isClinicsLoading } = useGetClinicsQuery();
+    const { data: clinicsPage, isLoading: isClinicsLoading } = useGetClinicsQuery(CLINICS_LOOKUP_PARAMS);
+    const clinics = clinicsPage?.content ?? [];
     const { data: users = [], isLoading: isUsersLoading } = useGetUsersQuery();
     const { data: workTypes = [], isLoading: isWorkTypesLoading } = useGetWorkTypesQuery();
     const { data: materials = [], isLoading: isMaterialsLoading } = useGetMaterialsQuery();
@@ -75,12 +118,12 @@ export default function CreateOrderModal({
     });
 
     const technicianOptions = useMemo(
-        () => filterUsersByRole(users, ['тех', 'керам', 'technician', 'ceramist']),
+        () => filterUsersByRole(users, ['керамист', 'зуб техник', 'technician', 'ceramist', 'dental technician']),
         [users]
     );
 
     const operatorOptions = useMemo(
-        () => filterUsersByRole(users, ['cad', 'cam', 'оператор', 'operator', 'модел']),
+        () => filterUsersByRole(users, ['cad', 'cam', 'оператор', 'operator', 'моделировщик', 'modeler']),
         [users]
     );
 
@@ -96,7 +139,7 @@ export default function CreateOrderModal({
         return sum + taskTotal;
     }, 0);
 
-    const handleSubmit = async (e: React.FormEvent) => {
+    const handleSubmit = async (e: FormEvent) => {
         e.preventDefault();
         setSubmitError('');
 
@@ -175,6 +218,90 @@ export default function CreateOrderModal({
         });
     };
 
+    const handleTaskImagesChange = (taskIndex: number, event: ChangeEvent<HTMLInputElement>) => {
+        const files = Array.from(event.target.files ?? []);
+
+        if (!files.length) return;
+
+        const images = prepareImages(files);
+
+        setFormData((prev) => {
+            const updatedTasks = [...prev.tasks];
+            const task = updatedTasks[taskIndex];
+
+            updatedTasks[taskIndex] = {
+                ...task,
+                images: [...(task.images ?? []), ...images],
+            };
+
+            return {
+                ...prev,
+                tasks: updatedTasks,
+            };
+        });
+
+        event.target.value = '';
+    };
+
+    const handleTaskAttachmentsChange = (taskIndex: number, event: ChangeEvent<HTMLInputElement>) => {
+        const files = Array.from(event.target.files ?? []);
+
+        if (!files.length) return;
+
+        const attachments = prepareAttachments(files);
+
+        setFormData((prev) => {
+            const updatedTasks = [...prev.tasks];
+            const task = updatedTasks[taskIndex];
+
+            updatedTasks[taskIndex] = {
+                ...task,
+                attachments: [...(task.attachments ?? []), ...attachments],
+            };
+
+            return {
+                ...prev,
+                tasks: updatedTasks,
+            };
+        });
+
+        event.target.value = '';
+    };
+
+    const handleRemoveTaskImage = (taskIndex: number, imageId: string) => {
+        setFormData((prev) => {
+            const updatedTasks = [...prev.tasks];
+            const task = updatedTasks[taskIndex];
+
+            updatedTasks[taskIndex] = {
+                ...task,
+                images: (task.images ?? []).filter((image) => image.id !== imageId),
+            };
+
+            return {
+                ...prev,
+                tasks: updatedTasks,
+            };
+        });
+    };
+
+    const handleRemoveTaskAttachment = (taskIndex: number, attachmentId: string) => {
+        setFormData((prev) => {
+            const updatedTasks = [...prev.tasks];
+            const task = updatedTasks[taskIndex];
+
+            updatedTasks[taskIndex] = {
+                ...task,
+                attachments: (task.attachments ?? []).filter((attachment) => attachment.id !== attachmentId),
+            };
+
+            return {
+                ...prev,
+                tasks: updatedTasks,
+            };
+        });
+    };
+
     const isLoadingDictionaries =
         isClinicsLoading ||
         isUsersLoading ||
@@ -218,7 +345,7 @@ export default function CreateOrderModal({
                                 value={formData.clinicId}
                                 onChange={(e) => setFormData({ ...formData, clinicId: e.target.value })}
                             >
-                                <option value="">-- Выберите клинику --</option>
+                                <option value="">Выберите клинику</option>
                                 {clinics.map((clinic) => (
                                     <option key={clinic.id} value={clinic.id}>
                                         {clinic.name}
@@ -256,6 +383,7 @@ export default function CreateOrderModal({
                                 required
                                 type="text"
                                 className="w-full border-2 border-slate-100 rounded-xl px-3 py-2 text-sm focus:border-blue-500 outline-none transition"
+                                placeholder="ФИО пациента"
                                 value={formData.patientFullName}
                                 onChange={(e) => setFormData({ ...formData, patientFullName: e.target.value })}
                             />
@@ -275,6 +403,11 @@ export default function CreateOrderModal({
                                         {getUserLabel(user)}
                                     </option>
                                 ))}
+                                {!technicianOptions.length && (
+                                    <option value="" disabled>
+                                        Нет доступных керамистов
+                                    </option>
+                                )}
                             </select>
                         </div>
 
@@ -292,6 +425,11 @@ export default function CreateOrderModal({
                                         {getUserLabel(user)}
                                     </option>
                                 ))}
+                                {!operatorOptions.length && (
+                                    <option value="" disabled>
+                                        Нет доступных операторов
+                                    </option>
+                                )}
                             </select>
                         </div>
                     </div>
@@ -433,6 +571,111 @@ export default function CreateOrderModal({
                                                 <span className="text-lg font-black">
                                                     {taskTotal.toLocaleString('ru-RU')} ₸
                                                 </span>
+                                            </div>
+                                        </div>
+
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            <div className="rounded-2xl border border-blue-100 bg-blue-50/60 p-4">
+                                                <div className="flex items-center justify-between gap-3">
+                                                    <h5 className="text-[10px] font-black text-blue-700 uppercase tracking-widest">
+                                                        Скрины
+                                                    </h5>
+
+                                                    <label className="cursor-pointer rounded-lg bg-blue-600 px-3 py-1.5 text-[10px] font-black uppercase text-white hover:bg-blue-700">
+                                                        Добавить
+                                                        <input
+                                                            type="file"
+                                                            accept="image/*"
+                                                            multiple
+                                                            onChange={(e) => handleTaskImagesChange(index, e)}
+                                                            className="hidden"
+                                                        />
+                                                    </label>
+                                                </div>
+
+                                                {task.images?.length ? (
+                                                    <div className="mt-3 space-y-2">
+                                                        {task.images.map((image) => (
+                                                            <div
+                                                                key={image.id}
+                                                                className="flex items-center justify-between gap-3 rounded-xl border border-blue-100 bg-white px-3 py-2"
+                                                            >
+                                                                <div className="min-w-0">
+                                                                    <p className="truncate text-xs font-bold text-slate-800">
+                                                                        {image.name}
+                                                                    </p>
+                                                                    <p className="text-[10px] text-slate-400">
+                                                                        {image.size}
+                                                                    </p>
+                                                                </div>
+
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => handleRemoveTaskImage(index, image.id)}
+                                                                    className="text-sm font-black text-slate-300 hover:text-red-500"
+                                                                    aria-label={`Удалить ${image.name}`}
+                                                                >
+                                                                    &times;
+                                                                </button>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                ) : (
+                                                    <p className="mt-3 rounded-xl border border-dashed border-blue-200 bg-white/70 px-3 py-3 text-xs font-semibold text-slate-400">
+                                                        Скрины не добавлены
+                                                    </p>
+                                                )}
+                                            </div>
+
+                                            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                                                <div className="flex items-center justify-between gap-3">
+                                                    <h5 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
+                                                        Файлы
+                                                    </h5>
+
+                                                    <label className="cursor-pointer rounded-lg bg-slate-900 px-3 py-1.5 text-[10px] font-black uppercase text-white hover:bg-slate-800">
+                                                        Прикрепить
+                                                        <input
+                                                            type="file"
+                                                            multiple
+                                                            onChange={(e) => handleTaskAttachmentsChange(index, e)}
+                                                            className="hidden"
+                                                        />
+                                                    </label>
+                                                </div>
+
+                                                {task.attachments?.length ? (
+                                                    <div className="mt-3 space-y-2">
+                                                        {task.attachments.map((file) => (
+                                                            <div
+                                                                key={file.id}
+                                                                className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2"
+                                                            >
+                                                                <div className="min-w-0">
+                                                                    <p className="truncate text-xs font-bold text-slate-800">
+                                                                        {file.name}
+                                                                    </p>
+                                                                    <p className="text-[10px] text-slate-400">
+                                                                        {file.size}
+                                                                    </p>
+                                                                </div>
+
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => handleRemoveTaskAttachment(index, file.id)}
+                                                                    className="text-sm font-black text-slate-300 hover:text-red-500"
+                                                                    aria-label={`Удалить ${file.name}`}
+                                                                >
+                                                                    &times;
+                                                                </button>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                ) : (
+                                                    <p className="mt-3 rounded-xl border border-dashed border-slate-200 bg-white px-3 py-3 text-xs font-semibold text-slate-400">
+                                                        Файлы не добавлены
+                                                    </p>
+                                                )}
                                             </div>
                                         </div>
                                     </div>

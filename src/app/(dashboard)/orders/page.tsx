@@ -11,6 +11,10 @@ import {
     useGetOrdersQuery,
 } from '@/src/services/api/ordersApi';
 
+const DEFAULT_ORDER_SORT = 'deadline,ASC';
+const DEFAULT_PAGE_SIZE = 10;
+const PAGE_SIZE_OPTIONS = [10, 20, 50];
+
 function mapApiOrderToListItem(order: OrderApiListItem): OrderListItem {
     return {
         id: order.id,
@@ -30,31 +34,52 @@ function mapApiOrderToListItem(order: OrderApiListItem): OrderListItem {
     };
 }
 
+function formatMoney(value?: number) {
+    return `${(value ?? 0).toLocaleString('ru-RU')} ₸`;
+}
+
+function getStatusBadgeClass(status: string) {
+    if (status === 'Активен') {
+        return 'bg-emerald-100 text-emerald-700';
+    }
+
+    return 'bg-slate-100 text-slate-600';
+}
+
 export default function OrdersPage() {
     const localOrders = useOrders();
-    const { data: serverOrders, isLoading: isOrdersLoading, isError: isOrdersError } = useGetOrdersQuery();
     const [createOrder, { isLoading: isCreatingOrder }] = useCreateOrderMutation();
     const [deleteOrder, { isLoading: isDeletingOrder }] = useDeleteOrderMutation();
 
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [search, setSearch] = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
-    const [clinicFilter, setClinicFilter] = useState('all');
     const [deleteError, setDeleteError] = useState('');
+    const [page, setPage] = useState(0);
+    const [size, setSize] = useState(DEFAULT_PAGE_SIZE);
+    const [sort, setSort] = useState(DEFAULT_ORDER_SORT);
+    const {
+        data: ordersPage,
+        isFetching: isOrdersLoading,
+        isError: isOrdersError,
+    } = useGetOrdersQuery({
+        page,
+        size,
+        sort,
+    });
 
     const orders = useMemo(
-        () => (serverOrders ? serverOrders.map(mapApiOrderToListItem) : localOrders),
-        [localOrders, serverOrders]
+        () => {
+            if (ordersPage) {
+                return ordersPage.content.map(mapApiOrderToListItem);
+            }
+
+            return isOrdersError ? localOrders : [];
+        },
+        [isOrdersError, localOrders, ordersPage]
     );
 
     const statuses = Array.from(new Set(orders.map((order) => order.status)));
-    const clinics = Array.from(
-        new Set(
-            orders
-                .map((order) => order.clinic ?? order.clinicName)
-                .filter((clinic): clinic is string => Boolean(clinic))
-        )
-    );
 
     const filteredOrders = orders.filter((order) => {
         const searchValue = search.toLowerCase();
@@ -64,22 +89,30 @@ export default function OrdersPage() {
             (order.orderNumber ?? '').toLowerCase().includes(searchValue) ||
             order.patient.toLowerCase().includes(searchValue) ||
             (order.work ?? order.workType ?? '').toLowerCase().includes(searchValue) ||
-            order.status.toLowerCase().includes(searchValue) ||
-            (order.clinic ?? order.clinicName ?? '').toLowerCase().includes(searchValue);
+            order.status.toLowerCase().includes(searchValue);
 
         const matchesStatus =
             statusFilter === 'all' || order.status === statusFilter;
 
-        const matchesClinic =
-            clinicFilter === 'all' || (order.clinic ?? order.clinicName) === clinicFilter;
-
-        return matchesSearch && matchesStatus && matchesClinic;
+        return matchesSearch && matchesStatus;
     });
 
     const resetFilters = () => {
         setSearch('');
         setStatusFilter('all');
-        setClinicFilter('all');
+        setSort(DEFAULT_ORDER_SORT);
+        setSize(DEFAULT_PAGE_SIZE);
+        setPage(0);
+    };
+
+    const handleSizeChange = (nextSize: number) => {
+        setSize(nextSize);
+        setPage(0);
+    };
+
+    const handleSortChange = (nextSort: string) => {
+        setSort(nextSort);
+        setPage(0);
     };
 
     const handleCreateOrder = async (payload: CreateOrderDto) => {
@@ -123,7 +156,7 @@ export default function OrdersPage() {
             )}
 
             <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-4">
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-5">
                     <input
                         type="text"
                         value={search}
@@ -146,31 +179,67 @@ export default function OrdersPage() {
                     </select>
 
                     <select
-                        value={clinicFilter}
-                        onChange={(e) => setClinicFilter(e.target.value)}
+                        value={sort}
+                        onChange={(e) => handleSortChange(e.target.value)}
                         className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none focus:border-blue-500 bg-white"
                     >
-                        <option value="all">Все клиники</option>
-                        {clinics.map((clinic) => (
-                            <option key={clinic} value={clinic}>
-                                {clinic}
+                        <option value="deadline,ASC">Срок: по возрастанию</option>
+                        <option value="deadline,DESC">Срок: по убыванию</option>
+                    </select>
+
+                    <select
+                        value={size}
+                        onChange={(e) => handleSizeChange(Number(e.target.value))}
+                        className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none focus:border-blue-500 bg-white"
+                    >
+                        {PAGE_SIZE_OPTIONS.map((pageSize) => (
+                            <option key={pageSize} value={pageSize}>
+                                {pageSize} на странице
                             </option>
                         ))}
                     </select>
                 </div>
 
-                <div className="mt-4 flex items-center justify-between">
+                <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <p className="text-xs text-slate-500">
-                        Найдено: <span className="font-bold text-slate-700">{filteredOrders.length}</span>
+                        На странице: <span className="font-bold text-slate-700">{filteredOrders.length}</span>
+                        {ordersPage && (
+                            <span className="text-slate-400"> из {ordersPage.numberOfElements}</span>
+                        )}
                         {isOrdersLoading && <span className="ml-2 text-blue-600">Загрузка...</span>}
                     </p>
 
-                    <button
-                        onClick={resetFilters}
-                        className="text-xs font-bold text-slate-500 hover:text-blue-600 transition"
-                    >
-                        Сбросить фильтры
-                    </button>
+                    <div className="flex flex-wrap items-center gap-3">
+                        <button
+                            onClick={resetFilters}
+                            className="text-xs font-bold text-slate-500 hover:text-blue-600 transition"
+                        >
+                            Сбросить фильтры
+                        </button>
+
+                        <div className="flex items-center gap-2 text-xs font-bold text-slate-600">
+                            <button
+                                type="button"
+                                disabled={isOrdersLoading || !ordersPage || ordersPage.first}
+                                onClick={() => setPage((currentPage) => Math.max(currentPage - 1, 0))}
+                                className="rounded-lg border border-slate-200 px-3 py-1.5 transition hover:border-blue-500 hover:text-blue-600 disabled:cursor-not-allowed disabled:opacity-40"
+                            >
+                                Назад
+                            </button>
+                            <span className="min-w-20 text-center">
+                                Стр. {(ordersPage?.number ?? page) + 1}
+                                {ordersPage?.totalPages ? ` из ${ordersPage.totalPages}` : ''}
+                            </span>
+                            <button
+                                type="button"
+                                disabled={isOrdersLoading || !ordersPage || ordersPage.last}
+                                onClick={() => setPage((currentPage) => currentPage + 1)}
+                                className="rounded-lg border border-slate-200 px-3 py-1.5 transition hover:border-blue-500 hover:text-blue-600 disabled:cursor-not-allowed disabled:opacity-40"
+                            >
+                                Вперёд
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -191,6 +260,14 @@ export default function OrdersPage() {
                         </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
+                        {isOrdersLoading && !ordersPage && (
+                            <tr>
+                                <td colSpan={9} className="p-10 text-center text-sm text-slate-400">
+                                    Загрузка заказов...
+                                </td>
+                            </tr>
+                        )}
+
                         {filteredOrders.map((order) => (
                             <tr key={order.id} className="hover:bg-blue-50/30 transition group">
                                 <td className="p-4 text-sm font-mono text-slate-400">
@@ -199,14 +276,14 @@ export default function OrdersPage() {
                                 <td className="p-4 text-sm font-bold text-slate-800">{order.patient}</td>
                                 <td className="p-4 text-sm text-slate-600">{order.work}</td>
                                 <td className="p-4">
-                                    <span className="bg-yellow-100 text-yellow-700 px-2 py-1 rounded-md text-[10px] font-bold uppercase">
+                                    <span className={`${getStatusBadgeClass(order.status)} px-2 py-1 rounded-md text-[10px] font-bold uppercase`}>
                                         {order.status}
                                     </span>
                                 </td>
                                 <td className="p-4 text-sm">{order.units}</td>
-                                <td className="p-4 text-sm">{order.unitPrice?.toLocaleString('ru-RU')} ₸</td>
-                                <td className="p-4 text-sm">{order.discount?.toLocaleString('ru-RU')}%</td>
-                                <td className="p-4 text-sm font-bold">{order.total?.toLocaleString('ru-RU')} ₸</td>
+                                <td className="p-4 text-sm">{formatMoney(order.unitPrice)}</td>
+                                <td className="p-4 text-sm">{(order.discount ?? 0).toLocaleString('ru-RU')}%</td>
+                                <td className="p-4 text-sm font-bold">{formatMoney(order.total)}</td>
                                 <td className="p-4">
                                     <div className="flex justify-end gap-2">
                                         <Link
@@ -228,7 +305,7 @@ export default function OrdersPage() {
                             </tr>
                         ))}
 
-                        {filteredOrders.length === 0 && (
+                        {!isOrdersLoading && filteredOrders.length === 0 && (
                             <tr>
                                 <td colSpan={9} className="p-10 text-center text-sm text-slate-400">
                                     Заказы не найдены

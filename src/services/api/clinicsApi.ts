@@ -1,17 +1,34 @@
 import {teethTechApi} from "@/src/services/teethTechApi";
 
 import type {
+    ClinicGetApiResponse,
     Clinic,
     CreateClinicDto,
+    ClinicDoctor,
     ClinicDetailedInfo,
+    ClinicOrder,
+    ClinicPatient,
+    ClinicRelatedPageResponse,
     UpdateClinicDto
 } from '@/src/types/clinic.types'
 
+import type  {
+    GetClinicRelatedParams,
+    GetClinicsParams
+} from '@/src/types/params.types'
+
 export const clinicsApi = teethTechApi.injectEndpoints({
     endpoints: (builder) => ({
-        getClinics: builder.query<Clinic[], void>({
-            query: () => '/clinics',
-
+        getClinics: builder.query<ClinicGetApiResponse, GetClinicsParams>({
+            query: ({ page, size, sort }) => ({
+                url: '/clinics',
+                method: 'GET',
+                params: {
+                    page,
+                    size,
+                    ...(sort? {sort} :{}),
+                }
+            }),
             providesTags: ["Clinics"],
         }),
         getClinicsById: builder.query<ClinicDetailedInfo, string>({
@@ -20,6 +37,57 @@ export const clinicsApi = teethTechApi.injectEndpoints({
                 {
                     type: "Clinics",
                     id
+                }
+            ]
+        }),
+        getClinicDoctors: builder.query<ClinicRelatedPageResponse<ClinicDoctor>, GetClinicRelatedParams>({
+            query: ({ id, page, size, sort }) => ({
+                url: `/clinics/${id}/doctors`,
+                method: 'GET',
+                params: {
+                    page,
+                    size,
+                    ...(sort ? { sort } : {}),
+                },
+            }),
+            providesTags: (_result, _error, { id }) => [
+                {
+                    type: "Clinics",
+                    id: `${id}-doctors`,
+                }
+            ]
+        }),
+        getClinicOrders: builder.query<ClinicRelatedPageResponse<ClinicOrder>, GetClinicRelatedParams>({
+            query: ({ id, page, size, sort }) => ({
+                url: `/clinics/${id}/orders`,
+                method: 'GET',
+                params: {
+                    page,
+                    size,
+                    ...(sort ? { sort } : {}),
+                },
+            }),
+            providesTags: (_result, _error, { id }) => [
+                {
+                    type: "Clinics",
+                    id: `${id}-orders`,
+                }
+            ]
+        }),
+        getClinicPatients: builder.query<ClinicRelatedPageResponse<ClinicPatient>, GetClinicRelatedParams>({
+            query: ({ id, page, size, sort }) => ({
+                url: `/clinics/${id}/patients`,
+                method: 'GET',
+                params: {
+                    page,
+                    size,
+                    ...(sort ? { sort } : {}),
+                },
+            }),
+            providesTags: (_result, _error, { id }) => [
+                {
+                    type: "Clinics",
+                    id: `${id}-patients`,
                 }
             ]
         }),
@@ -35,7 +103,7 @@ export const clinicsApi = teethTechApi.injectEndpoints({
                 body,
             }),
 
-            invalidatesTags: (_result,_error,{id}) => ["Clinics", {
+            invalidatesTags: (_result, _error, {id}) => ["Clinics", {
                 type: "Clinics",
                 id
             }]
@@ -61,6 +129,9 @@ export const clinicsApi = teethTechApi.injectEndpoints({
 export const {
     useGetClinicsQuery,
     useGetClinicsByIdQuery,
+    useGetClinicDoctorsQuery,
+    useGetClinicOrdersQuery,
+    useGetClinicPatientsQuery,
     useCreateClinicMutation,
     useUpdateClinicMutation,
     useDeleteClinicMutation,

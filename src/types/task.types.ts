@@ -81,3 +81,50 @@ export type TaskImage = {
     url: string;
     size: string;
 };
+
+export type TaskHistoryChangedBy = {
+    userId: string;
+    fullName: string;
+    initials: string;
+};
+
+export type TaskHistoryItem = {
+    id: string;
+    eventType: string;
+    fieldName?: string | null;
+    oldValue?: string | null;
+    newValue?: string | null;
+    changedAt: string;
+    changedBy?: TaskHistoryChangedBy | null;
+};
+
+export type TaskHistoryResponse = {
+    content: TaskHistoryItem[];
+    page: number;
+    size: number;
+    hasNext: boolean;
+};
+
+export type GetTaskHistoryArgs = {
+    taskId: string;
+    page?: number;
+    size?: number;
+};
+
+export interface Task {
+    id: string;
+    title?: string;
+    status: string;
+    type?: string;
+    material?: string;
+    color?: string;
+    abutment?: string | number;
+    technicianId?: string;
+    operatorId?: string;
+    units: number;
+    unitPrice: number;
+    discount: number;
+    comments?: TaskComment[];
+    attachments?: TaskAttachment[];
+    images?: TaskImage[];
+}

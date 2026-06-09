@@ -3,12 +3,49 @@ export type ImplantSource = 'clinic' | 'lab';
 
 export type OrderTaskPriority = 'low' | 'medium' | 'high' | 'urgent';
 
-import type { OrderTaskStatus } from './task.types';
+import type {
+    OrderTaskStatus,
+    TaskAttachment,
+    TaskComment,
+    TaskImage,
+} from './task.types';
+
+export type Sort = {
+    sorted: boolean;
+    unsorted: boolean;
+    empty: boolean;
+}
+
+export type PageableInfo = {
+    pageNumber: number;
+    pageSize: number;
+    paged: boolean;
+    sort: Sort;
+    unpaged: boolean;
+    offset: number
+}
+
+export interface OrderGetApiResponse {
+    pageable: PageableInfo;
+    first: boolean;
+    sort: Sort;
+    number: number;
+    numberOfElements: number;
+    last: boolean;
+    size: number;
+    content: OrderApiListItem[];
+    empty: boolean;
+    totalElements?: number;
+    totalPages?: number;
+}
 
 export interface OrderTask extends CreateOrderTask {
     id: string;
     orderId: string;
     status: OrderTaskStatus;
+    comments?: TaskComment[];
+    attachments?: TaskAttachment[];
+    images?: TaskImage[];
 }
 
 export interface CreateOrderTask {
@@ -99,6 +136,8 @@ export interface CreateOrderTaskDto {
     materialId: string;
     pricePerUnit: number;
     discountPercent: number;
+    attachments?: TaskAttachment[];
+    images?: TaskImage[];
 }
 
 export interface CreateOrderDto {
@@ -112,6 +151,27 @@ export interface CreateOrderDto {
     tasks: CreateOrderTaskDto[];
 }
 
+export type CreateOrderTaskRequest = Omit<CreateOrderTaskDto, 'attachments' | 'images'>;
+
+export interface CreateOrderRequest extends Omit<CreateOrderDto, 'tasks'> {
+    tasks: CreateOrderTaskRequest[];
+}
+
+export interface UpdateOrderDto {
+    deadline: string;
+    comment: string;
+}
+
+export interface UpdateOrderArgs {
+    id: string;
+    body: UpdateOrderDto;
+}
+
+export interface GetOrderKanbanArgs {
+    id: string;
+    userId: string;
+}
+
 export interface OrderKanbanAssignee {
     id: string;
     fullName: string;
@@ -119,15 +179,23 @@ export interface OrderKanbanAssignee {
 
 export interface OrderKanbanTask {
     id: string;
-    taskNumber: string;
+    orderId: string;
     workTypeName: string;
+    workTypeCode: string;
     materialName: string;
     colorCode: string;
     quantity: number;
-    technician: OrderKanbanAssignee;
-    operator: OrderKanbanAssignee;
-    pricePerUnit: number;
-    totalPrice: number;
+    totalAmount: number;
+    currentStatusFormName: string;
+    currentStatusCode: string;
+    dentalTechnicianFullName: string;
+    toothNumbers: number[];
+    allowedNextStatusIds: string[];
+    taskNumber?: string;
+    technician?: OrderKanbanAssignee;
+    operator?: OrderKanbanAssignee;
+    pricePerUnit?: number;
+    totalPrice?: number;
 }
 
 export interface OrderKanbanColumn {

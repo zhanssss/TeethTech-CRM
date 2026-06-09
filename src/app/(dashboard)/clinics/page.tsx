@@ -4,8 +4,8 @@ import {useMemo, useState} from 'react';
 import Section from '@/src/components/ui/Section';
 import CreateClinicModal from '@/src/components/Modals/CreateClinicModal';
 import Link from 'next/link';
-import {useGetClinicsQuery} from "@/src/services/api/clinicsApi";
 import ErrorModal from '@/src/components/ui/ErrorModal';
+import {useGetClinicsQuery} from "@/src/services/api/clinicsApi";
 
 type ClinicTableRow = {
     id: string | number;
@@ -18,12 +18,22 @@ type ClinicTableRow = {
 };
 
 export default function ClinicsPage() {
+
     const [isModalOpen, setIsModalOpen] = useState(false);
-    const {data, isLoading, isError} = useGetClinicsQuery();
+
+    const [page, setPage] = useState(0);
+    const [size, setSize] = useState(10);
+    const [sort, setSort] = useState('name, ASC');
+
+    const {data, isLoading, isError} = useGetClinicsQuery({
+        page,
+        size,
+        sort
+    });
 
 
     const clinics = useMemo<ClinicTableRow[]>(() => {
-        const apiClinics = data?.map((clinic) => ({
+        const apiClinics = data?.content.map((clinic) => ({
             id: clinic.id,
             name: clinic.name,
             address: clinic.address,
