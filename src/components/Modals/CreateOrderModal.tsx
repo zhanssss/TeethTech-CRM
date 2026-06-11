@@ -5,12 +5,13 @@ import type { CreateOrderDto, CreateOrderTaskDto } from '@/src/types/order.types
 import type { TaskAttachment, TaskImage } from '@/src/types/task.types';
 import Modal from '@/src/components/ui/Modal';
 import ErrorModal from '@/src/components/ui/ErrorModal';
-import { useGetClinicsQuery } from '@/src/services/api/clinicsApi';
+import { useGetClinicDoctorsQuery, useGetClinicsQuery } from '@/src/services/api/clinicsApi';
 import { useGetUsersQuery } from '@/src/services/api/usersApi';
 import { useGetWorkTypesQuery } from '@/src/services/api/laboratory/workTypesApi';
 import { useGetMaterialsQuery } from '@/src/services/api/laboratory/materialApi';
 import { useGetColorsQuery } from '@/src/services/api/laboratory/colorsApi';
 import type { User } from '@/src/types/user.types';
+import { ORDER_TASK_TYPE_OPTIONS } from '@/src/utils/orderUtils';
 
 type CreateOrderModalProps = {
     isOpen: boolean;
@@ -26,8 +27,14 @@ const CLINICS_LOOKUP_PARAMS = {
     size: 100,
     sort: 'name,ASC',
 };
+const DOCTORS_LOOKUP_PARAMS = {
+    page: 0,
+    size: 100,
+    sort: 'fullName,ASC',
+};
 
 const createEmptyTask = (): CreateOrderTaskDto => ({
+    taskType: 'PHYSICAL_COPY',
     workTypeId: '',
     quantity: 1,
     toothNumbers: [],
@@ -44,18 +51,30 @@ function normalizeRoleValue(value: string | undefined) {
     return (value ?? '').toLowerCase().replace(/[-_/]+/g, ' ');
 }
 
+function getUserRoleValues(user: User) {
+    return [
+        user.role,
+        ...(user.roles ?? []),
+        user.specialization,
+    ].filter((value): value is string => Boolean(value));
+}
+
 function filterUsersByRole(users: User[], tokens: string[]) {
     const normalizedTokens = tokens.map(normalizeRoleValue);
 
-    return users.filter((user) =>
-        normalizedTokens.some((token) =>
-            normalizeRoleValue(`${user.role} ${user.specialization}`).includes(token)
-        )
-    );
+    return users.filter((user) => {
+        const normalizedUserRoles = getUserRoleValues(user)
+            .map(normalizeRoleValue)
+            .join(' ');
+
+        return normalizedTokens.some((token) =>
+            normalizedUserRoles.includes(token)
+        );
+    });
 }
 
 function getUserLabel(user: User) {
-    const meta = [user.role, user.specialization].filter(Boolean).join(' / ');
+    const meta = getUserRoleValues(user).join(' / ');
     return meta ? `${user.fullName} (${meta})` : user.fullName;
 }
 
@@ -116,16 +135,37 @@ export default function CreateOrderModal({
         comment: '',
         tasks: [createEmptyTask()],
     });
+    const {
+        data: doctorsPage,
+        isLoading: isDoctorsLoading,
+    } = useGetClinicDoctorsQuery(
+        {
+            id: formData.clinicId,
+            ...DOCTORS_LOOKUP_PARAMS,
+        },
+        {
+            skip: !formData.clinicId,
+        }
+    );
+    const doctors = doctorsPage?.content ?? [];
 
     const technicianOptions = useMemo(
-        () => filterUsersByRole(users, ['керамист', 'зуб техник', 'technician', 'ceramist', 'dental technician']),
+        () => filterUsersByRole(users, ['керамист', 'зуб техник', 'technician', 'ceramist', 'dental technician', 'ROLE_CERAMIST']),
         [users]
     );
 
     const operatorOptions = useMemo(
-        () => filterUsersByRole(users, ['cad', 'cam', 'оператор', 'operator', 'моделировщик', 'modeler']),
+        () => filterUsersByRole(users, ['cad', 'cam', 'оператор', 'operator', 'моделировщик', 'modeler', 'ROLE_OPERATOR']),
         [users]
     );
+
+    const handleClinicChange = (clinicId: string) => {
+        setFormData((prev) => ({
+            ...prev,
+            clinicId,
+            doctorFullName: '',
+        }));
+    };
 
     if (!isOpen) return null;
 
@@ -304,6 +344,7 @@ export default function CreateOrderModal({
 
     const isLoadingDictionaries =
         isClinicsLoading ||
+        isDoctorsLoading ||
         isUsersLoading ||
         isWorkTypesLoading ||
         isMaterialsLoading ||
@@ -343,7 +384,7 @@ export default function CreateOrderModal({
                                 required
                                 className="w-full border-2 border-slate-100 rounded-xl px-3 py-2 text-sm focus:border-blue-500 outline-none transition bg-white"
                                 value={formData.clinicId}
-                                onChange={(e) => setFormData({ ...formData, clinicId: e.target.value })}
+                                onChange={(e) => handleClinicChange(e.target.value)}
                             >
                                 <option value="">Выберите клинику</option>
                                 {clinics.map((clinic) => (
@@ -356,14 +397,31 @@ export default function CreateOrderModal({
 
                         <div>
                             <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Врач</label>
-                            <input
+                            <select
                                 required
-                                type="text"
-                                className="w-full border-2 border-slate-100 rounded-xl px-3 py-2 text-sm focus:border-blue-500 outline-none transition"
-                                placeholder="ФИО врача"
+                                disabled={!formData.clinicId || isDoctorsLoading}
+                                className="w-full border-2 border-slate-100 rounded-xl px-3 py-2 text-sm focus:border-blue-500 outline-none transition bg-white disabled:cursor-not-allowed disabled:bg-slate-50"
                                 value={formData.doctorFullName}
                                 onChange={(e) => setFormData({ ...formData, doctorFullName: e.target.value })}
-                            />
+                            >
+                                <option value="">
+                                    {formData.clinicId
+                                        ? isDoctorsLoading
+                                            ? 'Загрузка врачей...'
+                                            : 'Выберите врача'
+                                        : 'Сначала выберите клинику'}
+                                </option>
+                                {doctors.map((doctor) => (
+                                    <option key={doctor.fullName} value={doctor.fullName}>
+                                        {doctor.fullName}
+                                    </option>
+                                ))}
+                                {formData.clinicId && !isDoctorsLoading && !doctors.length && (
+                                    <option value="" disabled>
+                                        Нет врачей у выбранной клиники
+                                    </option>
+                                )}
+                            </select>
                         </div>
 
                         <div>
@@ -464,7 +522,25 @@ export default function CreateOrderModal({
 
                                 <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_320px] gap-5">
                                     <div className="space-y-4">
-                                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                                        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                                            <div>
+                                                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">
+                                                    Тип задачи
+                                                </label>
+                                                <select
+                                                    required
+                                                    className="w-full border-2 border-slate-100 rounded-xl px-3 py-2 text-sm focus:border-blue-500 outline-none transition bg-white"
+                                                    value={task.taskType}
+                                                    onChange={(e) => handleTaskChange(index, 'taskType', e.target.value as CreateOrderTaskDto['taskType'])}
+                                                >
+                                                    {ORDER_TASK_TYPE_OPTIONS.map((option) => (
+                                                        <option key={option.value} value={option.value}>
+                                                            {option.label}
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                            </div>
+
                                             <div className="md:col-span-2">
                                                 <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">
                                                     Вид работы

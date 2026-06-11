@@ -4,9 +4,10 @@ import { useSyncExternalStore } from 'react';
 import { mockOrders } from '@/src/mock/orders';
 import type { CreateOrderTask, OrderListItem, OrderTask } from '@/src/types/order.types';
 import type { OrderTaskStatus } from '@/src/types/task.types';
+import { normalizeOrderTaskType } from '@/src/utils/orderUtils';
 
 const STORAGE_KEY = 'teeth-tech-orders';
-const ORDER_TASK_STATUSES: OrderTaskStatus[] = ['1', '2', '3', '4', '5', '6', '7'];
+const ORDER_TASK_STATUSES: OrderTaskStatus[] = ['1', '2', '3', '4', '5', '6', '7', '8'];
 const LEGACY_TASK_STATUS_MAP: Record<string, OrderTaskStatus> = {
     TODO: '1',
     IN_PROGRESS: '2',
@@ -62,6 +63,7 @@ function normalizeTask(task: Partial<OrderTask> & Partial<CreateOrderTask>, orde
     return {
         id: task.id ?? `${orderId}-task-${index + 1}`,
         orderId,
+        taskType: normalizeOrderTaskType(task.taskType),
         type: task.type ?? '',
         units: numberFrom(task.units, 1),
         material: task.material ?? '',
@@ -84,15 +86,32 @@ function normalizeTask(task: Partial<OrderTask> & Partial<CreateOrderTask>, orde
     };
 }
 
-function createFallbackTask(order: OrderListItem): OrderTask {
+function getFallbackTaskTypes(order: OrderListItem) {
+    const workSummary = order.work ?? order.workType ?? '';
+    const parts = workSummary
+        .split(/[,;|]+/)
+        .map((part) => part.trim())
+        .filter(Boolean);
+
+    return parts.length ? parts : [workSummary || ''];
+}
+
+function createFallbackTask(order: OrderListItem, type: string, index: number, totalTasks: number): OrderTask {
+    const units = order.units && totalTasks > 1
+        ? Math.max(1, Math.round(order.units / totalTasks))
+        : order.units ?? 1;
+    const total = order.total && totalTasks > 1
+        ? order.total / totalTasks
+        : order.total;
+
     return normalizeTask(
         {
-            id: `${order.id}-task-1`,
+            id: `${order.id}-task-${index + 1}`,
             orderId: order.id,
-            type: order.work ?? order.workType ?? '',
-            units: order.units ?? 1,
+            type,
+            units,
             color: order.color ?? '',
-            unitPrice: order.unitPrice ?? order.total ?? 0,
+            unitPrice: order.unitPrice ?? total ?? 0,
             discount: order.discount ?? 0,
             impressionQty: quantityFrom(order.impression),
             transferQty: quantityFrom(order.transfer),
@@ -101,17 +120,29 @@ function createFallbackTask(order: OrderListItem): OrderTask {
             abutment: String(order.abutment ?? ''),
             operatorId: order.operator ?? '',
             technicianId: order.technician ?? '',
+            taskType: totalTasks > 1 ? normalizeOrderTaskType(type) : order.taskType ?? normalizeOrderTaskType(type),
             status: taskStatusFrom(order.status),
         },
         order.id,
-        0
+        index
     );
 }
 
 export function normalizeOrder(order: OrderListItem): OrderListItem {
-    const tasks = order.tasks?.length
+    const storedTaskSummary = order.tasks?.length === 1 ? order.tasks[0].type : '';
+    const shouldSplitStoredTask = /[,;|]+/.test(storedTaskSummary);
+    const fallbackSourceOrder = shouldSplitStoredTask
+        ? {
+            ...order,
+            work: storedTaskSummary,
+            workType: storedTaskSummary,
+        }
+        : order;
+    const tasks = order.tasks?.length && !shouldSplitStoredTask
         ? order.tasks.map((task, index) => normalizeTask(task, order.id, index))
-        : [createFallbackTask(order)];
+        : getFallbackTaskTypes(fallbackSourceOrder).map((type, index, fallbackTypes) =>
+            createFallbackTask(order, type, index, fallbackTypes.length)
+        );
 
     const work = order.work ?? order.workType ?? tasks.map((task) => task.type).filter(Boolean).join(', ');
     const units = order.units ?? tasks.reduce((sum, task) => sum + task.units, 0);

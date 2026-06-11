@@ -3,6 +3,12 @@ export type ImplantSource = 'clinic' | 'lab';
 
 export type OrderTaskPriority = 'low' | 'medium' | 'high' | 'urgent';
 
+export type OrderTaskType =
+    | 'PHYSICAL_COPY'
+    | 'DIGITAL_COPY'
+    | 'ELECTRONIC_COPY'
+    | 'PROSTHESIS';
+
 import type {
     OrderTaskStatus,
     TaskAttachment,
@@ -49,6 +55,7 @@ export interface OrderTask extends CreateOrderTask {
 }
 
 export interface CreateOrderTask {
+    taskType?: OrderTaskType;
     type: string;
     units: number;
     material: string;
@@ -111,6 +118,7 @@ export interface OrderListItem {
     unpaid?: number;
     date?: string;
     clinicId?: string;
+    taskType?: OrderTaskType;
     comment?: string;
     tasks?: OrderTask[];
 }
@@ -127,7 +135,38 @@ export interface OrderApiListItem {
     totalPrice: number;
 }
 
+export interface OrderDetails {
+    id: string;
+    orderNumber?: string;
+    patientFullName?: string;
+    patientName?: string;
+    patient?: string;
+    clinicId?: string;
+    clinicName?: string;
+    clinic?: string | {
+        name?: string;
+    };
+    doctorFullName?: string;
+    doctorName?: string;
+    doctor?: string;
+    deadline?: string;
+    summaryWorkType?: string;
+    isActive?: boolean;
+    quantity?: number;
+    pricePerUnit?: number;
+    discount?: number;
+    totalPrice?: number;
+    dentalTechnicianFullName?: string;
+    cadCamOperatorFullName?: string;
+    operatorFullName?: string;
+    dentalTechnician?: OrderKanbanAssignee;
+    cadCamOperator?: OrderKanbanAssignee;
+    operator?: OrderKanbanAssignee;
+    tasks?: OrderKanbanTask[];
+}
+
 export interface CreateOrderTaskDto {
+    taskType: OrderTaskType;
     workTypeId: string;
     quantity: number;
     toothNumbers: number[];
@@ -180,6 +219,7 @@ export interface OrderKanbanAssignee {
 export interface OrderKanbanTask {
     id: string;
     orderId: string;
+    taskType?: OrderTaskType;
     workTypeName: string;
     workTypeCode: string;
     materialName: string;
@@ -194,6 +234,7 @@ export interface OrderKanbanTask {
     taskNumber?: string;
     technician?: OrderKanbanAssignee;
     operator?: OrderKanbanAssignee;
+    cadCamOperatorFullName?: string;
     pricePerUnit?: number;
     totalPrice?: number;
 }

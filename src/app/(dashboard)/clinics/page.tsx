@@ -23,7 +23,7 @@ export default function ClinicsPage() {
 
     const [page, setPage] = useState(0);
     const [size, setSize] = useState(10);
-    const [sort, setSort] = useState('name, ASC');
+    const [sort, setSort] = useState('name,ASC');
 
     const {data, isLoading, isError} = useGetClinicsQuery({
         page,

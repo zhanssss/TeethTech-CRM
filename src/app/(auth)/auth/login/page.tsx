@@ -44,7 +44,7 @@ export default function LoginPage() {
 
             dispatch(
                 setUser({
-                    id: 'dev-admin',
+                    id: '00000000-0000-4000-8000-000000000001',
                     name: 'Админ системы',
                     role: 'ADMIN',
                     avatarUrl: '',

@@ -26,7 +26,7 @@ export const clinicsApi = teethTechApi.injectEndpoints({
                 params: {
                     page,
                     size,
-                    ...(sort? {sort} :{}),
+                    sort: 'name,ASC'
                 }
             }),
             providesTags: ["Clinics"],

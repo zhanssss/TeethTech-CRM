@@ -1,6 +1,6 @@
 'use client';
 
-import {useState} from 'react';
+import {useMemo, useState} from 'react';
 import {useParams} from 'next/navigation';
 import Link from 'next/link';
 import {useSelector} from 'react-redux';
@@ -20,15 +20,22 @@ import {
     verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import TaskDetailsSidebar from '@/src/components/layout/TaskDetailsSidebar';
+import TaskFilesPanel from '@/src/components/tasks/TaskFilesPanel';
 import TaskHistoryTimeline from '@/src/components/tasks/TaskHistoryTimeline';
 import type {TaskAttachment, TaskComment, TaskImage} from '@/src/types/task.types';
-import type {OrderApiListItem, OrderKanbanColumn, OrderKanbanTask} from '@/src/types/order.types';
+import type {OrderApiListItem, OrderDetails, OrderKanbanColumn, OrderKanbanTask} from '@/src/types/order.types';
 import {updateOrderTasks, useOrders} from '@/src/lib/ordersStore';
 import TaskCard from "@/src/components/ui/TaskCard";
 import DroppableColumn from "@/src/components/ui/DroppableColumn";
-import {PHYSIC_COPY_COLUMNS} from '@/src/utils/orderUtils'
+import {
+    canTaskMoveToColumn,
+    filterKanbanColumnsByTaskTypes,
+    getOrderTaskColumns,
+    mergeDuplicateKanbanColumns,
+} from '@/src/utils/orderUtils'
 import ErrorModal from '@/src/components/ui/ErrorModal';
 import {
+    useGetOrderQuery,
     useGetOrderKanbanQuery,
     useGetOrdersQuery,
 } from '@/src/services/api/ordersApi';
@@ -45,25 +52,131 @@ function isUuid(value: string | null | undefined) {
     return Boolean(value && UUID_PATTERN.test(value));
 }
 
+type ServerOrderInfo = OrderApiListItem | OrderDetails;
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === 'object' && value !== null;
+}
+
+function getNameValue(value: unknown) {
+    if (typeof value === 'string') return value;
+
+    if (!isRecord(value)) return '';
+
+    const name = value.name ?? value.fullName;
+
+    return typeof name === 'string' ? name : '';
+}
+
+function getStringValue(source: unknown, keys: string[]) {
+    if (!isRecord(source)) return '';
+
+    for (const key of keys) {
+        const value = source[key];
+        const nameValue = getNameValue(value);
+
+        if (nameValue) return nameValue;
+    }
+
+    return '';
+}
+
+function getNumberValue(source: unknown, keys: string[]) {
+    if (!isRecord(source)) return 0;
+
+    for (const key of keys) {
+        const value = source[key];
+
+        if (typeof value === 'number' && Number.isFinite(value)) {
+            return value;
+        }
+
+        if (typeof value === 'string') {
+            const numericValue = Number(value);
+
+            if (Number.isFinite(numericValue)) {
+                return numericValue;
+            }
+        }
+    }
+
+    return 0;
+}
+
+function collectUnique(values: Array<string | null | undefined>) {
+    return Array.from(new Set(values.map((value) => value?.trim()).filter(Boolean) as string[]));
+}
+
+function getOrderDetailTasks(order?: ServerOrderInfo) {
+    if (!isRecord(order) || !Array.isArray(order.tasks)) return [];
+
+    return order.tasks.filter(isRecord) as unknown as OrderKanbanTask[];
+}
+
+function getColumnsTasks(columns: OrderKanbanColumn[]) {
+    return columns.flatMap((column) => column.tasks);
+}
+
+function getTaskTechnicianName(task: OrderKanbanTask) {
+    return task.dentalTechnicianFullName || task.technician?.fullName || '';
+}
+
+function getTaskOperatorName(task: OrderKanbanTask) {
+    return task.cadCamOperatorFullName || task.operator?.fullName || '';
+}
+
+function getTaskColor(task: OrderKanbanTask) {
+    return task.colorCode || getStringValue(task, ['colorName', 'color']);
+}
+
+function getOrderTaskTypes(order: ServerOrderInfo | undefined, columns: OrderKanbanColumn[]) {
+    const detailTasks = getOrderDetailTasks(order);
+    const kanbanTasks = getColumnsTasks(columns);
+
+    return collectUnique([
+        ...detailTasks.map((task) => task.taskType),
+        ...kanbanTasks.map((task) => task.taskType),
+    ]);
+}
+
+function getDisplayKanbanColumns(
+    columns: OrderKanbanColumn[],
+    order: ServerOrderInfo | undefined
+) {
+    const taskTypes = getOrderTaskTypes(order, columns);
+
+    return filterKanbanColumnsByTaskTypes(
+        mergeDuplicateKanbanColumns(columns),
+        taskTypes
+    );
+}
+
 export default function OrderBoardPage() {
     const params = useParams<{ id: string | string[] }>();
     const id = Array.isArray(params.id) ? params.id[0] : params.id;
     const userId = useSelector((state: RootState) => state.auth.id);
+    const effectiveUserId = userId === 'dev-admin'
+        ? '00000000-0000-4000-8000-000000000001'
+        : userId;
     const orders = useOrders();
     const order = orders.find((item) => item.id === id);
     const {data: serverOrders, isLoading: isServerOrdersLoading} = useGetOrdersQuery(ORDER_LOOKUP_PARAMS);
-    const canLoadServerKanban = isUuid(id) && isUuid(userId);
+    const {data: serverOrderDetails, isLoading: isServerOrderLoading} = useGetOrderQuery(
+        id,
+        {skip: !isUuid(id)}
+    );
+    const canLoadServerKanban = isUuid(id) && Boolean(effectiveUserId);
     const {data: serverKanbanColumns, isLoading: isKanbanLoading} = useGetOrderKanbanQuery(
-        {id, userId: userId ?? ''},
+        {id, userId: effectiveUserId ?? ''},
         {skip: !canLoadServerKanban}
     );
-    const serverOrder = serverOrders?.content.find((item) => item.id === id);
+    const serverOrder = serverOrderDetails ?? serverOrders?.content.find((item) => item.id === id);
     const hasServerKanban = Boolean(serverKanbanColumns?.length);
-    const tasks = order?.tasks ?? [];
+    const tasks = useMemo(() => order?.tasks ?? [], [order?.tasks]);
     const [activeId, setActiveId] = useState<string | null>(null);
     const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
     const selectedTask = tasks.find((task) => task.id === selectedTaskId) ?? null;
-    const COLUMNS = PHYSIC_COPY_COLUMNS;
+    const COLUMNS = useMemo(() => getOrderTaskColumns(tasks), [tasks]);
 
     const sensors = useSensors(
         useSensor(PointerSensor, {activationConstraint: {distance: 8}})
@@ -97,10 +210,17 @@ export default function OrderBoardPage() {
         }
 
         if (overIndex !== -1) {
+            const targetStatus = tasks[overIndex].status;
+
+            if (!canTaskMoveToColumn(tasks[activeIndex], targetStatus)) {
+                setActiveId(null);
+                return;
+            }
+
             const updated = [...tasks];
             updated[activeIndex] = {
                 ...updated[activeIndex],
-                status: tasks[overIndex].status,
+                status: targetStatus,
             };
             updateOrderTasks(order.id, arrayMove(updated, activeIndex, overIndex));
             setActiveId(null);
@@ -108,7 +228,7 @@ export default function OrderBoardPage() {
         }
 
         const targetColumn = COLUMNS.find((column) => column.id === overId);
-        if (targetColumn) {
+        if (targetColumn && canTaskMoveToColumn(tasks[activeIndex], targetColumn.id)) {
             const updated = [...tasks];
             updated[activeIndex] = {
                 ...updated[activeIndex],
@@ -176,7 +296,7 @@ export default function OrderBoardPage() {
         });
     };
 
-    if (!order && (isServerOrdersLoading || isKanbanLoading)) {
+    if (!order && (isServerOrdersLoading || isServerOrderLoading || isKanbanLoading)) {
         return <div className="text-sm text-slate-500">Загрузка заказа...</div>;
     }
 
@@ -185,7 +305,7 @@ export default function OrderBoardPage() {
             <ServerKanbanBoard
                 orderId={id}
                 order={serverOrder}
-                columns={serverKanbanColumns}
+                columns={getDisplayKanbanColumns(serverKanbanColumns, serverOrder)}
             />
         );
     }
@@ -377,11 +497,28 @@ function ServerKanbanBoard({
                                columns,
                            }: {
     orderId: string;
-    order?: OrderApiListItem;
+    order?: ServerOrderInfo;
     columns: OrderKanbanColumn[];
 }) {
     const taskCount = columns.reduce((sum, column) => sum + column.taskCount, 0);
     const [selectedHistoryTask, setSelectedHistoryTask] = useState<OrderKanbanTask | null>(null);
+    const allTasks = [...getColumnsTasks(columns), ...getOrderDetailTasks(order)];
+    const patientName = getStringValue(order, ['patientFullName', 'patientName', 'patient']);
+    const clinicName = getStringValue(order, ['clinicName', 'clinic']);
+    const doctorName = getStringValue(order, ['doctorFullName', 'doctorName', 'doctor']);
+    const workTypeName = getStringValue(order, ['summaryWorkType', 'workTypeName', 'workType', 'work']);
+    const quantity = getNumberValue(order, ['quantity']) || allTasks.reduce((sum, task) => sum + Number(task.quantity || 0), 0);
+    const totalPrice = getNumberValue(order, ['totalPrice', 'totalAmount']) || allTasks.reduce((sum, task) => sum + Number(task.totalAmount ?? task.totalPrice ?? 0), 0);
+    const colors = collectUnique(allTasks.map(getTaskColor));
+    const technicians = collectUnique([
+        getStringValue(order, ['dentalTechnicianFullName', 'dentalTechnician', 'technician']),
+        ...allTasks.map(getTaskTechnicianName),
+    ]);
+    const operators = collectUnique([
+        getStringValue(order, ['cadCamOperatorFullName', 'operatorFullName', 'cadCamOperator', 'operator']),
+        ...allTasks.map(getTaskOperatorName),
+    ]);
+    const isActive = isRecord(order) && typeof order.isActive === 'boolean' ? order.isActive : true;
 
     return (
         <div className="h-full flex flex-col space-y-6">
@@ -400,7 +537,7 @@ function ServerKanbanBoard({
                 <div className="flex gap-2">
                     <span
                         className="bg-yellow-100 text-yellow-700 px-3 py-1 rounded-full text-[10px] font-black uppercase">
-                        {order?.isActive ? 'Активен' : 'Закрыт'}
+                        {isActive ? 'Активен' : 'Закрыт'}
                     </span>
                 </div>
             </header>
@@ -410,30 +547,63 @@ function ServerKanbanBoard({
                     className="md:col-span-2 bg-white p-5 rounded-2xl border border-slate-200 shadow-sm grid grid-cols-2 gap-4">
                     <div>
                         <p className="text-[10px] font-bold text-slate-400 uppercase">Пациент</p>
-                        <p className="font-bold text-slate-800 text-lg">{order?.patientFullName ?? '-'}</p>
+                        <p className="font-bold text-slate-800 text-lg">{patientName || '-'}</p>
+                    </div>
+                    <div>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase">Клиника</p>
+                        <p className="text-blue-600 text-sm font-semibold">{clinicName || '-'}</p>
+                    </div>
+                    <div>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase">Врач</p>
+                        <p className="text-slate-700 text-sm font-medium">{doctorName || '-'}</p>
                     </div>
                     <div>
                         <p className="text-[10px] font-bold text-slate-400 uppercase">Вид работы</p>
-                        <p className="text-slate-700 text-sm font-medium">{order?.summaryWorkType ?? '-'}</p>
+                        <p className="text-slate-700 text-sm font-medium">{workTypeName || '-'}</p>
                     </div>
                     <div>
                         <p className="text-[10px] font-bold text-slate-400 uppercase">Кол-во</p>
-                        <p className="text-slate-700 text-sm font-medium">{order?.quantity ?? 0} ед.</p>
+                        <p className="text-slate-700 text-sm font-medium">{quantity} ед.</p>
                     </div>
                     <div>
                         <p className="text-[10px] font-bold text-slate-400 uppercase">Итого</p>
                         <p className="font-black text-slate-900 text-lg">
-                            {(order?.totalPrice ?? 0).toLocaleString('ru-RU')} ₸
+                            {totalPrice.toLocaleString('ru-RU')} ₸
                         </p>
                     </div>
                 </div>
 
                 <div
-                    className="md:col-span-2 bg-slate-900 text-white p-5 rounded-2xl shadow-lg flex flex-col justify-between">
-                    <p className="text-[10px] font-bold text-slate-400 uppercase">Состав заказа</p>
-                    <p className="mt-2 text-sm font-semibold text-slate-100">
+                    className="bg-slate-900 text-white p-5 rounded-2xl shadow-lg flex flex-col justify-between">
+                    <div>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase">Цвет</p>
+                        <p className="mt-2 text-xl font-black text-orange-400">
+                            {colors.length ? colors.join(', ') : '-'}
+                        </p>
+                    </div>
+                    <p className="mt-4 border-t border-slate-800 pt-4 text-sm font-semibold text-slate-100">
                         {taskCount} задач на доске
                     </p>
+                </div>
+
+                <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase mb-3 text-center border-b pb-1">
+                        Команда наряда
+                    </p>
+                    <div className="space-y-3">
+                        <div>
+                            <p className="text-slate-400 uppercase font-bold text-[8px]">Техники</p>
+                            <p className="font-bold text-slate-700 text-xs">
+                                {technicians.length ? technicians.join(', ') : '-'}
+                            </p>
+                        </div>
+                        <div>
+                            <p className="text-slate-400 uppercase font-bold text-[8px]">Операторы</p>
+                            <p className="font-bold text-slate-700 text-xs">
+                                {operators.length ? operators.join(', ') : '-'}
+                            </p>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -514,7 +684,6 @@ function ServerKanbanBoard({
                     </section>
                 ))}
             </div>
-w
             <TaskHistorySidebar
                 task={selectedHistoryTask}
                 onClose={() => setSelectedHistoryTask(null)}
@@ -571,8 +740,16 @@ function TaskHistorySidebar({
                     </button>
                 </div>
 
-                <div className="flex-1 overflow-y-auto p-5">
-                    <TaskHistoryTimeline taskId={task.id} />
+                <div className="flex-1 space-y-5 overflow-y-auto p-5">
+                    <TaskFilesPanel
+                        taskId={task.id}
+                        className="rounded-2xl border border-slate-200 bg-white p-4"
+                    />
+
+                    <TaskHistoryTimeline
+                        taskId={task.id}
+                        className="rounded-2xl border border-slate-200 bg-white p-4"
+                    />
                 </div>
             </aside>
         </>

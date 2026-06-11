@@ -1,8 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import type { Task, TaskAttachment, TaskImage } from '@/src/types/task.types';
+import TaskFilesPanel from '@/src/components/tasks/TaskFilesPanel';
 import TaskHistoryTimeline from '@/src/components/tasks/TaskHistoryTimeline';
+import type { Task, TaskAttachment, TaskImage } from '@/src/types/task.types';
 
 type TaskDetailsSidebarProps = {
     task: Task | null;
@@ -23,12 +24,6 @@ export default function TaskDetailsSidebar({
 
     if (!task) return null;
 
-    const formatFileSize = (size: number) => {
-        if (size < 1024) return `${size} B`;
-        if (size < 1024 * 1024) return `${Math.round(size / 1024)} KB`;
-        return `${(size / 1024 / 1024).toFixed(1)} MB`;
-    };
-
     const handleAddComment = () => {
         const trimmed = commentText.trim();
 
@@ -36,39 +31,6 @@ export default function TaskDetailsSidebar({
 
         onAddComment(trimmed);
         setCommentText('');
-    };
-
-    const handleAddAttachments = (event: React.ChangeEvent<HTMLInputElement>) => {
-        const files = Array.from(event.target.files ?? []);
-
-        if (!files.length) return;
-
-        const preparedFiles: TaskAttachment[] = files.map((file) => ({
-            id: crypto.randomUUID(),
-            name: file.name,
-            url: URL.createObjectURL(file),
-            size: formatFileSize(file.size),
-            type: file.type || 'file',
-        }));
-
-        onAddAttachments(preparedFiles);
-        event.target.value = '';
-    };
-
-    const handleAddImages = (event: React.ChangeEvent<HTMLInputElement>) => {
-        const files = Array.from(event.target.files ?? []);
-
-        if (!files.length) return;
-
-        const preparedImages: TaskImage[] = files.map((file) => ({
-            id: crypto.randomUUID(),
-            name: file.name,
-            url: URL.createObjectURL(file),
-            size: formatFileSize(file.size),
-        }));
-
-        onAddImages(preparedImages);
-        event.target.value = '';
     };
 
     return (
@@ -120,100 +82,14 @@ export default function TaskDetailsSidebar({
                         className="rounded-2xl border border-slate-200 bg-white p-4"
                     />
 
-                    <section>
-                        <div className="flex items-center justify-between gap-3">
-                            <h3 className="text-xs font-black uppercase tracking-widest text-slate-500">
-                                Изображения
-                            </h3>
-
-                            <label className="cursor-pointer rounded-lg bg-blue-600 px-3 py-1.5 text-[10px] font-black uppercase text-white hover:bg-blue-700">
-                                Добавить
-                                <input
-                                    type="file"
-                                    accept="image/*"
-                                    multiple
-                                    onChange={handleAddImages}
-                                    className="hidden"
-                                />
-                            </label>
-                        </div>
-
-                        {task.images?.length ? (
-                            <div className="mt-3 grid grid-cols-2 gap-3">
-                                {task.images.map((image) => (
-                                    <a
-                                        key={image.id}
-                                        href={image.url}
-                                        target="_blank"
-                                        rel="noreferrer"
-                                        className="overflow-hidden rounded-xl border border-slate-200 bg-slate-100"
-                                    >
-                                        <img
-                                            src={image.url}
-                                            alt={image.name}
-                                            className="h-32 w-full object-cover"
-                                        />
-                                        <div className="border-t border-slate-200 bg-white p-2">
-                                            <p className="truncate text-xs font-bold text-slate-700">
-                                                {image.name}
-                                            </p>
-                                            <p className="text-[10px] text-slate-400">
-                                                {image.size}
-                                            </p>
-                                        </div>
-                                    </a>
-                                ))}
-                            </div>
-                        ) : (
-                            <EmptyText text="Изображений пока нет" />
-                        )}
-                    </section>
-
-                    <section>
-                        <div className="flex items-center justify-between gap-3">
-                            <h3 className="text-xs font-black uppercase tracking-widest text-slate-500">
-                                Прикрепленные файлы
-                            </h3>
-
-                            <label className="cursor-pointer rounded-lg bg-slate-900 px-3 py-1.5 text-[10px] font-black uppercase text-white hover:bg-slate-800">
-                                Прикрепить
-                                <input
-                                    type="file"
-                                    multiple
-                                    onChange={handleAddAttachments}
-                                    className="hidden"
-                                />
-                            </label>
-                        </div>
-
-                        {task.attachments?.length ? (
-                            <div className="mt-3 space-y-2">
-                                {task.attachments.map((file) => (
-                                    <a
-                                        key={file.id}
-                                        href={file.url}
-                                        download={file.name}
-                                        className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-3 hover:bg-slate-50"
-                                    >
-                                        <div className="min-w-0">
-                                            <p className="truncate text-sm font-bold text-slate-800">
-                                                {file.name}
-                                            </p>
-                                            <p className="text-xs text-slate-400">
-                                                {file.size}
-                                            </p>
-                                        </div>
-
-                                        <span className="shrink-0 rounded-lg bg-slate-900 px-3 py-1.5 text-[10px] font-black uppercase text-white">
-                                            Скачать
-                                        </span>
-                                    </a>
-                                ))}
-                            </div>
-                        ) : (
-                            <EmptyText text="Файлов пока нет" />
-                        )}
-                    </section>
+                    <TaskFilesPanel
+                        taskId={task.id}
+                        fallbackImages={task.images}
+                        fallbackAttachments={task.attachments}
+                        onAddImages={onAddImages}
+                        onAddAttachments={onAddAttachments}
+                        className="rounded-2xl border border-slate-200 bg-white p-4"
+                    />
 
                     <section>
                         <h3 className="text-xs font-black uppercase tracking-widest text-slate-500">

@@ -1,8 +1,9 @@
 export type User = {
     id: string,
     fullName: string,
-    specialization: string,
-    role: string,
+    specialization?: string | null,
+    role?: string | null,
+    roles?: string[],
     status: string,
     stats: {
         completed: number,

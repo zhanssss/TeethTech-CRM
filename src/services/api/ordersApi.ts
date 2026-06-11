@@ -5,6 +5,7 @@ import type {
     CreateOrderRequest,
     GetOrderKanbanArgs,
     OrderApiListItem,
+    OrderDetails,
     OrderGetApiResponse,
     OrderKanbanColumn,
     UpdateOrderArgs,
@@ -24,6 +25,7 @@ function buildCreateOrderBody(body: CreateOrderDto): CreateOrderRequest {
     return {
         ...body,
         tasks: body.tasks.map(({
+            taskType,
             workTypeId,
             quantity,
             toothNumbers,
@@ -33,6 +35,7 @@ function buildCreateOrderBody(body: CreateOrderDto): CreateOrderRequest {
             pricePerUnit,
             discountPercent,
         }) => ({
+            taskType,
             workTypeId,
             quantity,
             toothNumbers,
@@ -58,6 +61,20 @@ export const ordersApi = teethTechApi.injectEndpoints({
                 }
             }),
             providesTags: ['Orders'],
+        }),
+
+        getOrder: builder.query<OrderDetails, string>({
+            query: (id) => ({
+                url: `/orders/${id}`,
+                method: 'GET',
+            }),
+            providesTags: (_result, _error, id) => [
+                'Orders',
+                {
+                    type: 'Orders',
+                    id,
+                },
+            ],
         }),
 
         createOrder: builder.mutation<OrderApiListItem, CreateOrderDto>({
@@ -145,6 +162,7 @@ export const ordersApi = teethTechApi.injectEndpoints({
 
 export const {
     useGetOrdersQuery,
+    useGetOrderQuery,
     useCreateOrderMutation,
     useUpdateOrderMutation,
     useDeleteOrderMutation,

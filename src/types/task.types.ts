@@ -6,7 +6,8 @@ export type OrderTaskStatus =
     | '4'
     | '5'
     | '6'
-    | '7';
+    | '7'
+    | '8';
 
 export type TaskStatus =
     | 'TODO'
@@ -82,6 +83,74 @@ export type TaskImage = {
     size: string;
 };
 
+export type TaskFileAttachmentType = 'SCREEN' | 'FILE';
+
+export type TaskFile = {
+    id: string;
+    fileName: string;
+    storagePath: string;
+    contentType: string;
+    fileSize: number;
+    attachmentType: TaskFileAttachmentType;
+};
+
+export type GetTaskFilesArgs = {
+    taskId: string;
+    type?: TaskFileAttachmentType;
+};
+
+export type UploadTaskFileArgs = {
+    taskId: string;
+    file: File;
+    type?: TaskFileAttachmentType;
+};
+
+export type DeleteTaskFileArgs = {
+    taskId: string;
+    attachmentId: string;
+};
+
+export type GetTaskFileUrlArgs = DeleteTaskFileArgs;
+
+export type TaskFileUrlResponse = {
+    url: string;
+    expiresInSeconds: number;
+};
+
+export type InitMultipartTaskFileUploadArgs = {
+    taskId: string;
+    fileName: string;
+    contentType: string;
+    totalParts: number;
+    type?: TaskFileAttachmentType;
+};
+
+export type InitMultipartTaskFileUploadResponse = {
+    fileId: string;
+    uploadId: string;
+    filePath: string;
+};
+
+export type UploadMultipartTaskFilePartArgs = {
+    taskId: string;
+    fileId: string;
+    partNumber: number;
+    file: Blob;
+    fileName: string;
+};
+
+export type MultipartTaskFileArgs = {
+    taskId: string;
+    fileId: string;
+};
+
+export type MultipartTaskFileProgress = {
+    fileId: string;
+    progressPercent: number;
+    uploadedParts: number;
+    totalParts: number;
+};
+
 export type TaskHistoryChangedBy = {
     userId: string;
     fullName: string;
@@ -118,6 +187,7 @@ export interface Task {
     type?: string;
     material?: string;
     color?: string;
+    taskType?: string;
     abutment?: string | number;
     technicianId?: string;
     operatorId?: string;
