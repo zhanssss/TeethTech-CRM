@@ -1,9 +1,5 @@
-const Patients = () =>{
-    return (
-        <>
+import {redirect} from 'next/navigation';
 
-        </>
-    )
+export default function PatientsPage() {
+    redirect('/clinics/patients');
 }
-
-export default Patients;

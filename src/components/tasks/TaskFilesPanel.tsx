@@ -46,7 +46,7 @@ type UploadState = {
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const SIMPLE_UPLOAD_LIMIT = 10 * 1024 * 1024;
-const MULTIPART_CHUNK_SIZE = 5 * 1024 * 1024;
+const MULTIPART_CHUNK_SIZE = SIMPLE_UPLOAD_LIMIT;
 
 export default function TaskFilesPanel({
                                            taskId,
@@ -282,7 +282,7 @@ export default function TaskFilesPanel({
             const objectUrl = URL.createObjectURL(blob);
 
             downloadUrl(objectUrl, file.name);
-            URL.revokeObjectURL(objectUrl);
+            window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
         } catch (error) {
             setErrorMessage(getErrorMessage(error));
         } finally {
@@ -660,10 +660,24 @@ function getErrorMessage(error: unknown) {
 
         if (typeof data === 'string') return data;
 
-        if (typeof data === 'object' && data !== null && 'message' in data) {
-            const message = (data as { message?: unknown }).message;
+        if (typeof data === 'object' && data !== null) {
+            const apiError = data as {
+                detail?: unknown;
+                error?: unknown;
+                message?: unknown;
+                title?: unknown;
+            };
 
-            if (typeof message === 'string') return message;
+            for (const value of [
+                apiError.detail,
+                apiError.message,
+                apiError.error,
+                apiError.title,
+            ]) {
+                if (typeof value === 'string' && value.trim()) {
+                    return value;
+                }
+            }
         }
     }
 

@@ -14,7 +14,11 @@ import type {
     UploadTaskFileArgs,
 } from '@/src/types/task.types';
 
-function buildFileFormData(file: Blob, fileName?: string) {
+function buildFileFormData(
+    file: Blob,
+    fileName?: string,
+    fields: Record<string, string> = {}
+) {
     const formData = new FormData();
 
     if (fileName) {
@@ -22,6 +26,10 @@ function buildFileFormData(file: Blob, fileName?: string) {
     } else {
         formData.append('file', file);
     }
+
+    Object.entries(fields).forEach(([key, value]) => {
+        formData.append(key, value);
+    });
 
     return formData;
 }
@@ -45,8 +53,7 @@ export const taskFilesApi = teethTechApi.injectEndpoints({
             query: ({ taskId, file, type = 'FILE' }) => ({
                 url: `/tasks/${taskId}/files/upload`,
                 method: 'POST',
-                params: { type },
-                body: buildFileFormData(file, file.name),
+                body: buildFileFormData(file, file.name, { type }),
             }),
             invalidatesTags: (_result, _error, { taskId }) => [
                 { type: 'TaskFiles', id: taskId },
@@ -114,14 +121,12 @@ export const taskFilesApi = teethTechApi.injectEndpoints({
                 { type: 'TaskHistory', id: taskId },
             ],
         }),
-
         abortMultipartTaskFileUpload: builder.mutation<void, MultipartTaskFileArgs>({
             query: ({ taskId, fileId }) => ({
                 url: `/tasks/${taskId}/files/multipart/${fileId}/abort`,
                 method: 'DELETE',
             }),
         }),
-
         getMultipartTaskFileProgress: builder.query<
             MultipartTaskFileProgress,
             MultipartTaskFileArgs

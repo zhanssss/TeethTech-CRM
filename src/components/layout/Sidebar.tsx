@@ -39,9 +39,17 @@ export default function Sidebar({ onClose }: SidebarProps) {
                 { name: 'Дэшборд', href: '/' },
                 { name: 'Заказы', href: '/orders' },
                 { name: 'Аналитика', href: '/analytics' },
+                { name: 'Бухгалтерия', href: '/accounting' },
+                { name: 'Склад', href: '/warehouse' },
                 { name: 'Сотрудники', href: '/employees' },
-                { name: 'Клиники', href: '/clinics' },
-                { name: 'Пациенты', href: '/patients' },
+                {
+                    name: 'Клиники',
+                    href: '/clinics',
+                    children: [
+                        { name: 'Реестр', href: '/clinics' },
+                        { name: 'Пациенты', href: '/clinics/patients' },
+                    ],
+                },
                 {
                     name: 'Лаборатория',
                     href: '/laboratory',
