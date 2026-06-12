@@ -3,6 +3,7 @@ import { teethTechApi } from '@/src/services/teethTechApi';
 import type {
     CreateOrderDto,
     CreateOrderRequest,
+    CreateOrderResponse,
     GetOrderKanbanArgs,
     OrderApiListItem,
     OrderDetails,
@@ -75,7 +76,7 @@ export const ordersApi = teethTechApi.injectEndpoints({
             ],
         }),
 
-        createOrder: builder.mutation<OrderApiListItem, CreateOrderDto>({
+        createOrder: builder.mutation<CreateOrderResponse, CreateOrderDto>({
             query: (body) => ({
                 url: '/orders',
                 method: 'POST',

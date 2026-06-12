@@ -74,6 +74,7 @@ export type TaskAttachment = {
     url: string;
     size: string;
     type: string;
+    file?: File;
 };
 
 export type TaskImage = {
@@ -81,6 +82,7 @@ export type TaskImage = {
     name: string;
     url: string;
     size: string;
+    file?: File;
 };
 
 export type TaskFileAttachmentType = 'SCREEN' | 'FILE';

@@ -103,6 +103,7 @@ function prepareAttachments(files: File[]): TaskAttachment[] {
         url: URL.createObjectURL(file),
         size: formatFileSize(file.size),
         type: file.type || 'file',
+        file,
     }));
 }
 
@@ -112,6 +113,7 @@ function prepareImages(files: File[]): TaskImage[] {
         name: file.name,
         url: URL.createObjectURL(file),
         size: formatFileSize(file.size),
+        file,
     }));
 }
 

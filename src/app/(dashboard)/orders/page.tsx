@@ -3,17 +3,38 @@
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import CreateOrderModal from '@/src/components/Modals/CreateOrderModal';
-import type { CreateOrderDto, OrderApiListItem, OrderListItem } from '@/src/types/order.types';
+import type {
+    CreateOrderDto,
+    CreateOrderResponse,
+    OrderApiListItem,
+    OrderListItem,
+} from '@/src/types/order.types';
+import type { TaskFileAttachmentType } from '@/src/types/task.types';
 import { addOrder, useOrders } from '@/src/lib/ordersStore';
 import {
     useCreateOrderMutation,
     useDeleteOrderMutation,
     useGetOrdersQuery,
 } from '@/src/services/api/ordersApi';
+import {
+    useAbortMultipartTaskFileUploadMutation,
+    useCompleteMultipartTaskFileUploadMutation,
+    useInitMultipartTaskFileUploadMutation,
+    useUploadMultipartTaskFilePartMutation,
+    useUploadTaskFileMutation,
+} from '@/src/services/api/taskFilesApi';
 
 const DEFAULT_ORDER_SORT = 'deadline,ASC';
 const DEFAULT_PAGE_SIZE = 10;
 const PAGE_SIZE_OPTIONS = [10, 20, 50];
+const SIMPLE_UPLOAD_LIMIT = 10 * 1024 * 1024;
+const MULTIPART_CHUNK_SIZE = SIMPLE_UPLOAD_LIMIT;
+
+type UploadTaskFileTrigger = ReturnType<typeof useUploadTaskFileMutation>[0];
+type InitMultipartUploadTrigger = ReturnType<typeof useInitMultipartTaskFileUploadMutation>[0];
+type UploadMultipartPartTrigger = ReturnType<typeof useUploadMultipartTaskFilePartMutation>[0];
+type CompleteMultipartUploadTrigger = ReturnType<typeof useCompleteMultipartTaskFileUploadMutation>[0];
+type AbortMultipartUploadTrigger = ReturnType<typeof useAbortMultipartTaskFileUploadMutation>[0];
 
 function mapApiOrderToListItem(order: OrderApiListItem): OrderListItem {
     return {
@@ -46,12 +67,207 @@ function getStatusBadgeClass(status: string) {
     return 'bg-slate-100 text-slate-600';
 }
 
+function stripOrderFiles(payload: CreateOrderDto): CreateOrderDto {
+    return {
+        ...payload,
+        tasks: payload.tasks.map((task) => ({
+            workTypeId: task.workTypeId,
+            quantity: task.quantity,
+            toothNumbers: task.toothNumbers,
+            orderId: task.orderId,
+            colorId: task.colorId,
+            materialId: task.materialId,
+            pricePerUnit: task.pricePerUnit,
+            discountPercent: task.discountPercent,
+        })),
+    };
+}
+
+async function uploadCreatedOrderFiles({
+    payload,
+    createdOrder,
+    uploadTaskFile,
+    initMultipartUpload,
+    uploadMultipartPart,
+    completeMultipartUpload,
+    abortMultipartUpload,
+}: {
+    payload: CreateOrderDto;
+    createdOrder: CreateOrderResponse;
+    uploadTaskFile: UploadTaskFileTrigger;
+    initMultipartUpload: InitMultipartUploadTrigger;
+    uploadMultipartPart: UploadMultipartPartTrigger;
+    completeMultipartUpload: CompleteMultipartUploadTrigger;
+    abortMultipartUpload: AbortMultipartUploadTrigger;
+}) {
+    const hasFiles = payload.tasks.some(
+        (task) => Boolean(task.images?.length || task.attachments?.length)
+    );
+
+    if (!hasFiles) return;
+
+    const taskIds = createdOrder.taskIds ?? [];
+
+    if (taskIds.length < payload.tasks.length) {
+        throw new Error('Server did not return taskIds for every order task.');
+    }
+
+    for (let taskIndex = 0; taskIndex < payload.tasks.length; taskIndex += 1) {
+        const task = payload.tasks[taskIndex];
+        const taskId = taskIds[taskIndex];
+
+        if (!taskId) continue;
+
+        for (const image of task.images ?? []) {
+            if (image.file) {
+                await uploadOrderTaskFile({
+                    taskId,
+                    file: image.file,
+                    type: 'SCREEN',
+                    uploadTaskFile,
+                    initMultipartUpload,
+                    uploadMultipartPart,
+                    completeMultipartUpload,
+                    abortMultipartUpload,
+                });
+            }
+        }
+
+        for (const attachment of task.attachments ?? []) {
+            if (attachment.file) {
+                await uploadOrderTaskFile({
+                    taskId,
+                    file: attachment.file,
+                    type: 'FILE',
+                    uploadTaskFile,
+                    initMultipartUpload,
+                    uploadMultipartPart,
+                    completeMultipartUpload,
+                    abortMultipartUpload,
+                });
+            }
+        }
+    }
+}
+
+async function uploadOrderTaskFile({
+    taskId,
+    file,
+    type,
+    uploadTaskFile,
+    initMultipartUpload,
+    uploadMultipartPart,
+    completeMultipartUpload,
+    abortMultipartUpload,
+}: {
+    taskId: string;
+    file: File;
+    type: TaskFileAttachmentType;
+    uploadTaskFile: UploadTaskFileTrigger;
+    initMultipartUpload: InitMultipartUploadTrigger;
+    uploadMultipartPart: UploadMultipartPartTrigger;
+    completeMultipartUpload: CompleteMultipartUploadTrigger;
+    abortMultipartUpload: AbortMultipartUploadTrigger;
+}) {
+    if (file.size < SIMPLE_UPLOAD_LIMIT) {
+        await uploadTaskFile({
+            taskId,
+            file,
+            type,
+        }).unwrap();
+        return;
+    }
+
+    const totalParts = Math.ceil(file.size / MULTIPART_CHUNK_SIZE);
+    let multipartFileId = '';
+
+    try {
+        const multipartUpload = await initMultipartUpload({
+            taskId,
+            fileName: file.name,
+            contentType: file.type || 'application/octet-stream',
+            totalParts,
+            type,
+        }).unwrap();
+
+        multipartFileId = multipartUpload.fileId;
+
+        for (let partNumber = 1; partNumber <= totalParts; partNumber += 1) {
+            const start = (partNumber - 1) * MULTIPART_CHUNK_SIZE;
+            const end = Math.min(start + MULTIPART_CHUNK_SIZE, file.size);
+            const chunk = file.slice(start, end);
+
+            await uploadMultipartPart({
+                taskId,
+                fileId: multipartUpload.fileId,
+                partNumber,
+                file: chunk,
+                fileName: file.name,
+            }).unwrap();
+        }
+
+        await completeMultipartUpload({
+            taskId,
+            fileId: multipartUpload.fileId,
+        }).unwrap();
+    } catch (error) {
+        if (multipartFileId) {
+            await abortMultipartUpload({
+                taskId,
+                fileId: multipartFileId,
+            }).unwrap().catch(() => undefined);
+        }
+
+        throw error;
+    }
+}
+
+function getErrorMessage(error: unknown) {
+    if (error instanceof Error) {
+        return error.message;
+    }
+
+    if (typeof error === 'object' && error !== null && 'data' in error) {
+        const data = (error as { data?: unknown }).data;
+
+        if (typeof data === 'string') return data;
+
+        if (typeof data === 'object' && data !== null) {
+            const apiError = data as {
+                detail?: unknown;
+                error?: unknown;
+                message?: unknown;
+                title?: unknown;
+            };
+
+            for (const value of [
+                apiError.detail,
+                apiError.message,
+                apiError.error,
+                apiError.title,
+            ]) {
+                if (typeof value === 'string' && value.trim()) {
+                    return value;
+                }
+            }
+        }
+    }
+
+    return 'Unknown error';
+}
+
 export default function OrdersPage() {
     const localOrders = useOrders();
     const [createOrder, { isLoading: isCreatingOrder }] = useCreateOrderMutation();
     const [deleteOrder, { isLoading: isDeletingOrder }] = useDeleteOrderMutation();
+    const [uploadTaskFile] = useUploadTaskFileMutation();
+    const [initMultipartUpload] = useInitMultipartTaskFileUploadMutation();
+    const [uploadMultipartPart] = useUploadMultipartTaskFilePartMutation();
+    const [completeMultipartUpload] = useCompleteMultipartTaskFileUploadMutation();
+    const [abortMultipartUpload] = useAbortMultipartTaskFileUploadMutation();
 
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [isUploadingOrderFiles, setIsUploadingOrderFiles] = useState(false);
     const [search, setSearch] = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
     const [deleteError, setDeleteError] = useState('');
@@ -116,8 +332,29 @@ export default function OrdersPage() {
     };
 
     const handleCreateOrder = async (payload: CreateOrderDto) => {
-        const createdOrder = await createOrder(payload).unwrap();
+        setDeleteError('');
+        const createdOrder = await createOrder(stripOrderFiles(payload)).unwrap();
+
         addOrder(mapApiOrderToListItem(createdOrder));
+
+        setIsUploadingOrderFiles(true);
+
+        try {
+            await uploadCreatedOrderFiles({
+                payload,
+                createdOrder,
+                uploadTaskFile,
+                initMultipartUpload,
+                uploadMultipartPart,
+                completeMultipartUpload,
+                abortMultipartUpload,
+            });
+        } catch (error) {
+            console.error('Order file upload failed:', error);
+            setDeleteError(`Order created, but files were not uploaded: ${getErrorMessage(error)}`);
+        } finally {
+            setIsUploadingOrderFiles(false);
+        }
     };
 
     const handleDeleteOrder = async (orderId: string) => {
@@ -319,7 +556,7 @@ export default function OrdersPage() {
 
             <CreateOrderModal
                 isOpen={isModalOpen}
-                isSubmitting={isCreatingOrder}
+                isSubmitting={isCreatingOrder || isUploadingOrderFiles}
                 onClose={() => setIsModalOpen(false)}
                 onSubmit={handleCreateOrder}
             />

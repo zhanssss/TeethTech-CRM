@@ -135,6 +135,10 @@ export interface OrderApiListItem {
     totalPrice: number;
 }
 
+export interface CreateOrderResponse extends OrderApiListItem {
+    taskIds: string[];
+}
+
 export interface OrderDetails {
     id: string;
     orderNumber?: string;
