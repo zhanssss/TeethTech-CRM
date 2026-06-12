@@ -166,7 +166,6 @@ export interface OrderDetails {
 }
 
 export interface CreateOrderTaskDto {
-    taskType: OrderTaskType;
     workTypeId: string;
     quantity: number;
     toothNumbers: number[];

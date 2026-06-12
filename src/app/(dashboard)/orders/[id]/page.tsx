@@ -3,7 +3,6 @@
 import {useMemo, useState} from 'react';
 import {useParams} from 'next/navigation';
 import Link from 'next/link';
-import {useSelector} from 'react-redux';
 import {
     DndContext,
     closestCorners,
@@ -29,9 +28,7 @@ import TaskCard from "@/src/components/ui/TaskCard";
 import DroppableColumn from "@/src/components/ui/DroppableColumn";
 import {
     canTaskMoveToColumn,
-    filterKanbanColumnsByTaskTypes,
     getOrderTaskColumns,
-    mergeDuplicateKanbanColumns,
 } from '@/src/utils/orderUtils'
 import ErrorModal from '@/src/components/ui/ErrorModal';
 import {
@@ -39,7 +36,7 @@ import {
     useGetOrderKanbanQuery,
     useGetOrdersQuery,
 } from '@/src/services/api/ordersApi';
-import type {RootState} from '@/src/lib/store';
+import {useGetUsersQuery} from '@/src/services/api/usersApi';
 
 const ORDER_LOOKUP_PARAMS = {
     page: 0,
@@ -129,35 +126,9 @@ function getTaskColor(task: OrderKanbanTask) {
     return task.colorCode || getStringValue(task, ['colorName', 'color']);
 }
 
-function getOrderTaskTypes(order: ServerOrderInfo | undefined, columns: OrderKanbanColumn[]) {
-    const detailTasks = getOrderDetailTasks(order);
-    const kanbanTasks = getColumnsTasks(columns);
-
-    return collectUnique([
-        ...detailTasks.map((task) => task.taskType),
-        ...kanbanTasks.map((task) => task.taskType),
-    ]);
-}
-
-function getDisplayKanbanColumns(
-    columns: OrderKanbanColumn[],
-    order: ServerOrderInfo | undefined
-) {
-    const taskTypes = getOrderTaskTypes(order, columns);
-
-    return filterKanbanColumnsByTaskTypes(
-        mergeDuplicateKanbanColumns(columns),
-        taskTypes
-    );
-}
-
 export default function OrderBoardPage() {
     const params = useParams<{ id: string | string[] }>();
     const id = Array.isArray(params.id) ? params.id[0] : params.id;
-    const userId = useSelector((state: RootState) => state.auth.id);
-    const effectiveUserId = userId === 'dev-admin'
-        ? '00000000-0000-4000-8000-000000000001'
-        : userId;
     const orders = useOrders();
     const order = orders.find((item) => item.id === id);
     const {data: serverOrders, isLoading: isServerOrdersLoading} = useGetOrdersQuery(ORDER_LOOKUP_PARAMS);
@@ -165,9 +136,14 @@ export default function OrderBoardPage() {
         id,
         {skip: !isUuid(id)}
     );
-    const canLoadServerKanban = isUuid(id) && Boolean(effectiveUserId);
+    const {data: users = [], isLoading: isUsersLoading} = useGetUsersQuery(undefined, {skip: !isUuid(id)});
+    const temporaryKanbanUserId = useMemo(
+        () => users.find((user) => isUuid(user.id))?.id,
+        [users]
+    );
+    const canLoadServerKanban = isUuid(id) && Boolean(temporaryKanbanUserId);
     const {data: serverKanbanColumns, isLoading: isKanbanLoading} = useGetOrderKanbanQuery(
-        {id, userId: effectiveUserId ?? ''},
+        {id, userId: temporaryKanbanUserId ?? ''},
         {skip: !canLoadServerKanban}
     );
     const serverOrder = serverOrderDetails ?? serverOrders?.content.find((item) => item.id === id);
@@ -296,7 +272,7 @@ export default function OrderBoardPage() {
         });
     };
 
-    if (!order && (isServerOrdersLoading || isServerOrderLoading || isKanbanLoading)) {
+    if (!order && (isServerOrdersLoading || isServerOrderLoading || isUsersLoading || isKanbanLoading)) {
         return <div className="text-sm text-slate-500">Загрузка заказа...</div>;
     }
 
@@ -305,7 +281,7 @@ export default function OrderBoardPage() {
             <ServerKanbanBoard
                 orderId={id}
                 order={serverOrder}
-                columns={getDisplayKanbanColumns(serverKanbanColumns, serverOrder)}
+                columns={serverKanbanColumns}
             />
         );
     }
@@ -430,7 +406,7 @@ export default function OrderBoardPage() {
                 </div>
 
                 <div
-                    className="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-x-10 gap-y-5 overflow-x-auto pb-4 items-start pt-4 ">
+                    className="grid grid-cols-1 items-start gap-x-10 gap-y-10 pb-8 pt-4 lg:grid-cols-3">
                     {COLUMNS.map((column) => {
                         const tasksInColumn = tasks.filter((task) => task.status === column.id);
 
@@ -451,7 +427,7 @@ export default function OrderBoardPage() {
                                     items={tasksInColumn.map((task) => task.id)}
                                     strategy={verticalListSortingStrategy}
                                 >
-                                    <div className="p-3 space-y-3 overflow-y-auto flex-1 min-h-[150px]">
+                                    <div className="min-h-[150px] space-y-3 p-3">
                                         {tasksInColumn.map((task) => (
                                             <TaskCard
                                                 key={task.id}
@@ -608,11 +584,11 @@ function ServerKanbanBoard({
             </div>
 
             <div
-                className="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-x-10 gap-y-5 overflow-x-auto pb-4 items-start pt-4">
+                className="grid grid-cols-1 items-start gap-x-10 gap-y-10 pb-8 pt-4 lg:grid-cols-3">
                 {columns.map((column) => (
                     <section
                         key={`${column.statusName}-${column.title}`}
-                        className="min-h-[280px] rounded-xl border border-slate-200 border-t-4 border-t-blue-500 bg-slate-50/60 shadow-sm"
+                        className="h-fit min-h-[280px] rounded-xl border border-slate-200 border-t-4 border-t-blue-500 bg-slate-50/60 shadow-sm"
                     >
                         <div
                             className="p-4 flex justify-between items-center border-b border-slate-200 bg-white/50 rounded-t-xl">
@@ -624,7 +600,7 @@ function ServerKanbanBoard({
                             </span>
                         </div>
 
-                        <div className="p-3 space-y-3 overflow-y-auto flex-1 min-h-[150px]">
+                        <div className="min-h-[150px] space-y-3 p-3">
                             {column.tasks.map((task) => (
                                 <button
                                     type="button"
@@ -724,9 +700,6 @@ function TaskHistorySidebar({
                         <div className="mt-3 flex flex-wrap gap-2">
                             <span className="rounded-lg bg-blue-50 px-2.5 py-1 text-[10px] font-black uppercase text-blue-700">
                                 {taskStatus}
-                            </span>
-                            <span className="rounded-lg bg-slate-100 px-2.5 py-1 text-[10px] font-black uppercase text-slate-600">
-                                Техник: {taskAssignee}
                             </span>
                         </div>
                     </div>

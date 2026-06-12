@@ -25,7 +25,6 @@ function buildCreateOrderBody(body: CreateOrderDto): CreateOrderRequest {
     return {
         ...body,
         tasks: body.tasks.map(({
-            taskType,
             workTypeId,
             quantity,
             toothNumbers,
@@ -35,7 +34,6 @@ function buildCreateOrderBody(body: CreateOrderDto): CreateOrderRequest {
             pricePerUnit,
             discountPercent,
         }) => ({
-            taskType,
             workTypeId,
             quantity,
             toothNumbers,

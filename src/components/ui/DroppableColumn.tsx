@@ -14,7 +14,7 @@ export default function DroppableColumn({ id, column, children }: DroppableColum
     return (
         <div
             ref={setNodeRef}
-            className={`w-full min-w-[15rem] bg-slate-100 rounded-xl flex flex-col max-h-full border border-slate-200 border-t-4 ${column.color} shadow-inner`}
+            className={`flex h-fit min-h-[280px] w-full min-w-[15rem] flex-col rounded-xl border border-slate-200 border-t-4 bg-slate-100 ${column.color} shadow-inner`}
         >
             {children}
         </div>

@@ -182,7 +182,12 @@ export default function Dashboard() {
     const overdueCount = tasks.filter((task) => task.isOverdue).length;
     const completedCount = tasks.filter((task) => task.stage === 'done').length;
 
-    const groupedStages = stages.map((stage) => ({
+    const visibleStages =
+        stageFilter === 'all'
+            ? stages
+            : stages.filter((stage) => stage.id === stageFilter);
+
+    const groupedStages = visibleStages.map((stage) => ({
         ...stage,
         tasks: activeTasks.filter((task) => task.stage === stage.id),
     }));
@@ -297,7 +302,6 @@ export default function Dashboard() {
                                 <div className="flex items-start justify-between gap-3">
                                     <div>
                                         <h2 className="font-bold text-slate-900">{stage.title}</h2>
-                                        <p className="mt-1 text-xs text-slate-500">{stage.subtitle}</p>
                                     </div>
 
                                     <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-600">
