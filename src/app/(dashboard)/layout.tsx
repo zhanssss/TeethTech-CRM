@@ -16,7 +16,17 @@ export default function DashboardLayout({
     const router = useRouter();
     const { isAuthenticated } = useSelector((state: RootState) => state.auth);
 
-    const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+    useEffect(() => {
+        const mediaQuery = window.matchMedia('(min-width: 1024px)');
+        const syncSidebarState = () => setIsSidebarOpen(mediaQuery.matches);
+
+        syncSidebarState();
+        mediaQuery.addEventListener('change', syncSidebarState);
+
+        return () => mediaQuery.removeEventListener('change', syncSidebarState);
+    }, []);
 
     useEffect(() => {
         if (!isAuthenticated) {
@@ -27,7 +37,14 @@ export default function DashboardLayout({
     if (!isAuthenticated) return null;
 
     return (
-        <div className="relative flex h-screen w-full overflow-hidden bg-slate-50">
+        <div className="relative flex h-dvh w-full overflow-hidden bg-slate-50">
+            {isSidebarOpen && (
+                <div
+                    onClick={() => setIsSidebarOpen(false)}
+                    className="fixed inset-0 z-40 bg-slate-900/40 backdrop-blur-[1px] lg:hidden"
+                />
+            )}
+
             {isSidebarOpen && (
                 <Sidebar onClose={() => setIsSidebarOpen(false)} />
             )}
@@ -35,7 +52,7 @@ export default function DashboardLayout({
             {!isSidebarOpen && (
                 <button
                     onClick={() => setIsSidebarOpen(true)}
-                    className="absolute left-4 top-4 z-50 flex h-10 w-10 items-center justify-center rounded-lg bg-slate-900 text-white shadow-lg transition-colors hover:bg-slate-800"
+                    className="absolute left-4 top-4 z-50 hidden h-10 w-10 items-center justify-center rounded-lg bg-slate-900 text-white shadow-lg transition-colors hover:bg-slate-800 lg:flex"
                     aria-label="Открыть сайдбар"
                 >
                     ☰
@@ -43,9 +60,9 @@ export default function DashboardLayout({
             )}
 
             <div className="flex min-w-0 flex-1 flex-col">
-                <Header />
+                <Header onMenuClick={() => setIsSidebarOpen(true)} />
 
-                <main className="flex-1 overflow-y-auto p-8 pt-4">
+                <main className="flex-1 overflow-x-hidden overflow-y-auto px-4 py-4 sm:px-6 lg:px-8">
                     {children}
                 </main>
             </div>

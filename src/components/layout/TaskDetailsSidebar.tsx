@@ -40,13 +40,13 @@ export default function TaskDetailsSidebar({
                 className="fixed inset-0 z-40 bg-slate-900/20 backdrop-blur-[1px]"
             />
 
-            <aside className="fixed right-0 top-0 z-50 flex h-screen w-full max-w-[30rem] flex-col border-l border-slate-200 bg-white shadow-2xl">
-                <div className="flex items-start justify-between gap-4 border-b border-slate-200 p-5">
-                    <div>
+            <aside className="fixed inset-x-0 bottom-0 z-50 flex h-[92dvh] w-full flex-col rounded-t-2xl border-l border-slate-200 bg-white shadow-2xl sm:inset-x-auto sm:right-0 sm:top-0 sm:h-dvh sm:max-w-[30rem] sm:rounded-none">
+                <div className="flex items-start justify-between gap-4 border-b border-slate-200 p-4 sm:p-5">
+                    <div className="min-w-0">
                         <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
                             Детали задачи
                         </p>
-                        <h2 className="mt-1 text-xl font-black text-slate-900">
+                        <h2 className="mt-1 truncate text-lg font-black text-slate-900 sm:text-xl">
                             {task.title ?? `Задача #${task.id}`}
                         </h2>
                         <p className="mt-1 text-xs font-semibold text-slate-500">
@@ -63,13 +63,13 @@ export default function TaskDetailsSidebar({
                     </button>
                 </div>
 
-                <div className="flex-1 space-y-6 overflow-y-auto p-5">
+                <div className="flex-1 space-y-5 overflow-y-auto p-4 sm:space-y-6 sm:p-5">
                     <section className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                         <h3 className="text-xs font-black uppercase tracking-widest text-slate-500">
                             Основная информация
                         </h3>
 
-                        <div className="mt-4 grid grid-cols-2 gap-3">
+                        <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
                             <InfoItem label="Цвет" value={task.color} />
                             <InfoItem label="Абатмент" value={task.abutment} />
                             <InfoItem label="Техник" value={task.technicianId} />

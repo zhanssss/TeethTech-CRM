@@ -95,7 +95,7 @@ export default function ClinicPatientsPage() {
                 </div>
 
                 <div className="overflow-x-auto">
-                    <table className="w-full min-w-[900px] border-collapse text-left">
+                    <table className="w-full min-w-[760px] border-collapse text-left lg:min-w-[900px]">
                         <thead className="border-b border-slate-200 bg-slate-50 text-[.7rem] uppercase tracking-widest text-slate-400">
                         <tr>
                             <th className="p-4 font-bold">Пациент</th>

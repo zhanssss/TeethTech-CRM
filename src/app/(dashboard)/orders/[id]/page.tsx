@@ -309,8 +309,8 @@ export default function OrderBoardPage() {
             collisionDetection={closestCorners}
             onDragEnd={handleDragEnd}
         >
-            <div className="h-full flex flex-col space-y-6">
-                <header className="flex justify-between items-start">
+            <div className="flex min-h-[calc(100dvh-8rem)] flex-col space-y-6">
+                <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                     <div>
                         <Link
                             href="/orders"
@@ -318,9 +318,9 @@ export default function OrderBoardPage() {
                         >
                             ← Реестр заказов
                         </Link>
-                        <h1 className="text-3xl font-black text-slate-900">Заказ #{order.id}</h1>
+                        <h1 className="text-2xl font-black text-slate-900 sm:text-3xl">Заказ #{order.id}</h1>
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex flex-wrap gap-2">
                         <span
                             className="bg-yellow-100 text-yellow-700 px-3 py-1 rounded-full text-[10px] font-black uppercase">
                             {order.status}
@@ -334,7 +334,7 @@ export default function OrderBoardPage() {
 
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                     <div
-                        className="md:col-span-2 bg-white p-5 rounded-2xl border border-slate-200 shadow-sm grid grid-cols-2 gap-4">
+                        className="grid grid-cols-1 gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:grid-cols-2 sm:p-5 md:col-span-2">
                         <div>
                             <p className="text-[10px] font-bold text-slate-400 uppercase">Пациент</p>
                             <p className="font-bold text-slate-800 text-lg">{order.patient}</p>
@@ -357,7 +357,7 @@ export default function OrderBoardPage() {
                         </div>
                     </div>
 
-                    <div className="bg-slate-900 text-white p-5 rounded-2xl shadow-lg flex flex-col justify-between">
+                    <div className="flex flex-col justify-between rounded-2xl bg-slate-900 p-4 text-white shadow-lg sm:p-5">
                         <div className="flex justify-between items-start">
                             <div>
                                 <p className="text-[10px] font-bold text-slate-400 uppercase">Цвет</p>
@@ -384,7 +384,7 @@ export default function OrderBoardPage() {
                         </div>
                     </div>
 
-                    <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+                    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
                         <p className="text-[10px] font-bold text-slate-400 uppercase mb-3 text-center border-b pb-1">
                             Команда наряда
                         </p>
@@ -497,8 +497,8 @@ function ServerKanbanBoard({
     const isActive = isRecord(order) && typeof order.isActive === 'boolean' ? order.isActive : true;
 
     return (
-        <div className="h-full flex flex-col space-y-6">
-            <header className="flex justify-between items-start">
+        <div className="flex min-h-[calc(100dvh-8rem)] flex-col space-y-6">
+            <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div>
                     <Link
                         href="/orders"
@@ -506,11 +506,11 @@ function ServerKanbanBoard({
                     >
                         ← Реестр заказов
                     </Link>
-                    <h1 className="text-3xl font-black text-slate-900">
+                    <h1 className="text-2xl font-black text-slate-900 sm:text-3xl">
                         Заказ #{order?.orderNumber ?? orderId}
                     </h1>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                     <span
                         className="bg-yellow-100 text-yellow-700 px-3 py-1 rounded-full text-[10px] font-black uppercase">
                         {isActive ? 'Активен' : 'Закрыт'}
@@ -520,7 +520,7 @@ function ServerKanbanBoard({
 
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div
-                    className="md:col-span-2 bg-white p-5 rounded-2xl border border-slate-200 shadow-sm grid grid-cols-2 gap-4">
+                    className="grid grid-cols-1 gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:grid-cols-2 sm:p-5 md:col-span-2">
                     <div>
                         <p className="text-[10px] font-bold text-slate-400 uppercase">Пациент</p>
                         <p className="font-bold text-slate-800 text-lg">{patientName || '-'}</p>
@@ -550,7 +550,7 @@ function ServerKanbanBoard({
                 </div>
 
                 <div
-                    className="bg-slate-900 text-white p-5 rounded-2xl shadow-lg flex flex-col justify-between">
+                    className="flex flex-col justify-between rounded-2xl bg-slate-900 p-4 text-white shadow-lg sm:p-5">
                     <div>
                         <p className="text-[10px] font-bold text-slate-400 uppercase">Цвет</p>
                         <p className="mt-2 text-xl font-black text-orange-400">
@@ -562,7 +562,7 @@ function ServerKanbanBoard({
                     </p>
                 </div>
 
-                <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+                <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
                     <p className="text-[10px] font-bold text-slate-400 uppercase mb-3 text-center border-b pb-1">
                         Команда наряда
                     </p>
@@ -688,13 +688,13 @@ function TaskHistorySidebar({
                 className="fixed inset-0 z-40 bg-slate-900/20 backdrop-blur-[1px]"
             />
 
-            <aside className="fixed right-0 top-0 z-50 flex h-screen w-full max-w-[36rem] flex-col border-l border-slate-200 bg-white shadow-2xl">
-                <div className="flex items-start justify-between gap-4 border-b border-slate-200 p-5">
+            <aside className="fixed inset-x-0 bottom-0 z-50 flex h-[92dvh] w-full flex-col rounded-t-2xl border-l border-slate-200 bg-white shadow-2xl sm:inset-x-auto sm:right-0 sm:top-0 sm:h-dvh sm:max-w-[36rem] sm:rounded-none">
+                <div className="flex items-start justify-between gap-4 border-b border-slate-200 p-4 sm:p-5">
                     <div className="min-w-0">
                         <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
                             Журнал задачи
                         </p>
-                        <h2 className="mt-1 truncate text-xl font-black text-slate-900">
+                        <h2 className="mt-1 truncate text-lg font-black text-slate-900 sm:text-xl">
                             {taskTitle}
                         </h2>
                         <div className="mt-3 flex flex-wrap gap-2">
@@ -713,7 +713,7 @@ function TaskHistorySidebar({
                     </button>
                 </div>
 
-                <div className="flex-1 space-y-5 overflow-y-auto p-5">
+                <div className="flex-1 space-y-5 overflow-y-auto p-4 sm:p-5">
                     <TaskFilesPanel
                         taskId={task.id}
                         className="rounded-2xl border border-slate-200 bg-white p-4"

@@ -1,1 +1,42 @@
 @import "tailwindcss";
+
+@layer base {
+  html,
+  body {
+    max-width: 100%;
+    min-height: 100%;
+    overflow-x: hidden;
+  }
+
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  input,
+  select,
+  textarea,
+  button {
+    font: inherit;
+  }
+
+  input,
+  select,
+  textarea {
+    max-width: 100%;
+  }
+
+  :where(.overflow-x-auto) {
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+  }
+
+  @media (max-width: 640px) {
+    input,
+    select,
+    textarea {
+      font-size: 16px;
+    }
+  }
+}

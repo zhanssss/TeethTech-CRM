@@ -127,8 +127,8 @@ export default function AnalyticsPage() {
 
     if (isLoading) {
         return (
-            <div className="h-full overflow-y-auto bg-slate-50 p-6">
-                <div className="rounded-2xl bg-white px-6 py-8 text-center text-sm text-slate-500 shadow-sm">
+            <div className="bg-slate-50">
+                <div className="rounded-2xl bg-white px-4 py-8 text-center text-sm text-slate-500 shadow-sm sm:px-6">
                     Загрузка аналитики...
                 </div>
             </div>
@@ -144,8 +144,8 @@ export default function AnalyticsPage() {
     }
 
     return (
-        <div className="h-full overflow-y-auto bg-slate-50 p-6">
-            <header className="mb-6 rounded-2xl bg-white px-6 py-5 shadow-sm">
+        <div className="bg-slate-50">
+            <header className="mb-4 rounded-2xl bg-white px-4 py-4 shadow-sm sm:mb-6 sm:px-6 sm:py-5">
                 <h1 className="text-2xl font-semibold text-slate-900">
                     Аналитика лаборатории
                 </h1>
@@ -201,12 +201,12 @@ export default function AnalyticsPage() {
             </div>
 
             <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
-                <div className="flex flex-col rounded-2xl bg-white p-5 shadow-sm">
+                <div className="flex flex-col rounded-2xl bg-white p-4 shadow-sm sm:p-5">
                     <h3 className="mb-4 text-lg font-semibold text-slate-800">
                         Нагрузка по этапам
                     </h3>
 
-                    <div className="min-h-[320px] flex-1">
+                    <div className="min-h-[280px] flex-1 sm:min-h-[320px]">
                         <ResponsiveContainer width="100%" height="100%">
                             <BarChart
                                 data={stageData}
@@ -263,12 +263,12 @@ export default function AnalyticsPage() {
                     </div>
                 </div>
 
-                <div className="flex flex-col rounded-2xl bg-white p-5 shadow-sm">
+                <div className="flex flex-col rounded-2xl bg-white p-4 shadow-sm sm:p-5">
                     <h3 className="mb-4 text-lg font-semibold text-slate-800">
                         Доля материалов
                     </h3>
 
-                    <div className="min-h-[320px] flex-1">
+                    <div className="min-h-[280px] flex-1 sm:min-h-[320px]">
                         <ResponsiveContainer width="100%" height="100%">
                             <PieChart>
                                 <Pie
@@ -312,7 +312,7 @@ export default function AnalyticsPage() {
             </div>
 
             <div className="mt-6">
-                <button className="rounded-xl bg-blue-600 px-5 py-3 text-sm font-medium text-white transition hover:bg-blue-700">
+                <button className="w-full rounded-xl bg-blue-600 px-5 py-3 text-sm font-medium text-white transition hover:bg-blue-700 sm:w-auto">
                     Выгрузить в Excel
                 </button>
             </div>

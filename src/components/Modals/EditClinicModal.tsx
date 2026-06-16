@@ -82,8 +82,8 @@ export default function EditClinicModal({
                 </ErrorModal>
             )}
 
-            <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50 px-6 py-4">
-                <div>
+            <div className="flex items-start justify-between gap-4 border-b border-slate-200 bg-slate-50 px-4 py-4 sm:px-6">
+                <div className="min-w-0">
                     <h2 className="text-xl font-bold text-slate-900">
                         Редактировать клинику
                     </h2>
@@ -101,7 +101,7 @@ export default function EditClinicModal({
                 </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="flex-1 space-y-5 overflow-y-auto p-6">
+            <form onSubmit={handleSubmit} className="flex-1 space-y-5 overflow-y-auto p-4 sm:p-6">
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                     <div>
                         <label className="mb-1 block text-xs font-bold uppercase text-slate-400">
@@ -192,18 +192,18 @@ export default function EditClinicModal({
                     </div>
                 </div>
 
-                <div className="flex justify-end gap-3 border-t border-slate-100 pt-5">
+                <div className="flex flex-col-reverse gap-3 border-t border-slate-100 pt-5 sm:flex-row sm:justify-end">
                     <button
                         type="button"
                         onClick={onClose}
-                        className="rounded-xl px-5 py-2.5 text-sm font-bold text-slate-400 transition hover:text-slate-700"
+                        className="w-full rounded-xl px-5 py-2.5 text-sm font-bold text-slate-400 transition hover:text-slate-700 sm:w-auto"
                     >
                         Отмена
                     </button>
 
                     <button
                         type="submit"
-                        className="rounded-xl bg-blue-600 px-7 py-2.5 text-sm font-bold text-white shadow-lg shadow-blue-100 transition hover:bg-blue-700 active:scale-95"
+                        className="w-full rounded-xl bg-blue-600 px-7 py-2.5 text-sm font-bold text-white shadow-lg shadow-blue-100 transition hover:bg-blue-700 active:scale-95 sm:w-auto"
                     >
                         {isLoading ? 'Сохранение...' : 'Сохранить изменения'}
                     </button>

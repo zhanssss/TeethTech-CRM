@@ -130,9 +130,9 @@ function StatCard({
     hint: string;
 }) {
     return (
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
             <p className="text-sm font-medium text-slate-500">{title}</p>
-            <p className="mt-2 text-3xl font-black text-slate-900">{value}</p>
+            <p className="mt-2 text-2xl font-black text-slate-900 sm:text-3xl">{value}</p>
             <p className="mt-2 text-xs text-slate-400">{hint}</p>
         </div>
     );
@@ -180,13 +180,13 @@ export default function EmployeeDetailsPage() {
                         ← Сотрудники
                     </Link>
 
-                    <div className="flex items-center gap-4">
-                        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-blue-100 text-2xl font-black text-blue-700">
+                    <div className="flex items-center gap-3 sm:gap-4">
+                        <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-blue-100 text-xl font-black text-blue-700 sm:h-16 sm:w-16 sm:text-2xl">
                             {employee.name[0]}
                         </div>
 
                         <div>
-                            <h1 className="text-3xl font-black text-slate-900">
+                            <h1 className="text-2xl font-black text-slate-900 sm:text-3xl">
                                 {employee.name}
                             </h1>
                             <p className="mt-1 text-sm text-slate-500">
@@ -239,7 +239,7 @@ export default function EmployeeDetailsPage() {
                     />
                 </div>
 
-                <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
                     <p className="text-xs font-black uppercase tracking-widest text-slate-400">
                         Контакты
                     </p>
@@ -276,7 +276,7 @@ export default function EmployeeDetailsPage() {
             </section>
 
             <section className="grid grid-cols-1 gap-6 xl:grid-cols-3">
-                <div className="xl:col-span-2 rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+                <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm xl:col-span-2">
                     <div className="border-b border-slate-200 bg-slate-50 px-5 py-4">
                         <h2 className="text-sm font-bold uppercase tracking-wider text-slate-500">
                             Текущие и последние задачи
@@ -284,7 +284,7 @@ export default function EmployeeDetailsPage() {
                     </div>
 
                     <div className="overflow-x-auto">
-                        <table className="min-w-[850px] w-full border-collapse text-left">
+                        <table className="w-full min-w-[760px] border-collapse text-left lg:min-w-[850px]">
                             <thead className="border-b border-slate-200 bg-slate-50 text-[11px] uppercase tracking-widest text-slate-400">
                             <tr>
                                 <th className="p-4 font-bold">ID</th>
@@ -352,7 +352,7 @@ export default function EmployeeDetailsPage() {
                 </div>
 
                 <div className="space-y-6">
-                    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
                         <h2 className="text-sm font-bold uppercase tracking-wider text-slate-500">
                             Быстрая сводка
                         </h2>
@@ -388,7 +388,7 @@ export default function EmployeeDetailsPage() {
                         </div>
                     </div>
 
-                    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
                         <h2 className="text-sm font-bold uppercase tracking-wider text-slate-500">
                             Динамика по месяцам
                         </h2>

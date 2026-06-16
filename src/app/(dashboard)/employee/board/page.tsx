@@ -60,7 +60,7 @@ function DroppableColumn({ id, column, children }: DroppableColumnProps) {
     return (
         <div
             ref={setNodeRef}
-            className={`w-80 shrink-0 rounded-xl border border-slate-200 border-t-4 bg-slate-100 shadow-inner ${column.color}`}
+            className={`w-[18rem] shrink-0 rounded-xl border border-slate-200 border-t-4 bg-slate-100 shadow-inner sm:w-80 ${column.color}`}
         >
             {children}
         </div>
@@ -190,8 +190,8 @@ export default function EmployeeBoardPage() {
             onDragStart={handleDragStart}
             onDragEnd={handleDragEnd}
         >
-            <div className="flex h-full flex-col space-y-6">
-                <header className="flex items-center justify-between">
+            <div className="flex min-h-[calc(100dvh-8rem)] flex-col space-y-6">
+                <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                         <h1 className="text-2xl font-bold text-slate-900">Моя доска</h1>
                         <p className="text-sm text-slate-500">
@@ -201,7 +201,7 @@ export default function EmployeeBoardPage() {
                 </header>
 
                 <div className="flex-1 overflow-x-auto pb-4">
-                    <div className="flex min-h-full gap-4 items-start">
+                    <div className="flex min-h-full items-start gap-4">
                         {COLUMNS.map((column) => {
                             const tasksInColumn = tasks.filter(
                                 (task) => task.status === column.id

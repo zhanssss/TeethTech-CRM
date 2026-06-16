@@ -18,9 +18,9 @@ function StatCard({
     hint: string;
 }) {
     return (
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
             <p className="text-sm font-medium text-slate-500">{title}</p>
-            <p className="mt-2 text-3xl font-black text-slate-900">{value}</p>
+            <p className="mt-2 text-2xl font-black text-slate-900 sm:text-3xl">{value}</p>
             <p className="mt-2 text-xs text-slate-400">{hint}</p>
         </div>
     );
@@ -154,7 +154,7 @@ export default function EmployeePage() {
             </section>
 
             <section className="grid grid-cols-1 gap-6 xl:grid-cols-3">
-                <div className="xl:col-span-1 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5 xl:col-span-1">
                     <h2 className="text-sm font-bold uppercase tracking-wider text-slate-500">
                         Ближайший дедлайн
                     </h2>
@@ -184,7 +184,7 @@ export default function EmployeePage() {
                     )}
                 </div>
 
-                <div className="xl:col-span-2 rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+                <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm xl:col-span-2">
                     <div className="border-b border-slate-200 bg-slate-50 px-5 py-4">
                         <h2 className="text-sm font-bold uppercase tracking-wider text-slate-500">
                             Мои активные задачи
@@ -192,7 +192,7 @@ export default function EmployeePage() {
                     </div>
 
                     <div className="overflow-x-auto">
-                        <table className="min-w-[850px] w-full border-collapse text-left">
+                        <table className="w-full min-w-[760px] border-collapse text-left lg:min-w-[850px]">
                             <thead className="border-b border-slate-200 bg-slate-50 text-[11px] uppercase tracking-widest text-slate-400">
                             <tr>
                                 <th className="p-4 font-bold">ID</th>

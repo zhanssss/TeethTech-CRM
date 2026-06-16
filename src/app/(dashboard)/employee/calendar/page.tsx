@@ -124,7 +124,7 @@ export default function EmployeeCalendarPage() {
                     </p>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
                     <button
                         onClick={goToPrevMonth}
                         className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-700 shadow-sm transition hover:bg-slate-50"
@@ -132,7 +132,7 @@ export default function EmployeeCalendarPage() {
                         ← Назад
                     </button>
 
-                    <div className="min-w-[180px] rounded-xl border border-slate-200 bg-white px-4 py-2 text-center text-sm font-bold text-slate-800 shadow-sm capitalize">
+                    <div className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-center text-sm font-bold capitalize text-slate-800 shadow-sm sm:min-w-[180px]">
                         {monthLabel}
                     </div>
 
@@ -146,10 +146,10 @@ export default function EmployeeCalendarPage() {
             </header>
 
             <section className="grid grid-cols-1 gap-6 xl:grid-cols-3">
-                <div className="xl:col-span-2 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-                    <div className="grid grid-cols-7 border-b border-slate-200 bg-slate-50 text-center text-[11px] font-bold uppercase tracking-widest text-slate-400">
+                <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm xl:col-span-2">
+                    <div className="grid grid-cols-7 border-b border-slate-200 bg-slate-50 text-center text-[10px] font-bold uppercase tracking-widest text-slate-400 sm:text-[11px]">
                         {['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'].map((day) => (
-                            <div key={day} className="p-4">
+                            <div key={day} className="p-2 sm:p-4">
                                 {day}
                             </div>
                         ))}
@@ -161,7 +161,7 @@ export default function EmployeeCalendarPage() {
                                 return (
                                     <div
                                         key={`empty-${index}`}
-                                        className="min-h-[120px] border-b border-r border-slate-100 bg-slate-50/50"
+                                        className="min-h-[86px] border-b border-r border-slate-100 bg-slate-50/50 sm:min-h-[120px]"
                                     />
                                 );
                             }
@@ -174,13 +174,13 @@ export default function EmployeeCalendarPage() {
                                 <button
                                     key={date.toISOString()}
                                     onClick={() => setSelectedDate(date)}
-                                    className={`min-h-[120px] border-b border-r border-slate-100 p-2 text-left align-top transition ${
+                                    className={`min-h-[86px] border-b border-r border-slate-100 p-1.5 text-left align-top transition sm:min-h-[120px] sm:p-2 ${
                                         isSelected ? 'bg-blue-50' : 'bg-white hover:bg-slate-50'
                                     }`}
                                 >
                                     <div className="flex items-center justify-between">
                                         <span
-                                            className={`flex h-7 w-7 items-center justify-center rounded-full text-sm font-bold ${
+                                            className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold sm:h-7 sm:w-7 sm:text-sm ${
                                                 isToday
                                                     ? 'bg-blue-600 text-white'
                                                     : 'text-slate-700'
@@ -196,7 +196,7 @@ export default function EmployeeCalendarPage() {
                                         )}
                                     </div>
 
-                                    <div className="mt-2 space-y-1">
+                                    <div className="mt-2 hidden space-y-1 sm:block">
                                         {tasks.slice(0, 2).map((task) => (
                                             <div
                                                 key={task.id}
@@ -262,7 +262,7 @@ export default function EmployeeCalendarPage() {
                                         Заказ: #{task.orderId}
                                     </p>
 
-                                    <div className="mt-4 flex items-center justify-between gap-2">
+                                    <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                                         <span
                                             className={`rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase ${getStatusBadge(
                                                 task.status

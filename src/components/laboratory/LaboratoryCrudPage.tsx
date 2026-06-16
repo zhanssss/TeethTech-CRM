@@ -58,17 +58,17 @@ type Props<
     useGetQuery: (arg?: TQueryArg) => QueryResult<TItem>;
     queryArg?: TQueryArg;
 
-    useCreateMutation: () => [
+    useCreateMutation: () => readonly [
         (body: TCreateBody) => MutationResult,
         MutationState
     ];
 
-    useUpdateMutation: () => [
+    useUpdateMutation: () => readonly [
         (args: { id: string; body: TUpdateBody }) => MutationResult,
         MutationState
     ];
 
-    useDeleteMutation: () => [
+    useDeleteMutation: () => readonly [
         (id: string) => MutationResult,
         MutationState
     ];
@@ -193,8 +193,8 @@ export default function LaboratoryCrudPage<
                 </ErrorModal>
             )}
 
-            <section className="min-h-full w-full bg-slate-50 p-6">
-            <div className="mb-6 rounded-2xl bg-white px-6 py-5 shadow-sm">
+            <section className="min-h-full w-full bg-slate-50 p-0 sm:p-4 lg:p-6">
+            <div className="mb-4 rounded-2xl bg-white px-4 py-4 shadow-sm sm:mb-6 sm:px-6 sm:py-5">
                 <h1 className="text-2xl font-semibold text-slate-900">
                     {pageTitle}
                 </h1>
@@ -204,8 +204,8 @@ export default function LaboratoryCrudPage<
                 </p>
             </div>
 
-            <section className="grid gap-6 xl:grid-cols-[420px_1fr]">
-                <div className="rounded-2xl bg-white p-5 shadow-sm">
+            <section className="grid gap-4 lg:gap-6 xl:grid-cols-[minmax(18rem,420px)_1fr]">
+                <div className="rounded-2xl bg-white p-4 shadow-sm sm:p-5">
                     <div className="mb-5">
                         <h2 className="text-lg font-semibold text-slate-900">
                             {editingId ? `Редактировать: ${formTitle}` : formTitle}
@@ -280,7 +280,7 @@ export default function LaboratoryCrudPage<
                             );
                         })}
 
-                        <div className="flex gap-3 pt-2">
+                        <div className="flex flex-col gap-3 pt-2 sm:flex-row">
                             <button
                                 type="submit"
                                 disabled={isSubmitting}
@@ -302,8 +302,8 @@ export default function LaboratoryCrudPage<
                     </form>
                 </div>
 
-                <div className="rounded-2xl bg-white p-5 shadow-sm">
-                    <div className="mb-5 flex items-center justify-between">
+                <div className="rounded-2xl bg-white p-4 shadow-sm sm:p-5">
+                    <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                         <div>
                             <h2 className="text-lg font-semibold text-slate-900">
                                 {listTitle}
@@ -340,14 +340,14 @@ export default function LaboratoryCrudPage<
                     )}
 
                     {!isLoading && !isError && items.length > 0 && (
-                        <div className="grid max-h-[620px] gap-3 overflow-y-auto pr-1 md:grid-cols-2">
+                        <div className="grid max-h-[70dvh] gap-3 overflow-y-auto pr-1 md:grid-cols-2 xl:max-h-[620px]">
                             {items.map((item) => (
                                 <div
                                     key={item.id}
                                     className="rounded-2xl bg-slate-50 p-4 transition hover:bg-slate-100"
                                 >
-                                    <div className="flex items-start justify-between gap-4">
-                                        <div>
+                                    <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                                        <div className="min-w-0">
                                             <div className="mb-2 flex items-center gap-2">
                                                 {item.code && (
                                                     <span className="rounded-lg bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 shadow-sm">
@@ -379,7 +379,7 @@ export default function LaboratoryCrudPage<
                                             )}
                                         </div>
 
-                                        <div className="flex shrink-0 gap-2">
+                                        <div className="flex shrink-0 flex-wrap gap-2">
                                             <button
                                                 type="button"
                                                 onClick={() => handleEdit(item)}

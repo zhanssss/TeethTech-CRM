@@ -7,7 +7,7 @@ interface SectionProps {
 const Section = ({style, children}:SectionProps) => {
     return ( 
         <section
-            className={`overflow-hidden my-4 p-2 rounded-2xl border border-slate-200 bg-white shadow-sm ${style}`}
+            className={`my-4 overflow-hidden rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4 ${style}`}
         >
             {children}
         </section> 

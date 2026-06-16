@@ -4,7 +4,7 @@ import type {
     WorkTypes,
     CreateWorkTypeDto,
     UpdateWorkTypeArgs,
-} from '@/src/types/laboratory-types/worktypes.types';
+} from '@/src/types/laboratory-types/workTypes.types';
 
 export const workTypesApi = teethTechApi.injectEndpoints({
     endpoints: (builder) => ({

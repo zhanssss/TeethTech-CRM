@@ -51,11 +51,11 @@ const DeleteClinicApproval = ({isOpen, onClose, clinicId}: props) => {
             {isLoading ?
                 <h2>Удаление ожидайте...</h2>
                 :
-                <div className="flex justify-end gap-3">
+                <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
                     <button
                         type="button"
                         onClick={onClose}
-                        className="rounded-xl px-5 py-2.5 text-sm font-bold text-slate-500 transition hover:bg-slate-100"
+                        className="w-full rounded-xl px-5 py-2.5 text-sm font-bold text-slate-500 transition hover:bg-slate-100 sm:w-auto"
                     >
                         Нет
                     </button>
@@ -64,7 +64,7 @@ const DeleteClinicApproval = ({isOpen, onClose, clinicId}: props) => {
                         type="button"
                         onClick={handleDelete}
                         disabled={isLoading}
-                        className="rounded-xl bg-red-700 px-5 py-2.5 text-sm font-bold text-white transition hover:bg-red-800 disabled:cursor-not-allowed disabled:opacity-60"
+                        className="w-full rounded-xl bg-red-700 px-5 py-2.5 text-sm font-bold text-white transition hover:bg-red-800 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
                     >
                         {isLoading ? 'Удаление...' : 'Да, удалить'}
                     </button>

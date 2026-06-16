@@ -483,15 +483,15 @@ export default function CreateOrderModal({
                 </ErrorModal>
             )}
 
-            <div className="px-6 py-4 border-b border-slate-200 flex justify-between items-center bg-slate-50">
-                <div>
+            <div className="flex items-start justify-between gap-4 border-b border-slate-200 bg-slate-50 px-4 py-4 sm:px-6">
+                <div className="min-w-0">
                     <h2 className="text-xl font-bold text-slate-800">Регистрация наряда</h2>
                     <p className="text-xs text-slate-500">Заказ, команда и технические задачи лаборатории</p>
                 </div>
-                <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-2xl">&times;</button>
+                <button onClick={onClose} className="shrink-0 text-2xl text-slate-400 hover:text-slate-600">&times;</button>
             </div>
 
-            <form onSubmit={handleSubmit} className="p-6 overflow-y-auto flex-1 space-y-7">
+            <form onSubmit={handleSubmit} className="flex-1 space-y-6 overflow-y-auto p-4 sm:space-y-7 sm:p-6">
                 {isLoadingDictionaries && (
                     <div className="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm font-semibold text-blue-700">
                         Загрузка справочников...
@@ -617,8 +617,8 @@ export default function CreateOrderModal({
                         const taskTotal = Math.max(subtotal - subtotal * (Number(task.discountPercent) / 100), 0);
 
                         return (
-                            <div key={index} className="border border-slate-200 rounded-2xl p-4 mb-4 bg-white">
-                                <div className="flex justify-between items-center mb-4">
+                            <div key={index} className="mb-4 rounded-2xl border border-slate-200 bg-white p-3 sm:p-4">
+                                <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                                     <h4 className="text-sm font-black text-slate-700">
                                         Техническая задача #{index + 1}
                                     </h4>
@@ -634,7 +634,7 @@ export default function CreateOrderModal({
                                     )}
                                 </div>
 
-                                <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_320px] gap-5">
+                                <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
                                     <div className="space-y-4">
                                         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                                             <div className="md:col-span-2">
@@ -748,7 +748,7 @@ export default function CreateOrderModal({
 
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                             <div className="rounded-2xl border border-blue-100 bg-blue-50/60 p-4">
-                                                <div className="flex items-center justify-between gap-3">
+                                                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                                                     <h5 className="text-[10px] font-black text-blue-700 uppercase tracking-widest">
                                                         Скрины
                                                     </h5>
@@ -800,7 +800,7 @@ export default function CreateOrderModal({
                                             </div>
 
                                             <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                                                <div className="flex items-center justify-between gap-3">
+                                                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                                                     <h5 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
                                                         Файлы
                                                     </h5>
@@ -853,7 +853,7 @@ export default function CreateOrderModal({
                                     </div>
 
                                     <div className="rounded-2xl border border-blue-100 bg-blue-50/60 p-4">
-                                        <div className="flex items-center justify-between mb-3">
+                                        <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                                             <label className="text-[10px] font-black text-blue-700 uppercase">
                                                 Зубы
                                             </label>
@@ -915,8 +915,8 @@ export default function CreateOrderModal({
                     />
                 </section>
 
-                <div className="flex justify-end">
-                    <div className="bg-slate-900 text-white rounded-2xl px-6 py-4 min-w-[220px]">
+                <div className="flex justify-stretch sm:justify-end">
+                    <div className="w-full rounded-2xl bg-slate-900 px-4 py-4 text-white sm:w-auto sm:min-w-[220px] sm:px-6">
                         <p className="text-[10px] uppercase text-slate-400 font-bold">
                             Общая сумма заказа
                         </p>
@@ -926,18 +926,18 @@ export default function CreateOrderModal({
                     </div>
                 </div>
 
-                <div className="pt-4 flex justify-end gap-3 border-t border-slate-100">
+                <div className="flex flex-col-reverse gap-3 border-t border-slate-100 pt-4 sm:flex-row sm:justify-end">
                     <button
                         type="button"
                         onClick={onClose}
-                        className="px-6 py-2.5 text-sm font-bold text-slate-400 hover:text-slate-600 transition"
+                        className="w-full px-6 py-2.5 text-sm font-bold text-slate-400 transition hover:text-slate-600 sm:w-auto"
                     >
                         Отмена
                     </button>
                     <button
                         type="submit"
                         disabled={isSubmitting}
-                        className="px-10 py-3 text-sm font-black text-white bg-blue-600 rounded-xl hover:bg-blue-700 shadow-lg shadow-blue-100 transition-all active:scale-95 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none"
+                        className="w-full rounded-xl bg-blue-600 px-10 py-3 text-sm font-black text-white shadow-lg shadow-blue-100 transition-all hover:bg-blue-700 active:scale-95 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none sm:w-auto"
                     >
                         {isSubmitting ? 'Создание...' : 'Создать заказ'}
                     </button>

@@ -373,14 +373,14 @@ export default function OrdersPage() {
 
     return (
         <div className="space-y-6 relative">
-            <div className="flex justify-between items-center">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                     <h1 className="text-2xl font-bold text-slate-900">Реестр заказов</h1>
                     <p className="text-slate-500 text-sm">Управление производственным потоком лаборатории</p>
                 </div>
                 <button
                     onClick={() => setIsModalOpen(true)}
-                    className="bg-blue-600 text-white px-5 py-2.5 rounded-xl font-bold hover:bg-blue-700 shadow-lg shadow-blue-200 transition-all active:scale-95"
+                    className="w-full rounded-xl bg-blue-600 px-5 py-2.5 font-bold text-white shadow-lg shadow-blue-200 transition-all hover:bg-blue-700 active:scale-95 sm:w-auto"
                 >
                     + Новый заказ
                 </button>
@@ -482,7 +482,7 @@ export default function OrdersPage() {
 
             <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
                 <div className="overflow-x-auto">
-                    <table className="w-full min-w-[980px] text-left border-collapse">
+                    <table className="w-full min-w-[860px] border-collapse text-left lg:min-w-[980px]">
                         <thead className="bg-slate-50 border-b border-slate-200 text-slate-400 text-[11px] uppercase tracking-widest">
                         <tr>
                             <th className="p-4 font-bold">ID</th>

@@ -13,7 +13,7 @@ import type {
     CreateWorkTypeDto,
     UpdateWorkTypesDto,
     WorkTypes,
-} from '@/src/types/laboratory-types/worktypes.types';
+} from '@/src/types/laboratory-types/workTypes.types';
 
 export default function LaboratoryWorkTypesPage() {
     return (

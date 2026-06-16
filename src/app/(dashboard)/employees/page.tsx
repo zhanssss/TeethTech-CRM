@@ -27,9 +27,9 @@ function StatCard({
     description: string;
 }) {
     return (
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
             <p className="text-sm font-medium text-slate-500">{title}</p>
-            <p className="mt-2 text-3xl font-black text-slate-900">{value}</p>
+            <p className="mt-2 text-2xl font-black text-slate-900 sm:text-3xl">{value}</p>
             <p className="mt-2 text-xs text-slate-400">{description}</p>
         </div>
     );
@@ -120,7 +120,7 @@ export default function EmployeesPage() {
 
                 <button
                     onClick={() => setIsCreateModalOpen(true)}
-                    className="rounded-xl bg-blue-600 px-5 py-2.5 font-bold text-white shadow-lg shadow-blue-200 transition-all hover:bg-blue-700 active:scale-95"
+                    className="w-full rounded-xl bg-blue-600 px-5 py-2.5 font-bold text-white shadow-lg shadow-blue-200 transition-all hover:bg-blue-700 active:scale-95 md:w-auto"
                 >
                     + Добавить сотрудника
                 </button>
@@ -169,7 +169,7 @@ export default function EmployeesPage() {
                                 </option>
                             ))}
                         </select>
-                        <label htmlFor="fired-employees" className="flex items-center gap-2">
+                        <label htmlFor="fired-employees" className="flex items-start gap-2 text-sm text-slate-600 sm:items-center">
                             <input
                                 id="fired-employees"
                                 type="checkbox"
@@ -192,7 +192,7 @@ export default function EmployeesPage() {
                 </div>
 
                 <div className="overflow-x-auto">
-                    <table className="min-w-275 w-full border-collapse text-left">
+                    <table className="w-full min-w-[960px] border-collapse text-left">
                         <thead className="border-b border-slate-200 bg-slate-50 text-[.7rem] uppercase tracking-widest text-slate-400">
                         <tr>
                             <th className="p-4 font-bold">Сотрудник</th>

@@ -176,7 +176,7 @@ const DroppableColumn = ({id, children, column}: DroppableColumnProps) => {
     return (
         <div
             ref={setNodeRef}
-            className={`w-80 bg-slate-100 rounded-xl flex flex-col max-h-full border border-slate-200 border-t-4 ${column.color} shrink-0 shadow-inner`}
+            className={`flex max-h-full w-[18rem] shrink-0 flex-col rounded-xl border border-slate-200 border-t-4 bg-slate-100 shadow-inner sm:w-80 ${column.color}`}
         >
             {children}
         </div>
@@ -244,15 +244,15 @@ export default function BoardPage() {
             collisionDetection={closestCorners}
             onDragEnd={handleDragEnd}
         >
-            <div className="h-full flex flex-col space-y-5">
-                <header className="flex justify-between items-center">
+            <div className="flex min-h-[calc(100dvh-8rem)] flex-col space-y-5">
+                <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                         <h1 className="text-2xl font-bold text-slate-900">Производственная доска</h1>
                         <p className="text-slate-500 text-sm">{role === 'DISPATCHER' ? 'Мониторинг лаборатории' : 'Мои задачи'}</p>
                     </div>
                 </header>
 
-                <div className="flex-1 flex gap-4 overflow-x-auto pb-4 items-start">
+                <div className="flex flex-1 items-start gap-4 overflow-x-auto pb-4">
                     {COLUMNS.map((column) => {
                         const tasksInColumn = filteredTasks.filter((t) => t.status === column.id);
 

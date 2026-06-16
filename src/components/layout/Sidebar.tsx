@@ -66,14 +66,20 @@ export default function Sidebar({ onClose }: SidebarProps) {
         router.push('/auth/login');
     };
 
+    const handleNavigate = () => {
+        if (window.matchMedia('(max-width: 1023px)').matches) {
+            onClose();
+        }
+    };
+
     return (
-        <aside className="flex h-screen w-64 flex-col bg-slate-900 text-white">
-            <div className="flex items-center justify-between border-b border-slate-800 p-6">
-                <div className="flex items-center gap-2 text-2xl font-bold">
+        <aside className="fixed inset-y-0 left-0 z-50 flex h-dvh w-[min(18rem,85vw)] flex-col bg-slate-900 text-white shadow-2xl lg:static lg:w-64 lg:shadow-none">
+            <div className="flex items-center justify-between border-b border-slate-800 p-4 sm:p-6">
+                <div className="flex min-w-0 items-center gap-2 text-xl font-bold sm:text-2xl">
                     <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600 text-sm">
                         TT
                     </div>
-                    TeethTech
+                    <span className="truncate">TeethTech</span>
                 </div>
 
                 <button
@@ -85,7 +91,7 @@ export default function Sidebar({ onClose }: SidebarProps) {
                 </button>
             </div>
 
-            <nav className="flex-1 space-y-2 p-4">
+            <nav className="flex-1 space-y-2 overflow-y-auto p-4">
                 {menuItems.map((item) => {
                     const isParentActive =
                         pathname === item.href ||
@@ -95,6 +101,7 @@ export default function Sidebar({ onClose }: SidebarProps) {
                         <div key={item.href}>
                             <Link
                                 href={item.href}
+                                onClick={handleNavigate}
                                 className={`block rounded-lg p-3 text-sm font-medium transition-colors ${
                                     isParentActive
                                         ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/20'
@@ -114,6 +121,7 @@ export default function Sidebar({ onClose }: SidebarProps) {
                                             <Link
                                                 key={child.href}
                                                 href={child.href}
+                                                onClick={handleNavigate}
                                                 className={`block rounded-lg px-3 py-2 text-sm transition-colors ${
                                                     isChildActive
                                                         ? 'bg-slate-800 text-white'

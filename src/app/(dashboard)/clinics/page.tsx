@@ -68,14 +68,14 @@ export default function ClinicsPage() {
 
                 <button
                     onClick={() => setIsModalOpen(true)}
-                    className="rounded-xl bg-blue-600 px-5 py-2.5 font-bold text-white shadow-lg shadow-blue-200 transition-all hover:bg-blue-700 active:scale-95"
+                    className="w-full rounded-xl bg-blue-600 px-5 py-2.5 font-bold text-white shadow-lg shadow-blue-200 transition-all hover:bg-blue-700 active:scale-95 md:w-auto"
                 >
                     + Добавить клинику
                 </button>
             </header>
 
-            <Section style="py-3 pl-7">
-                <div className="flex gap-5">
+            <Section style="py-3">
+                <div className="flex flex-col gap-3 sm:flex-row sm:gap-5">
                     <input
                         type="text"
                         placeholder="Название клиники"
@@ -97,7 +97,7 @@ export default function ClinicsPage() {
                 </div>
 
                 <div className="overflow-x-auto">
-                    <table className="w-full min-w-[900px] border-collapse text-left">
+                    <table className="w-full min-w-[760px] border-collapse text-left lg:min-w-[900px]">
                         <thead
                             className="border-b border-slate-200 bg-slate-50 text-[.7rem] uppercase tracking-widest text-slate-400">
                         <tr>

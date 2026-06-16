@@ -1,4 +1,8 @@
 export type EmployeeRole =
+    | 'TECHNICIAN'
+    | 'OPERATOR'
+    | 'DISPATCHER'
+    | 'ADMIN'
     | 'Зуб-Техник / Керамист'
     | 'Оператор / Моделировщик'
     | 'Диспетчер'
@@ -24,20 +28,24 @@ export const employeeRoleOptions: {
     { id: 7, label: 'Протезист', value: 'Протезист' },
 ];
 
-export type EmployeeStatus = 'ACTIVE' | 'BUSY' | 'FIRED';
+export type EmployeeStatus = 'ACTIVE' | 'BUSY' | 'OFFLINE' | 'FIRED';
 
 export interface EmployeeStats {
     completed: number;
     inProgress: number;
     overdue: number;
-    totalTasks: number;
-    timelyPercent: number;
-    avgDays: number;
+    totalTasks?: number;
+    totalAssigned?: number;
+    timelyPercent?: number;
+    onTimeRate?: number;
+    avgDays?: number;
+    averageDays?: number;
 }
 
 export interface Employee {
     id: string;
-    fullName: string;
+    name: string;
+    fullName?: string;
     role: EmployeeRole;
     specialization?: string;
     phone?: string;
@@ -45,4 +53,23 @@ export interface Employee {
     status: EmployeeStatus;
     joinedAt?: string;
     stats: EmployeeStats;
+}
+
+export type TaskStatus =
+    | 'TODO'
+    | 'MODELING'
+    | 'MILLING'
+    | 'POST_PROCESSING'
+    | 'DONE';
+
+export type EmployeeTaskPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
+
+export interface EmployeeTask {
+    id: string;
+    patient: string;
+    workType: string;
+    material: string;
+    deadline: string;
+    status: TaskStatus;
+    priority: EmployeeTaskPriority;
 }

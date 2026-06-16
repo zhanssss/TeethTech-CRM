@@ -174,16 +174,16 @@ export default function ClinicDetailsPage() {
                         Карточка клиники, контакты, врачи, заказы и финансовая информация
                     </p>
                 </div>
-            <div className="flex gap-3">
+            <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
                     <button
                         onClick={() => setIsEditModalOpen(true)}
-                        className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-blue-200 transition hover:bg-blue-700 active:scale-95"
+                        className="w-full rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-blue-200 transition hover:bg-blue-700 active:scale-95 sm:w-auto"
                     >
                         Редактировать данные
                     </button>
                     <button
                         onClick={() => setIsApproveModalOpen(true)}
-                        className="rounded-xl bg-red-800 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-red-200 transition hover:bg-red-500 active:scale-95"
+                        className="w-full rounded-xl bg-red-800 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-red-200 transition hover:bg-red-500 active:scale-95 sm:w-auto"
                     >
                         Удалить клинику
                     </button>
@@ -191,7 +191,7 @@ export default function ClinicDetailsPage() {
             </header>
 
             <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
-                <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
                     <p className="text-xs font-bold uppercase text-slate-400">
                         Всего заказов
                     </p>
@@ -200,7 +200,7 @@ export default function ClinicDetailsPage() {
                     </p>
                 </div>
 
-                <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
                     <p className="text-xs font-bold uppercase text-slate-400">
                         Общая сумма
                     </p>
@@ -209,7 +209,7 @@ export default function ClinicDetailsPage() {
                     </p>
                 </div>
 
-                <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
                     <p className="text-xs font-bold uppercase text-slate-400">
                         Оплачено
                     </p>
@@ -218,7 +218,7 @@ export default function ClinicDetailsPage() {
                     </p>
                 </div>
 
-                <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
                     <p className="text-xs font-bold uppercase text-slate-400">
                         Долг
                     </p>
@@ -229,7 +229,7 @@ export default function ClinicDetailsPage() {
             </div>
 
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-                <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm lg:col-span-2">
+                <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6 lg:col-span-2">
                     <h2 className="text-lg font-bold text-slate-900">
                         Основные данные
                     </h2>
@@ -264,7 +264,7 @@ export default function ClinicDetailsPage() {
                     />
                 </div>
 
-                <div className="grid grid-cols-1 gap-4 p-5 md:grid-cols-2">
+                <div className="grid grid-cols-1 gap-4 p-4 sm:p-5 md:grid-cols-2">
                     {isDoctorsError && (
                         <div className="rounded-2xl border border-red-100 bg-red-50 p-4 text-sm font-semibold text-red-700 md:col-span-2">
                             Не удалось загрузить врачей клиники
@@ -315,7 +315,7 @@ export default function ClinicDetailsPage() {
                     />
                 </div>
 
-                <div className="grid grid-cols-1 gap-4 p-5 md:grid-cols-2">
+                <div className="grid grid-cols-1 gap-4 p-4 sm:p-5 md:grid-cols-2">
                     {isPatientsError && (
                         <div className="rounded-2xl border border-red-100 bg-red-50 p-4 text-sm font-semibold text-red-700 md:col-span-2">
                             Не удалось загрузить пациентов клиники
@@ -367,7 +367,7 @@ export default function ClinicDetailsPage() {
                 </div>
 
                 <div className="overflow-x-auto">
-                    <table className="w-full min-w-[800px] border-collapse text-left">
+                    <table className="w-full min-w-[760px] border-collapse text-left lg:min-w-[800px]">
                         <thead
                             className="border-b border-slate-200 bg-slate-50 text-[.7rem] uppercase tracking-widest text-slate-400">
                         <tr>

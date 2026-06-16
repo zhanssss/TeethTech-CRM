@@ -276,7 +276,7 @@ export default function Dashboard() {
                     </select>
                 </div>
 
-                <div className="mt-3 flex items-center justify-between">
+                <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <p className="text-xs text-slate-500">
                         Найдено задач:{' '}
                         <span className="font-bold text-slate-800">{filteredTasks.length}</span>
@@ -296,7 +296,7 @@ export default function Dashboard() {
                     {groupedStages.map((stage) => (
                         <div
                             key={stage.id}
-                            className={`flex h-[640px] w-80 shrink-0 flex-col rounded-2xl border border-slate-200 border-t-4 bg-white shadow-sm ${stage.border}`}
+                            className={`flex h-[min(640px,72dvh)] w-[18rem] shrink-0 flex-col rounded-2xl border border-slate-200 border-t-4 bg-white shadow-sm sm:w-80 ${stage.border}`}
                         >
                             <div className="border-b border-slate-100 p-4">
                                 <div className="flex items-start justify-between gap-3">
@@ -400,7 +400,7 @@ export default function Dashboard() {
             </section>
 
             <section className="rounded-2xl border border-slate-200 bg-white shadow-sm">
-                <div className="flex items-center justify-between border-b border-slate-100 p-4">
+                <div className="flex flex-col gap-3 border-b border-slate-100 p-4 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                         <h2 className="font-bold text-slate-900">Последние готовые задачи</h2>
                         <p className="mt-1 text-xs text-slate-500">

@@ -223,12 +223,12 @@ export default function AccountingPage() {
                 {summaryCards.map((card) => (
                     <article
                         key={card.title}
-                        className={`rounded-2xl border border-slate-200 border-l-4 bg-white p-5 shadow-sm ${card.accent}`}
+                        className={`rounded-2xl border border-slate-200 border-l-4 bg-white p-4 shadow-sm sm:p-5 ${card.accent}`}
                     >
                         <p className="text-sm font-medium text-slate-500">
                             {card.title}
                         </p>
-                        <p className="mt-2 text-3xl font-black text-slate-900">
+                        <p className="mt-2 text-2xl font-black text-slate-900 sm:text-3xl">
                             {card.value}
                         </p>
                         <p className="mt-2 text-xs font-medium text-slate-400">
@@ -297,8 +297,8 @@ export default function AccountingPage() {
                     </div>
                 </div>
 
-                <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                    <div className="flex items-center justify-between gap-3">
+                <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                         <div>
                             <h2 className="font-bold text-slate-900">
                                 Денежный поток
@@ -315,7 +315,7 @@ export default function AccountingPage() {
                     <div className="mt-5 space-y-5">
                         {cashFlow.map((item) => (
                             <div key={item.title}>
-                                <div className="flex items-center justify-between gap-3">
+                                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
                                     <div>
                                         <p className="text-sm font-bold text-slate-800">
                                             {item.title}
