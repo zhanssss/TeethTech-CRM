@@ -56,9 +56,14 @@ export interface ProductionTask {
     patient: string;
     title: string;
     technicianId: string;
+    nextTechnicianId?: string;
     status: TaskStatus;
     deadline: string;
     priority: TaskPriority;
+    comments?: TaskComment[];
+    attachments?: TaskAttachment[];
+    images?: TaskImage[];
+    history?: TaskHistoryItem[];
 }
 
 export type TaskComment = {
@@ -186,6 +191,10 @@ export interface Task {
     id: string;
     title?: string;
     status: string;
+    patient?: string;
+    orderId?: string;
+    deadline?: string;
+    priority?: string;
     type?: string;
     material?: string;
     color?: string;
@@ -199,4 +208,5 @@ export interface Task {
     comments?: TaskComment[];
     attachments?: TaskAttachment[];
     images?: TaskImage[];
+    history?: TaskHistoryItem[];
 }

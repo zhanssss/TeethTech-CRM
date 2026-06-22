@@ -1,6 +1,6 @@
 'use client';
 
-import {useMemo, useState} from 'react';
+import {type FormEvent, useMemo, useState} from 'react';
 import {useParams} from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -23,6 +23,7 @@ import TaskFilesPanel from '@/src/components/tasks/TaskFilesPanel';
 import TaskHistoryTimeline from '@/src/components/tasks/TaskHistoryTimeline';
 import type {TaskAttachment, TaskComment, TaskImage} from '@/src/types/task.types';
 import type {OrderApiListItem, OrderDetails, OrderKanbanColumn, OrderKanbanTask} from '@/src/types/order.types';
+import type {User} from '@/src/types/user.types';
 import {updateOrderTasks, useOrders} from '@/src/lib/ordersStore';
 import TaskCard from "@/src/components/ui/TaskCard";
 import DroppableColumn from "@/src/components/ui/DroppableColumn";
@@ -35,6 +36,7 @@ import {
     useGetOrderQuery,
     useGetOrderKanbanQuery,
     useGetOrdersQuery,
+    useUpdateOrderMutation,
 } from '@/src/services/api/ordersApi';
 import {useGetUsersQuery} from '@/src/services/api/usersApi';
 
@@ -124,6 +126,63 @@ function getTaskOperatorName(task: OrderKanbanTask) {
 
 function getTaskColor(task: OrderKanbanTask) {
     return task.colorCode || getStringValue(task, ['colorName', 'color']);
+}
+
+function normalizeRoleValue(value: string | undefined | null) {
+    return (value ?? '').toLowerCase().replace(/[-_/]+/g, ' ');
+}
+
+function getUserRoleValues(user: User) {
+    return [
+        user.role,
+        ...(user.roles ?? []),
+        user.specialization,
+    ].filter((value): value is string => Boolean(value));
+}
+
+function filterUsersByRole(users: User[], tokens: string[]) {
+    const normalizedTokens = tokens.map(normalizeRoleValue);
+
+    return users.filter((user) => {
+        const normalizedUserRoles = getUserRoleValues(user)
+            .map(normalizeRoleValue)
+            .join(' ');
+
+        return normalizedTokens.some((token) =>
+            normalizedUserRoles.includes(token)
+        );
+    });
+}
+
+function getUserLabel(user: User) {
+    const meta = getUserRoleValues(user).join(' / ');
+    return meta ? `${user.fullName} (${meta})` : user.fullName;
+}
+
+function getAssigneeId(value: unknown) {
+    if (!isRecord(value)) return '';
+
+    return typeof value.id === 'string' ? value.id : '';
+}
+
+function getAssigneeIdValue(source: unknown, keys: string[]) {
+    if (!isRecord(source)) return '';
+
+    for (const key of keys) {
+        const id = getAssigneeId(source[key]);
+
+        if (id) return id;
+    }
+
+    return '';
+}
+
+function getTaskTechnicianId(task: OrderKanbanTask) {
+    return task.technician?.id || getStringValue(task, ['dentalTechnicianId', 'technicianId']);
+}
+
+function getTaskOperatorId(task: OrderKanbanTask) {
+    return task.operator?.id || getStringValue(task, ['cadCamOperatorId', 'operatorId']);
 }
 
 export default function OrderBoardPage() {
@@ -282,6 +341,8 @@ export default function OrderBoardPage() {
                 orderId={id}
                 order={serverOrder}
                 columns={serverKanbanColumns}
+                users={users}
+                isUsersLoading={isUsersLoading}
             />
         );
     }
@@ -471,13 +532,23 @@ function ServerKanbanBoard({
                                orderId,
                                order,
                                columns,
+                               users,
+                               isUsersLoading,
                            }: {
     orderId: string;
     order?: ServerOrderInfo;
     columns: OrderKanbanColumn[];
+    users: User[];
+    isUsersLoading: boolean;
 }) {
     const taskCount = columns.reduce((sum, column) => sum + column.taskCount, 0);
     const [selectedHistoryTask, setSelectedHistoryTask] = useState<OrderKanbanTask | null>(null);
+    const [assignmentForm, setAssignmentForm] = useState({
+        dentalTechnicianId: '',
+        cadCamOperatorId: '',
+    });
+    const [assignmentError, setAssignmentError] = useState('');
+    const [updateOrder, {isLoading: isUpdatingAssignments}] = useUpdateOrderMutation();
     const allTasks = [...getColumnsTasks(columns), ...getOrderDetailTasks(order)];
     const patientName = getStringValue(order, ['patientFullName', 'patientName', 'patient']);
     const clinicName = getStringValue(order, ['clinicName', 'clinic']);
@@ -494,7 +565,46 @@ function ServerKanbanBoard({
         getStringValue(order, ['cadCamOperatorFullName', 'operatorFullName', 'cadCamOperator', 'operator']),
         ...allTasks.map(getTaskOperatorName),
     ]);
+    const currentTechnicianId = getAssigneeIdValue(order, ['dentalTechnician', 'technician'])
+        || allTasks.map(getTaskTechnicianId).find(Boolean)
+        || '';
+    const currentOperatorId = getAssigneeIdValue(order, ['cadCamOperator', 'operator'])
+        || allTasks.map(getTaskOperatorId).find(Boolean)
+        || '';
+    const selectedTechnicianId = assignmentForm.dentalTechnicianId || currentTechnicianId;
+    const selectedOperatorId = assignmentForm.cadCamOperatorId || currentOperatorId;
+    const filteredTechnicianOptions = filterUsersByRole(users, ['керамист', 'зуб техник', 'technician', 'ceramist', 'dental technician', 'ROLE_CERAMIST']);
+    const selectedTechnician = users.find((user) => user.id === selectedTechnicianId);
+    const technicianOptions = selectedTechnician && !filteredTechnicianOptions.some((user) => user.id === selectedTechnician.id)
+        ? [selectedTechnician, ...filteredTechnicianOptions]
+        : filteredTechnicianOptions;
+    const filteredOperatorOptions = filterUsersByRole(users, ['cad', 'cam', 'оператор', 'operator', 'моделировщик', 'modeler', 'ROLE_OPERATOR']);
+    const selectedOperator = users.find((user) => user.id === selectedOperatorId);
+    const operatorOptions = selectedOperator && !filteredOperatorOptions.some((user) => user.id === selectedOperator.id)
+        ? [selectedOperator, ...filteredOperatorOptions]
+        : filteredOperatorOptions;
+    const hasAssignmentChanges =
+        selectedTechnicianId !== currentTechnicianId ||
+        selectedOperatorId !== currentOperatorId;
     const isActive = isRecord(order) && typeof order.isActive === 'boolean' ? order.isActive : true;
+
+    const handleAssignmentSubmit = async (event: FormEvent<HTMLFormElement>) => {
+        event.preventDefault();
+        setAssignmentError('');
+
+        try {
+            await updateOrder({
+                id: orderId,
+                body: {
+                    dentalTechnicianId: selectedTechnicianId,
+                    cadCamOperatorId: selectedOperatorId,
+                },
+            }).unwrap();
+        } catch (error) {
+            console.error('Order assignment update failed:', error);
+            setAssignmentError('Не удалось обновить команду заказа');
+        }
+    };
 
     return (
         <div className="flex min-h-[calc(100dvh-8rem)] flex-col space-y-6">
@@ -566,20 +676,94 @@ function ServerKanbanBoard({
                     <p className="text-[10px] font-bold text-slate-400 uppercase mb-3 text-center border-b pb-1">
                         Команда наряда
                     </p>
-                    <div className="space-y-3">
+                    <form onSubmit={handleAssignmentSubmit} className="space-y-3">
                         <div>
-                            <p className="text-slate-400 uppercase font-bold text-[8px]">Техники</p>
+                            <p className="text-slate-400 uppercase font-bold text-[8px]">Текущий керамист</p>
                             <p className="font-bold text-slate-700 text-xs">
                                 {technicians.length ? technicians.join(', ') : '-'}
                             </p>
                         </div>
                         <div>
-                            <p className="text-slate-400 uppercase font-bold text-[8px]">Операторы</p>
+                            <p className="text-slate-400 uppercase font-bold text-[8px]">Текущий оператор</p>
                             <p className="font-bold text-slate-700 text-xs">
                                 {operators.length ? operators.join(', ') : '-'}
                             </p>
                         </div>
-                    </div>
+
+                        <div className="space-y-2 border-t border-slate-100 pt-3">
+                            <label className="block">
+                                <span className="mb-1 block text-[8px] font-bold uppercase text-slate-400">
+                                    Керамист
+                                </span>
+                                <select
+                                    required
+                                    value={selectedTechnicianId}
+                                    onChange={(event) =>
+                                        setAssignmentForm((prev) => ({
+                                            ...prev,
+                                            dentalTechnicianId: event.target.value,
+                                        }))
+                                    }
+                                    className="w-full rounded-lg border border-slate-200 bg-white px-2 py-2 text-xs font-semibold text-slate-700 outline-none transition focus:border-blue-500"
+                                >
+                                    <option value="">
+                                        {isUsersLoading ? 'Загрузка...' : 'Выбрать'}
+                                    </option>
+                                    {technicianOptions.map((user) => (
+                                        <option key={user.id} value={user.id}>
+                                            {getUserLabel(user)}
+                                        </option>
+                                    ))}
+                                </select>
+                            </label>
+
+                            <label className="block">
+                                <span className="mb-1 block text-[8px] font-bold uppercase text-slate-400">
+                                    CAD/CAM оператор
+                                </span>
+                                <select
+                                    required
+                                    value={selectedOperatorId}
+                                    onChange={(event) =>
+                                        setAssignmentForm((prev) => ({
+                                            ...prev,
+                                            cadCamOperatorId: event.target.value,
+                                        }))
+                                    }
+                                    className="w-full rounded-lg border border-slate-200 bg-white px-2 py-2 text-xs font-semibold text-slate-700 outline-none transition focus:border-blue-500"
+                                >
+                                    <option value="">
+                                        {isUsersLoading ? 'Загрузка...' : 'Выбрать'}
+                                    </option>
+                                    {operatorOptions.map((user) => (
+                                        <option key={user.id} value={user.id}>
+                                            {getUserLabel(user)}
+                                        </option>
+                                    ))}
+                                </select>
+                            </label>
+
+                            {assignmentError && (
+                                <p className="rounded-lg bg-red-50 px-2 py-1.5 text-[10px] font-semibold text-red-600">
+                                    {assignmentError}
+                                </p>
+                            )}
+
+                            <button
+                                type="submit"
+                                disabled={
+                                    isUpdatingAssignments ||
+                                    isUsersLoading ||
+                                    !hasAssignmentChanges ||
+                                    !selectedTechnicianId ||
+                                    !selectedOperatorId
+                                }
+                                className="w-full rounded-lg bg-blue-600 px-3 py-2 text-xs font-bold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+                            >
+                                {isUpdatingAssignments ? 'Сохранение...' : 'Сохранить команду'}
+                            </button>
+                        </div>
+                    </form>
                 </div>
             </div>
 
@@ -679,7 +863,6 @@ function TaskHistorySidebar({
 
     const taskTitle = task.workTypeName || task.taskNumber || task.id;
     const taskStatus = task.currentStatusFormName || task.currentStatusCode || '-';
-    const taskAssignee = task.dentalTechnicianFullName || task.technician?.fullName || '-';
 
     return (
         <>

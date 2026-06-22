@@ -2,7 +2,7 @@ import { FormEvent, useState } from 'react';
 import Modal from '@/src/components/ui/Modal';
 import { useRegisterUserMutation } from '@/src/services/api/authApi';
 import { useGetRolesQuery } from '@/src/services/api/rolesApi';
-import type { Register } from '@/src/types/auth.types';
+import type { Register, SalaryType } from '@/src/types/auth.types';
 import ErrorModal from '@/src/components/ui/ErrorModal';
 
 type CreateEmployeeModalProps = {
@@ -14,6 +14,8 @@ export default function CreateEmployeeModal({ onClose }: CreateEmployeeModalProp
     const [email, setEmail] = useState('');
     const [phone, setPhone] = useState('');
     const [role, setRole] = useState('');
+    const [salaryType, setSalaryType] = useState<SalaryType>('FIXED');
+    const [salary, setSalary] = useState('');
     const [tempPassword, setTempPassword] = useState('');
     const [errorMessage, setErrorMessage] = useState('');
 
@@ -30,6 +32,8 @@ export default function CreateEmployeeModal({ onClose }: CreateEmployeeModalProp
             phone,
             role,
             password: tempPassword,
+            salaryType,
+            salary: Number(salary) || 0,
         };
 
         try {
@@ -104,6 +108,29 @@ export default function CreateEmployeeModal({ onClose }: CreateEmployeeModalProp
                         </option>
                     ))}
                 </select>
+
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <select
+                        value={salaryType}
+                        onChange={(e) => setSalaryType(e.target.value as SalaryType)}
+                        required
+                        className="w-full rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm outline-none transition focus:border-blue-500 focus:bg-white"
+                    >
+                        <option value="FIXED">Фиксированная зарплата</option>
+                        <option value="PER_UNIT">Оплата за единицу</option>
+                    </select>
+
+                    <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={salary}
+                        onChange={(e) => setSalary(e.target.value)}
+                        placeholder={salaryType === 'FIXED' ? 'Зарплата' : 'Оплата за единицу'}
+                        required
+                        className="w-full rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm outline-none transition focus:border-blue-500 focus:bg-white"
+                    />
+                </div>
 
                 <input
                     type="text"

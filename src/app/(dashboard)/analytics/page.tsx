@@ -8,10 +8,6 @@ import {
     CartesianGrid,
     Tooltip as RechartsTooltip,
     ResponsiveContainer,
-    PieChart,
-    Pie,
-    Cell,
-    Legend,
 } from 'recharts';
 
 import { StatCard } from '@/src/components/ui/Statcard';
@@ -23,12 +19,6 @@ import type { Analytics } from '@/src/types/analytics.types';
 type StageChartItem = {
     name: string;
     count: number;
-};
-
-type MaterialChartItem = {
-    name: string;
-    value: number;
-    color: string;
 };
 
 const emptyAnalytics: Analytics = {
@@ -60,15 +50,6 @@ const fallbackStageData: StageChartItem[] = [
     { name: 'Готово', count: 34 },
 ];
 
-const materialColors = ['#3b82f6', '#0ea5e9', '#ec4899', '#71717a'];
-
-const fallbackMaterialData: MaterialChartItem[] = [
-    { name: 'Zirconia', value: 45, color: '#3b82f6' },
-    { name: 'E-max', value: 30, color: '#0ea5e9' },
-    { name: 'PMMA', value: 15, color: '#ec4899' },
-    { name: 'Titanium', value: 10, color: '#71717a' },
-];
-
 const formatChange = (value: number, suffix = '') => {
     if (value > 0) return `+${value}${suffix}`;
     return `${value}${suffix}`;
@@ -95,24 +76,6 @@ const getStageChartData = (
     }));
 };
 
-const getMaterialChartData = (
-    materialShares?: Record<string, number>
-): MaterialChartItem[] => {
-    const entries = Object.entries(materialShares ?? {}).filter(
-        ([, value]) => value > 0
-    );
-
-    if (entries.length === 0) {
-        return fallbackMaterialData;
-    }
-
-    return entries.map(([name, value], index) => ({
-        name: formatLabel(name),
-        value,
-        color: materialColors[index % materialColors.length],
-    }));
-};
-
 export default function AnalyticsPage() {
     const {
         data,
@@ -123,7 +86,6 @@ export default function AnalyticsPage() {
     const analytics = data ?? emptyAnalytics;
 
     const stageData = getStageChartData(analytics.stageLoads);
-    const materialData = getMaterialChartData(analytics.materialShares);
 
     if (isLoading) {
         return (
@@ -200,7 +162,7 @@ export default function AnalyticsPage() {
                 />
             </div>
 
-            <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
+            <div className="mt-6">
                 <div className="flex flex-col rounded-2xl bg-white p-4 shadow-sm sm:p-5">
                     <h3 className="mb-4 text-lg font-semibold text-slate-800">
                         Нагрузка по этапам
@@ -263,52 +225,6 @@ export default function AnalyticsPage() {
                     </div>
                 </div>
 
-                <div className="flex flex-col rounded-2xl bg-white p-4 shadow-sm sm:p-5">
-                    <h3 className="mb-4 text-lg font-semibold text-slate-800">
-                        Доля материалов
-                    </h3>
-
-                    <div className="min-h-[280px] flex-1 sm:min-h-[320px]">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <PieChart>
-                                <Pie
-                                    data={materialData}
-                                    cx="50%"
-                                    cy="50%"
-                                    innerRadius={80}
-                                    outerRadius={110}
-                                    paddingAngle={5}
-                                    dataKey="value"
-                                    stroke="none"
-                                >
-                                    {materialData.map((entry) => (
-                                        <Cell
-                                            key={entry.name}
-                                            fill={entry.color}
-                                        />
-                                    ))}
-                                </Pie>
-
-                                <RechartsTooltip
-                                    contentStyle={{
-                                        borderRadius: '12px',
-                                        border: 'none',
-                                        boxShadow:
-                                            '0 10px 15px -3px rgb(0 0 0 / 0.1)',
-                                    }}
-                                />
-
-                                <Legend
-                                    iconType="circle"
-                                    wrapperStyle={{
-                                        fontSize: '12px',
-                                        color: '#475569',
-                                    }}
-                                />
-                            </PieChart>
-                        </ResponsiveContainer>
-                    </div>
-                </div>
             </div>
 
             <div className="mt-6">

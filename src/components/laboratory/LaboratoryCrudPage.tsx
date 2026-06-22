@@ -3,15 +3,18 @@
 import React, { FormEvent, useState } from 'react';
 import ErrorModal from '@/src/components/ui/ErrorModal';
 
-type FormValue = string | boolean;
+type FormValue = string | number | boolean;
 type FormState = Record<string, FormValue>;
 
 type FieldConfig = {
     name: string;
     label: string;
     placeholder?: string;
-    type: 'text' | 'textarea' | 'checkbox';
+    type: 'text' | 'number' | 'textarea' | 'checkbox';
     required?: boolean;
+    min?: number;
+    max?: number;
+    step?: number | string;
 };
 
 type DictionaryItem = {
@@ -19,6 +22,7 @@ type DictionaryItem = {
     name: string;
     code?: string;
     description?: string;
+    price?: number;
     isActive?: boolean;
 };
 
@@ -134,7 +138,10 @@ export default function LaboratoryCrudPage<
 
             const value = form[field.name];
 
-            return typeof value === 'string' && !value.trim();
+            if (typeof value === 'string') return !value.trim();
+            if (typeof value === 'number') return !Number.isFinite(value);
+
+            return false;
         });
 
         if (hasEmptyRequiredField) {
@@ -228,7 +235,7 @@ export default function LaboratoryCrudPage<
                                         </label>
 
                                         <textarea
-                                            value={String(value || '')}
+                                            value={String(value ?? '')}
                                             onChange={(event) =>
                                                 handleChange(field.name, event.target.value)
                                             }
@@ -269,9 +276,18 @@ export default function LaboratoryCrudPage<
                                     </label>
 
                                     <input
-                                        value={String(value || '')}
+                                        type={field.type === 'number' ? 'number' : 'text'}
+                                        min={field.min}
+                                        max={field.max}
+                                        step={field.step}
+                                        value={String(value ?? '')}
                                         onChange={(event) =>
-                                            handleChange(field.name, event.target.value)
+                                            handleChange(
+                                                field.name,
+                                                field.type === 'number' && event.target.value !== ''
+                                                    ? Number(event.target.value)
+                                                    : event.target.value
+                                            )
                                         }
                                         placeholder={field.placeholder}
                                         className="h-11 rounded-xl bg-slate-100 px-4 text-sm text-slate-900 outline-none transition focus:bg-white focus:ring-2 focus:ring-blue-500"
@@ -375,6 +391,12 @@ export default function LaboratoryCrudPage<
                                             {item.description && (
                                                 <p className="mt-1 line-clamp-2 text-sm text-slate-500">
                                                     {item.description}
+                                                </p>
+                                            )}
+
+                                            {typeof item.price === 'number' && Number.isFinite(item.price) && (
+                                                <p className="mt-2 text-sm font-bold text-slate-700">
+                                                    Цена: {item.price.toLocaleString('ru-RU')} ₸
                                                 </p>
                                             )}
                                         </div>

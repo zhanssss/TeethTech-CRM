@@ -4,6 +4,9 @@ export type User = {
     specialization?: string | null,
     role?: string | null,
     roles?: string[],
+    salaryType?: 'FIXED' | 'PER_UNIT',
+    salary?: number,
+    unitsCompleted?: number,
     status: string,
     stats: {
         completed: number,

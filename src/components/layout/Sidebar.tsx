@@ -30,10 +30,7 @@ export default function Sidebar({ onClose }: SidebarProps) {
     const menuItems: MenuItem[] =
         role === 'TECHNICIAN'
             ? [
-                { name: 'Мой кабинет', href: '/employee' },
-                { name: 'Моя доска', href: '/employee/board' },
-                { name: 'Календарь', href: '/employee/calendar' },
-                { name: 'Моя аналитика', href: '/employee/analytics' },
+                { name: 'Мои задачи', href: '/employee' },
             ]
             : [
                 { name: 'Дэшборд', href: '/' },
@@ -41,7 +38,6 @@ export default function Sidebar({ onClose }: SidebarProps) {
                 { name: 'Аналитика', href: '/analytics' },
                 { name: 'Бухгалтерия', href: '/accounting' },
                 { name: 'Склад', href: '/warehouse' },
-                { name: 'Сотрудники', href: '/employees' },
                 {
                     name: 'Клиники',
                     href: '/clinics',
@@ -54,9 +50,10 @@ export default function Sidebar({ onClose }: SidebarProps) {
                     name: 'Лаборатория',
                     href: '/laboratory',
                     children: [
+                        { name: 'Сотрудники', href: '/laboratory/employees' },
                         { name: 'Цвета', href: '/laboratory/colors' },
-                        { name: 'Материалы', href: '/laboratory/materials' },
                         { name: 'Типы работ', href: '/laboratory/work-types' },
+                        { name: 'Workflow', href: '/laboratory/workflows' },
                     ],
                 },
             ];

@@ -10,10 +10,14 @@ export type LoginResponse = {
     roles: string[];
 }
 
+export type SalaryType = 'FIXED' | 'PER_UNIT';
+
 export type Register = {
     fullName: string;
     email: string;
     phone: string;
     role: string;
     password: string;
+    salaryType: SalaryType;
+    salary: number;
 }

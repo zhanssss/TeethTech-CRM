@@ -1,269 +1,521 @@
 'use client';
 
 import Link from 'next/link';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useSelector } from 'react-redux';
-import { RootState } from '@/src/lib/store';
-import { mockEmployees } from '@/src/mock/employees';
-import { mockTasks } from '@/src/mock/tasks';
+
+import TaskDetailsSidebar from '@/src/components/layout/TaskDetailsSidebar';
 import ErrorModal from '@/src/components/ui/ErrorModal';
+import { RootState } from '@/src/lib/store';
+import { mockTasks } from '@/src/mock/tasks';
+import type {
+    ProductionTask,
+    Task,
+    TaskAttachment,
+    TaskComment,
+    TaskHistoryItem,
+    TaskImage,
+    TaskStatus,
+} from '@/src/types/task.types';
 
-function StatCard({
-                      title,
-                      value,
-                      hint,
+const TASK_STAGES: Array<{
+    id: TaskStatus;
+    label: string;
+    badgeClassName: string;
+}> = [
+    {
+        id: 'TODO',
+        label: 'Нужно сделать',
+        badgeClassName: 'border-slate-200 bg-slate-100 text-slate-700',
+    },
+    {
+        id: 'MODELING',
+        label: 'Моделирование',
+        badgeClassName: 'border-blue-200 bg-blue-50 text-blue-700',
+    },
+    {
+        id: 'MILLING',
+        label: 'Фрезеровка',
+        badgeClassName: 'border-violet-200 bg-violet-50 text-violet-700',
+    },
+    {
+        id: 'POST_PROCESSING',
+        label: 'Обработка',
+        badgeClassName: 'border-orange-200 bg-orange-50 text-orange-700',
+    },
+    {
+        id: 'DONE',
+        label: 'Готово',
+        badgeClassName: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+    },
+];
+
+const PRIORITY_LABELS: Record<ProductionTask['priority'], string> = {
+    LOW: 'Низкий',
+    MEDIUM: 'Средний',
+    HIGH: 'Высокий',
+    URGENT: 'Срочный',
+};
+
+const PRIORITY_CLASSES: Record<ProductionTask['priority'], string> = {
+    LOW: 'bg-slate-100 text-slate-600',
+    MEDIUM: 'bg-blue-100 text-blue-700',
+    HIGH: 'bg-orange-100 text-orange-700',
+    URGENT: 'bg-red-100 text-red-700',
+};
+
+function getStage(status: TaskStatus) {
+    return TASK_STAGES.find((stage) => stage.id === status) ?? TASK_STAGES[0];
+}
+
+function getNextStage(status: TaskStatus) {
+    const currentIndex = TASK_STAGES.findIndex((stage) => stage.id === status);
+
+    if (currentIndex < 0 || currentIndex === TASK_STAGES.length - 1) {
+        return null;
+    }
+
+    return TASK_STAGES[currentIndex + 1];
+}
+
+function formatDeadline(value: string) {
+    return new Intl.DateTimeFormat('ru-RU', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+    }).format(new Date(`${value}T00:00:00`));
+}
+
+function createId() {
+    return globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`;
+}
+
+function getInitials(value: string | null) {
+    return (value ?? 'Сотрудник')
+        .split(' ')
+        .filter(Boolean)
+        .slice(0, 2)
+        .map((part) => part[0]?.toUpperCase())
+        .join('');
+}
+
+function getInitialHistory(task: ProductionTask): TaskHistoryItem[] {
+    return [
+        {
+            id: `${task.id}-created`,
+            eventType: 'CREATED',
+            changedAt: '2026-06-22T08:00:00+05:00',
+            changedBy: {
+                userId: 'dispatcher',
+                fullName: 'Мария Диспетчер',
+                initials: 'МД',
+            },
+        },
+    ];
+}
+
+function TaskCard({
+                      task,
+                      variant,
+                      onOpen,
+                      onMoveNext,
                   }: {
-    title: string;
-    value: string | number;
-    hint: string;
+    task: ProductionTask;
+    variant: 'active' | 'upcoming' | 'completed';
+    onOpen: (taskId: string) => void;
+    onMoveNext: (taskId: string) => void;
 }) {
+    const currentStage = getStage(task.status);
+    const nextStage = getNextStage(task.status);
+
     return (
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
-            <p className="text-sm font-medium text-slate-500">{title}</p>
-            <p className="mt-2 text-2xl font-black text-slate-900 sm:text-3xl">{value}</p>
-            <p className="mt-2 text-xs text-slate-400">{hint}</p>
-        </div>
+        <article
+            role="button"
+            tabIndex={0}
+            aria-label={`Открыть детали задачи ${task.title}`}
+            onClick={() => onOpen(task.id)}
+            onKeyDown={(event) => {
+                if (event.target === event.currentTarget && (event.key === 'Enter' || event.key === ' ')) {
+                    event.preventDefault();
+                    onOpen(task.id);
+                }
+            }}
+            className={`cursor-pointer rounded-2xl border bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-blue-400 sm:p-5 ${
+                variant === 'upcoming'
+                    ? 'border-violet-200 hover:border-violet-300'
+                    : 'border-slate-200 hover:border-blue-200'
+            }`}
+        >
+            <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                        <span className="font-mono text-xs font-bold text-blue-600">
+                            {task.id}
+                        </span>
+                        <span
+                            className={`rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide ${PRIORITY_CLASSES[task.priority]}`}
+                        >
+                            {PRIORITY_LABELS[task.priority]}
+                        </span>
+                    </div>
+                    <h2 className="mt-3 text-lg font-bold text-slate-900">
+                        {task.title}
+                    </h2>
+                </div>
+
+                <span
+                    className={`shrink-0 rounded-full border px-3 py-1 text-xs font-bold ${currentStage.badgeClassName}`}
+                >
+                    {currentStage.label}
+                </span>
+            </div>
+
+            <dl className="mt-5 grid gap-3 text-sm sm:grid-cols-3">
+                <div>
+                    <dt className="text-xs text-slate-400">Пациент</dt>
+                    <dd className="mt-1 font-semibold text-slate-700">{task.patient}</dd>
+                </div>
+                <div>
+                    <dt className="text-xs text-slate-400">Заказ</dt>
+                    <dd className="mt-1">
+                        <Link
+                            href={`/orders/${task.orderId}`}
+                            onClick={(event) => event.stopPropagation()}
+                            className="font-semibold text-blue-600 hover:underline"
+                        >
+                            #{task.orderId}
+                        </Link>
+                    </dd>
+                </div>
+                <div>
+                    <dt className="text-xs text-slate-400">Срок</dt>
+                    <dd className="mt-1 font-semibold text-slate-700">
+                        {formatDeadline(task.deadline)}
+                    </dd>
+                </div>
+            </dl>
+
+            <div className="mt-5 flex flex-col gap-3 border-t border-slate-100 pt-4 sm:flex-row sm:items-center sm:justify-between">
+                {variant === 'upcoming' ? (
+                    <>
+                        <p className="text-xs text-violet-700">
+                            Будет передана после этапа <span className="font-semibold">«{currentStage.label}»</span>
+                        </p>
+                        <span className="inline-flex items-center text-xs font-bold text-slate-500">
+                            Открыть детали <span aria-hidden="true" className="ml-1">→</span>
+                        </span>
+                    </>
+                ) : nextStage ? (
+                    <>
+                        <p className="text-xs text-slate-500">
+                            Следующий этап: <span className="font-semibold text-slate-700">{nextStage.label}</span>
+                        </p>
+                        <button
+                            type="button"
+                            onClick={(event) => {
+                                event.stopPropagation();
+                                onMoveNext(task.id);
+                            }}
+                            className="inline-flex min-h-11 items-center justify-center rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-blue-700 active:scale-[0.99]"
+                        >
+                            Передать на следующий этап
+                            <span aria-hidden="true" className="ml-2">→</span>
+                        </button>
+                    </>
+                ) : (
+                    <p className="text-sm font-semibold text-emerald-700">
+                        Задача завершена
+                    </p>
+                )}
+            </div>
+        </article>
     );
-}
-
-function getStatusBadge(status: string) {
-    switch (status) {
-        case 'TODO':
-            return 'bg-slate-100 text-slate-700 border-slate-200';
-        case 'MODELING':
-            return 'bg-blue-50 text-blue-700 border-blue-200';
-        case 'MILLING':
-            return 'bg-purple-50 text-purple-700 border-purple-200';
-        case 'POST_PROCESSING':
-            return 'bg-orange-50 text-orange-700 border-orange-200';
-        case 'DONE':
-            return 'bg-green-50 text-green-700 border-green-200';
-        default:
-            return 'bg-slate-100 text-slate-700 border-slate-200';
-    }
-}
-
-function getStatusLabel(status: string) {
-    switch (status) {
-        case 'TODO':
-            return 'Нужно сделать';
-        case 'MODELING':
-            return 'Моделирование';
-        case 'MILLING':
-            return 'Фрезеровка';
-        case 'POST_PROCESSING':
-            return 'Обработка';
-        case 'DONE':
-            return 'Готово';
-        default:
-            return status;
-    }
-}
-
-function getPriorityBadge(priority: string) {
-    switch (priority) {
-        case 'LOW':
-            return 'bg-slate-100 text-slate-600';
-        case 'MEDIUM':
-            return 'bg-blue-100 text-blue-700';
-        case 'HIGH':
-            return 'bg-orange-100 text-orange-700';
-        case 'URGENT':
-            return 'bg-red-100 text-red-700';
-        default:
-            return 'bg-slate-100 text-slate-600';
-    }
 }
 
 export default function EmployeePage() {
     const { id, name, role } = useSelector((state: RootState) => state.auth);
+    const visibleTasks = useMemo(
+        () => mockTasks
+            .filter((task) => task.technicianId === id || task.nextTechnicianId === id)
+            .map((task) => ({
+                ...task,
+                history: task.history ?? getInitialHistory(task),
+            })),
+        [id]
+    );
+    const [tasks, setTasks] = useState<ProductionTask[]>(visibleTasks);
+    const [notification, setNotification] = useState('');
+    const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
 
-    const currentEmployee = useMemo(() => {
-        return mockEmployees.find((employee) => employee.id === id);
-    }, [id]);
+    const activeTasks = tasks.filter(
+        (task) => task.technicianId === id && task.status !== 'DONE'
+    );
+    const upcomingTasks = tasks.filter(
+        (task) => task.nextTechnicianId === id && task.technicianId !== id && task.status !== 'DONE'
+    );
+    const completedTasks = tasks.filter(
+        (task) => task.technicianId === id && task.status === 'DONE'
+    );
+    const selectedTask = tasks.find((task) => task.id === selectedTaskId) ?? null;
+    const selectedSidebarTask: Task | null = selectedTask
+        ? {
+            id: selectedTask.id,
+            title: selectedTask.title,
+            status: getStage(selectedTask.status).label,
+            patient: selectedTask.patient,
+            orderId: selectedTask.orderId,
+            deadline: formatDeadline(selectedTask.deadline),
+            priority: PRIORITY_LABELS[selectedTask.priority],
+            technicianId: selectedTask.technicianId,
+            units: 1,
+            unitPrice: 0,
+            discount: 0,
+            comments: selectedTask.comments,
+            attachments: selectedTask.attachments,
+            images: selectedTask.images,
+            history: selectedTask.history,
+        }
+        : null;
 
-    const myTasks = useMemo(() => {
-        return mockTasks.filter((task) => task.technicianId === id);
-    }, [id]);
+    const createHistoryItem = (
+        eventType: string,
+        fieldName?: string,
+        oldValue?: string,
+        newValue?: string
+    ): TaskHistoryItem => ({
+        id: createId(),
+        eventType,
+        fieldName,
+        oldValue,
+        newValue,
+        changedAt: new Date().toISOString(),
+        changedBy: {
+            userId: id ?? 'employee',
+            fullName: name ?? 'Сотрудник',
+            initials: getInitials(name),
+        },
+    });
 
-    const completedCount = myTasks.filter((task) => task.status === 'DONE').length;
-    const activeTasks = myTasks.filter((task) => task.status !== 'DONE');
-    const overdueCount = activeTasks.filter(
-        (task) => new Date(task.deadline) < new Date()
-    ).length;
+    const updateSelectedTask = (
+        updater: (task: ProductionTask) => ProductionTask
+    ) => {
+        if (!selectedTaskId) return;
 
-    const nearestDeadlineTask = [...activeTasks].sort(
-        (a, b) =>
-            new Date(a.deadline).getTime() - new Date(b.deadline).getTime()
-    )[0];
+        setTasks((currentTasks) =>
+            currentTasks.map((task) =>
+                task.id === selectedTaskId ? updater(task) : task
+            )
+        );
+    };
 
-    if (!currentEmployee) {
+    const handleMoveNext = (taskId: string) => {
+        const task = tasks.find((item) => item.id === taskId);
+        const nextStage = task ? getNextStage(task.status) : null;
+
+        if (!task || !nextStage) return;
+
+        setTasks((currentTasks) =>
+            currentTasks.map((item) =>
+                item.id === taskId
+                    ? {
+                        ...item,
+                        status: nextStage.id,
+                        history: [
+                            createHistoryItem(
+                                'STATUS_CHANGED',
+                                'status',
+                                getStage(item.status).label,
+                                nextStage.label
+                            ),
+                            ...(item.history ?? []),
+                        ],
+                    }
+                    : item
+            )
+        );
+        setNotification(`Задача ${task.id} передана на этап «${nextStage.label}»`);
+    };
+
+    const handleAddComment = (text: string) => {
+        const comment: TaskComment = {
+            id: createId(),
+            author: name ?? 'Сотрудник',
+            text,
+            createdAt: new Date().toLocaleString('ru-RU'),
+        };
+
+        updateSelectedTask((task) => ({
+            ...task,
+            comments: [comment, ...(task.comments ?? [])],
+            history: [
+                createHistoryItem('COMMENT_ADDED'),
+                ...(task.history ?? []),
+            ],
+        }));
+    };
+
+    const handleAddAttachments = (files: TaskAttachment[]) => {
+        updateSelectedTask((task) => ({
+            ...task,
+            attachments: [...(task.attachments ?? []), ...files],
+            history: [
+                createHistoryItem('ATTACHMENT_ADDED'),
+                ...(task.history ?? []),
+            ],
+        }));
+    };
+
+    const handleAddImages = (images: TaskImage[]) => {
+        updateSelectedTask((task) => ({
+            ...task,
+            images: [...(task.images ?? []), ...images],
+            history: [
+                createHistoryItem('ATTACHMENT_ADDED'),
+                ...(task.history ?? []),
+            ],
+        }));
+    };
+
+    if (role === 'ADMIN' || role === 'DISPATCHER') {
         return (
-            <ErrorModal title="Сотрудник не найден" isDismissible={false}>
-                Для личного кабинета нужен пользователь с ролью TECHNICIAN.
+            <ErrorModal title="Раздел сотрудника" isDismissible={false}>
+                Эта страница доступна только сотрудникам, которым назначаются задачи.
             </ErrorModal>
         );
     }
 
     return (
-        <div className="space-y-6">
-            <header className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                <div>
-                    <h1 className="text-2xl font-bold text-slate-900">
-                        Мой кабинет
-                    </h1>
-                    <p className="text-sm text-slate-500">
-                        Добро пожаловать, {name}. Ваш рабочий профиль и текущая нагрузка.
-                    </p>
-                </div>
-
-                <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-blue-100 font-bold text-blue-700">
-                        {name?.[0]}
-                    </div>
+        <div className="mx-auto w-full max-w-6xl space-y-6">
+            <header className="rounded-3xl bg-slate-900 px-5 py-6 text-white shadow-lg sm:px-8 sm:py-8">
+                <p className="text-sm font-medium text-blue-300">Рабочая смена</p>
+                <div className="mt-2 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
                     <div>
-                        <p className="text-sm font-bold text-slate-900">{name}</p>
-                        <p className="text-xs uppercase tracking-wider text-slate-500">
-                            {role}
+                        <h1 className="text-2xl font-black sm:text-3xl">Мои задачи</h1>
+                        <p className="mt-2 text-sm text-slate-300">
+                            {name}, здесь показаны текущие и ожидающие передачи задачи.
                         </p>
+                    </div>
+                    <div className="flex gap-3 text-sm">
+                        <div className="rounded-2xl bg-white/10 px-4 py-3">
+                            <span className="block text-xs text-slate-400">В работе</span>
+                            <strong className="text-xl">{activeTasks.length}</strong>
+                        </div>
+                        <div className="rounded-2xl bg-white/10 px-4 py-3">
+                            <span className="block text-xs text-slate-400">Скоро</span>
+                            <strong className="text-xl">{upcomingTasks.length}</strong>
+                        </div>
+                        <div className="rounded-2xl bg-white/10 px-4 py-3">
+                            <span className="block text-xs text-slate-400">Готово</span>
+                            <strong className="text-xl">{completedTasks.length}</strong>
+                        </div>
                     </div>
                 </div>
             </header>
 
-            <section className="grid grid-cols-1 gap-4 md:grid-cols-4">
-                <StatCard
-                    title="Выполнено"
-                    value={completedCount}
-                    hint="Закрытые задачи сотрудника"
-                />
-                <StatCard
-                    title="В работе"
-                    value={activeTasks.length}
-                    hint="Активные текущие задачи"
-                />
-                <StatCard
-                    title="Просрочено"
-                    value={overdueCount}
-                    hint="Задачи с нарушением дедлайна"
-                />
-                <StatCard
-                    title="Всего назначено"
-                    value={myTasks.length}
-                    hint="Общее количество задач"
-                />
-            </section>
+            <p className="sr-only" role="status" aria-live="polite">
+                {notification}
+            </p>
 
-            <section className="grid grid-cols-1 gap-6 xl:grid-cols-3">
-                <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5 xl:col-span-1">
-                    <h2 className="text-sm font-bold uppercase tracking-wider text-slate-500">
-                        Ближайший дедлайн
-                    </h2>
-
-                    {nearestDeadlineTask ? (
-                        <div className="mt-4 rounded-2xl border border-orange-200 bg-orange-50 p-4">
-                            <p className="text-xs font-bold uppercase tracking-wider text-orange-600">
-                                Срочная задача
-                            </p>
-                            <h3 className="mt-2 text-lg font-bold text-slate-900">
-                                {nearestDeadlineTask.title}
-                            </h3>
-                            <p className="mt-1 text-sm text-slate-600">
-                                Пациент: {nearestDeadlineTask.patient}
-                            </p>
-                            <p className="mt-1 text-sm text-slate-600">
-                                Срок: {nearestDeadlineTask.deadline}
-                            </p>
-                            <p className="mt-1 text-sm text-slate-600">
-                                Заказ: {nearestDeadlineTask.orderId}
-                            </p>
-                        </div>
-                    ) : (
-                        <p className="mt-4 text-sm text-slate-400">
-                            Активных задач нет
-                        </p>
-                    )}
-                </div>
-
-                <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm xl:col-span-2">
-                    <div className="border-b border-slate-200 bg-slate-50 px-5 py-4">
-                        <h2 className="text-sm font-bold uppercase tracking-wider text-slate-500">
-                            Мои активные задачи
+            <section aria-labelledby="active-tasks-title">
+                <div className="mb-4 flex items-center justify-between gap-3">
+                    <div>
+                        <h2 id="active-tasks-title" className="text-lg font-bold text-slate-900">
+                            Назначенные задачи
                         </h2>
+                        <p className="text-sm text-slate-500">
+                            Выполните работу и передайте задачу дальше.
+                        </p>
                     </div>
-
-                    <div className="overflow-x-auto">
-                        <table className="w-full min-w-[760px] border-collapse text-left lg:min-w-[850px]">
-                            <thead className="border-b border-slate-200 bg-slate-50 text-[11px] uppercase tracking-widest text-slate-400">
-                            <tr>
-                                <th className="p-4 font-bold">ID</th>
-                                <th className="p-4 font-bold">Заказ</th>
-                                <th className="p-4 font-bold">Пациент</th>
-                                <th className="p-4 font-bold">Работа</th>
-                                <th className="p-4 font-bold">Срок</th>
-                                <th className="p-4 font-bold">Статус</th>
-                                <th className="p-4 font-bold">Приоритет</th>
-                            </tr>
-                            </thead>
-
-                            <tbody className="divide-y divide-slate-100">
-                            {activeTasks.map((task) => (
-                                <tr key={task.id} className="transition hover:bg-blue-50/30">
-                                    <td className="p-4 text-sm font-mono text-slate-500">
-                                        {task.id}
-                                    </td>
-                                    <td className="p-4 text-sm">
-                                        <Link
-                                            href={`/orders/${task.orderId}`}
-                                            className="font-bold text-blue-600 hover:underline"
-                                        >
-                                            #{task.orderId}
-                                        </Link>
-                                    </td>
-                                    <td className="p-4 text-sm font-semibold text-slate-800">
-                                        {task.patient}
-                                    </td>
-                                    <td className="p-4 text-sm text-slate-700">
-                                        {task.title}
-                                    </td>
-                                    <td className="p-4 text-sm text-slate-600">
-                                        {task.deadline}
-                                    </td>
-                                    <td className="p-4">
-                                            <span
-                                                className={`rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase ${getStatusBadge(
-                                                    task.status
-                                                )}`}
-                                            >
-                                                {getStatusLabel(task.status)}
-                                            </span>
-                                    </td>
-                                    <td className="p-4">
-                                            <span
-                                                className={`rounded-lg px-2.5 py-1 text-[10px] font-bold uppercase ${getPriorityBadge(
-                                                    task.priority
-                                                )}`}
-                                            >
-                                                {task.priority}
-                                            </span>
-                                    </td>
-                                </tr>
-                            ))}
-
-                            {activeTasks.length === 0 && (
-                                <tr>
-                                    <td
-                                        colSpan={7}
-                                        className="p-8 text-center text-sm text-slate-400"
-                                    >
-                                        У вас сейчас нет активных задач
-                                    </td>
-                                </tr>
-                            )}
-                            </tbody>
-                        </table>
-                    </div>
+                    <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-bold text-blue-700">
+                        {activeTasks.length}
+                    </span>
                 </div>
+
+                <div className="grid gap-4 lg:grid-cols-2">
+                    {activeTasks.map((task) => (
+                        <TaskCard
+                            key={task.id}
+                            task={task}
+                            variant="active"
+                            onOpen={setSelectedTaskId}
+                            onMoveNext={handleMoveNext}
+                        />
+                    ))}
+                </div>
+
+                {activeTasks.length === 0 && (
+                    <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-5 py-12 text-center">
+                        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100 text-xl text-emerald-700">
+                            ✓
+                        </div>
+                        <h3 className="mt-4 font-bold text-slate-900">Активных задач нет</h3>
+                        <p className="mt-1 text-sm text-slate-500">
+                            Все назначенные задачи уже переданы дальше.
+                        </p>
+                    </div>
+                )}
             </section>
+
+            <section aria-labelledby="upcoming-tasks-title">
+                <div className="mb-4 flex items-center justify-between gap-3">
+                    <div>
+                        <h2 id="upcoming-tasks-title" className="text-lg font-bold text-slate-900">
+                            Скоро будут переданы вам
+                        </h2>
+                        <p className="text-sm text-slate-500">
+                            Можно заранее ознакомиться с деталями и подготовиться к работе.
+                        </p>
+                    </div>
+                    <span className="rounded-full bg-violet-100 px-3 py-1 text-xs font-bold text-violet-700">
+                        {upcomingTasks.length}
+                    </span>
+                </div>
+
+                <div className="grid gap-4 lg:grid-cols-2">
+                    {upcomingTasks.map((task) => (
+                        <TaskCard
+                            key={task.id}
+                            task={task}
+                            variant="upcoming"
+                            onOpen={setSelectedTaskId}
+                            onMoveNext={handleMoveNext}
+                        />
+                    ))}
+                </div>
+
+                {upcomingTasks.length === 0 && (
+                    <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-5 py-8 text-center text-sm text-slate-500">
+                        Пока нет задач, ожидающих передачи вам.
+                    </div>
+                )}
+            </section>
+
+            {completedTasks.length > 0 && (
+                <details className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+                    <summary className="cursor-pointer px-5 py-4 text-sm font-bold text-slate-700">
+                        Завершённые задачи ({completedTasks.length})
+                    </summary>
+                    <div className="grid gap-4 border-t border-slate-100 p-4 lg:grid-cols-2">
+                        {completedTasks.map((task) => (
+                            <TaskCard
+                                key={task.id}
+                                task={task}
+                                variant="completed"
+                                onOpen={setSelectedTaskId}
+                                onMoveNext={handleMoveNext}
+                            />
+                        ))}
+                    </div>
+                </details>
+            )}
+
+            <TaskDetailsSidebar
+                task={selectedSidebarTask}
+                onClose={() => setSelectedTaskId(null)}
+                onAddComment={handleAddComment}
+                onAddAttachments={handleAddAttachments}
+                onAddImages={handleAddImages}
+            />
         </div>
     );
 }

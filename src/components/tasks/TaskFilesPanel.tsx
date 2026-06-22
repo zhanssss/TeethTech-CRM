@@ -325,7 +325,7 @@ export default function TaskFilesPanel({
             ) : null}
 
             {isLoading ? (
-                <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
+                <div className="mt-4 grid grid-cols-[repeat(auto-fit,minmax(min(100%,22rem),1fr))] gap-3">
                     {Array.from({ length: 2 }).map((_, index) => (
                         <div
                             key={index}
@@ -351,7 +351,7 @@ export default function TaskFilesPanel({
             ) : null}
 
             {!isLoading && !isError ? (
-                <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
+                <div className="mt-4 grid grid-cols-[repeat(auto-fit,minmax(min(100%,22rem),1fr))] gap-4">
                     <FileBucket
                         title="Скрины"
                         emptyText="Скрины пока не добавлены"
@@ -431,9 +431,9 @@ function FileBucket({
     onDeleteFile: (file: DisplayFile) => void;
 }) {
     return (
-        <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-            <div className="flex items-center justify-between gap-3">
-                <h3 className="text-xs font-black uppercase tracking-widest text-slate-500">
+        <div className="min-w-0 overflow-hidden rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+                <h3 className="min-w-0 text-xs font-black uppercase tracking-widest text-slate-500">
                     {title}
                 </h3>
 
@@ -500,23 +500,23 @@ function FileRow({
     onDeleteFile: (file: DisplayFile) => void;
 }) {
     return (
-        <div className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2">
+        <div className="min-w-0 rounded-xl border border-slate-200 bg-white px-3 py-3">
             <div className="min-w-0">
                 <p className="truncate text-sm font-bold text-slate-800">
                     {file.name}
                 </p>
-                <p className="text-xs text-slate-400">
+                <p className="mt-1 break-words text-xs leading-5 text-slate-400">
                     {file.sizeLabel}
                     {file.contentType ? ` · ${file.contentType}` : ''}
                 </p>
             </div>
 
-            <div className="flex shrink-0 items-center gap-2">
+            <div className="mt-3 grid grid-cols-[repeat(auto-fit,minmax(5.5rem,1fr))] gap-2">
                 <button
                     type="button"
                     onClick={() => onOpenFile(file)}
                     disabled={isOpening || isDownloading || isDeleting}
-                    className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-[10px] font-black uppercase text-slate-600 transition hover:bg-slate-50 disabled:cursor-wait disabled:opacity-50"
+                    className="w-full whitespace-nowrap rounded-lg border border-slate-200 px-2.5 py-2 text-[10px] font-black uppercase text-slate-600 transition hover:bg-slate-50 disabled:cursor-wait disabled:opacity-50"
                 >
                     {isOpening ? '...' : 'Открыть'}
                 </button>
@@ -525,7 +525,7 @@ function FileRow({
                     type="button"
                     onClick={() => onDownloadFile(file)}
                     disabled={isOpening || isDownloading || isDeleting}
-                    className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-[10px] font-black uppercase text-slate-600 transition hover:bg-slate-50 disabled:cursor-wait disabled:opacity-50"
+                    className="w-full whitespace-nowrap rounded-lg border border-slate-200 px-2.5 py-2 text-[10px] font-black uppercase text-slate-600 transition hover:bg-slate-50 disabled:cursor-wait disabled:opacity-50"
                 >
                     {isDownloading ? '...' : 'Скачать'}
                 </button>
@@ -535,7 +535,7 @@ function FileRow({
                         type="button"
                         onClick={() => onDeleteFile(file)}
                         disabled={isOpening || isDownloading || isDeleting}
-                        className="rounded-lg bg-red-50 px-2.5 py-1.5 text-[10px] font-black uppercase text-red-600 transition hover:bg-red-100 disabled:cursor-wait disabled:opacity-50"
+                        className="w-full whitespace-nowrap rounded-lg bg-red-50 px-2.5 py-2 text-[10px] font-black uppercase text-red-600 transition hover:bg-red-100 disabled:cursor-wait disabled:opacity-50"
                     >
                         {isDeleting ? '...' : 'Удалить'}
                     </button>

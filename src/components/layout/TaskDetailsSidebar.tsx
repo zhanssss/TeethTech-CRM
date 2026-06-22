@@ -70,6 +70,10 @@ export default function TaskDetailsSidebar({
                         </h3>
 
                         <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                            {task.patient && <InfoItem label="Пациент" value={task.patient} />}
+                            {task.orderId && <InfoItem label="Заказ" value={`#${task.orderId}`} />}
+                            {task.deadline && <InfoItem label="Срок" value={task.deadline} />}
+                            {task.priority && <InfoItem label="Приоритет" value={task.priority} />}
                             <InfoItem label="Цвет" value={task.color} />
                             <InfoItem label="Абатмент" value={task.abutment} />
                             <InfoItem label="Техник" value={task.technicianId} />
@@ -79,6 +83,7 @@ export default function TaskDetailsSidebar({
 
                     <TaskHistoryTimeline
                         taskId={task.id}
+                        fallbackItems={task.history}
                         className="rounded-2xl border border-slate-200 bg-white p-4"
                     />
 

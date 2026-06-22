@@ -13,10 +13,9 @@ function normalizeAuthRole(roles: string[]): AuthRole {
     );
 
     if (normalizedRoles.includes('ADMIN')) return 'ADMIN';
-    if (normalizedRoles.includes('TECHNICIAN')) return 'TECHNICIAN';
     if (normalizedRoles.includes('DISPATCHER')) return 'DISPATCHER';
 
-    return 'DISPATCHER';
+    return 'TECHNICIAN';
 }
 
 export default function LoginPage() {
@@ -54,6 +53,23 @@ export default function LoginPage() {
             );
 
             router.push('/orders');
+            return;
+        }
+
+        if (emailValue === 'technician' && passwordValue === 'technician') {
+            setError('');
+
+            dispatch(
+                setUser({
+                    id: '3',
+                    name: 'Алексей Техник',
+                    role: 'TECHNICIAN',
+                    avatarUrl: '',
+                    roles: ['TECHNICIAN'],
+                })
+            );
+
+            router.push('/employee');
             return;
         }
 
@@ -110,14 +126,8 @@ export default function LoginPage() {
                         </div>
 
                         <div className="space-y-4">
-                            <div className="rounded-2xl border border-slate-800 bg-slate-800/70 p-4">
-                                <p className="text-sm font-semibold">Что будет в системе</p>
-                                <p className="mt-2 text-sm text-slate-300">
-                                    Заказы, статусы, задачи техников, аналитика и контроль сроков.
-                                </p>
-                            </div>
                             <p className="text-xs text-slate-400">
-                                © 2026 TeethTech. Internal CRM mockup.
+                                © 2026 TeethTech.
                             </p>
                         </div>
                     </div>
@@ -180,10 +190,6 @@ export default function LoginPage() {
                                     {isLoading ? 'Вход...' : 'Войти'}
                                 </button>
                             </form>
-
-                            <div className="mt-6 rounded-2xl bg-slate-50 p-4 text-sm text-slate-500">
-                                Для разработки доступен быстрый вход: admin / admin.
-                            </div>
                         </div>
                     </div>
                 </div>

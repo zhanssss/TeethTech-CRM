@@ -200,8 +200,10 @@ export interface CreateOrderRequest extends Omit<CreateOrderDto, 'tasks'> {
 }
 
 export interface UpdateOrderDto {
-    deadline: string;
-    comment: string;
+    deadline?: string;
+    comment?: string;
+    dentalTechnicianId?: string;
+    cadCamOperatorId?: string;
 }
 
 export interface UpdateOrderArgs {

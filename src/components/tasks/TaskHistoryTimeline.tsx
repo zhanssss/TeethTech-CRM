@@ -64,10 +64,15 @@ const EVENT_DOT_CLASSES: Record<string, string> = {
 
 type TaskHistoryTimelineProps = {
     taskId?: string | null;
+    fallbackItems?: TaskHistoryItem[];
     className?: string;
 };
 
-export default function TaskHistoryTimeline({taskId, className = ''}: TaskHistoryTimelineProps) {
+export default function TaskHistoryTimeline({
+                                                taskId,
+                                                fallbackItems = [],
+                                                className = '',
+                                            }: TaskHistoryTimelineProps) {
     const activeTaskId = taskId ?? '';
     const [pagination, setPagination] = useState({taskId: '', page: 0});
     const canLoadHistory = Boolean(taskId && UUID_PATTERN.test(taskId));
@@ -117,8 +122,27 @@ export default function TaskHistoryTimeline({taskId, className = ''}: TaskHistor
     if (!canLoadHistory) {
         return (
             <section className={className}>
-                <HistoryHeader eventCount={0} participantCount={0} />
-                <EmptyState text="Журнал доступен для задач, сохранённых на сервере." />
+                <HistoryHeader
+                    eventCount={fallbackItems.length}
+                    participantCount={new Set(
+                        fallbackItems
+                            .map((event) => event.changedBy?.userId ?? event.changedBy?.fullName)
+                            .filter(Boolean)
+                    ).size}
+                />
+                {fallbackItems.length ? (
+                    <div className="mt-5 space-y-4">
+                        {fallbackItems.map((event, index) => (
+                            <HistoryEventCard
+                                key={event.id}
+                                event={event}
+                                isLast={index === fallbackItems.length - 1}
+                            />
+                        ))}
+                    </div>
+                ) : (
+                    <EmptyState text="По этой задаче пока нет событий." />
+                )}
             </section>
         );
     }
