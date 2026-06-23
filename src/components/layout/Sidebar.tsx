@@ -30,7 +30,9 @@ export default function Sidebar({ onClose }: SidebarProps) {
     const menuItems: MenuItem[] =
         role === 'TECHNICIAN'
             ? [
-                { name: 'Мои задачи', href: '/employee' },
+                { name: 'Мой профиль', href: '/employee' },
+                { name: 'Календарь', href: '/employee/calendar' },
+                { name: 'Аналитика', href: '/employee/analytics' },
             ]
             : [
                 { name: 'Дэшборд', href: '/' },
@@ -92,7 +94,7 @@ export default function Sidebar({ onClose }: SidebarProps) {
                 {menuItems.map((item) => {
                     const isParentActive =
                         pathname === item.href ||
-                        pathname.startsWith(`${item.href}/`);
+                        (item.href !== '/employee' && pathname.startsWith(`${item.href}/`));
 
                     return (
                         <div key={item.href}>

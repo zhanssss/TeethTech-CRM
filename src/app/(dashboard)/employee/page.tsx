@@ -7,6 +7,7 @@ import { useSelector } from 'react-redux';
 import TaskDetailsSidebar from '@/src/components/layout/TaskDetailsSidebar';
 import ErrorModal from '@/src/components/ui/ErrorModal';
 import { RootState } from '@/src/lib/store';
+import { mockEmployees } from '@/src/mock/employees';
 import { mockTasks } from '@/src/mock/tasks';
 import type {
     ProductionTask,
@@ -63,6 +64,103 @@ const PRIORITY_CLASSES: Record<ProductionTask['priority'], string> = {
     HIGH: 'bg-orange-100 text-orange-700',
     URGENT: 'bg-red-100 text-red-700',
 };
+
+const EMPLOYEE_STATUS = {
+    ACTIVE: {
+        label: 'На смене',
+        className: 'border-emerald-400/30 bg-emerald-400/10 text-emerald-200',
+    },
+    BUSY: {
+        label: 'Занят',
+        className: 'border-amber-400/30 bg-amber-400/10 text-amber-200',
+    },
+    OFFLINE: {
+        label: 'Не в сети',
+        className: 'border-slate-400/30 bg-slate-400/10 text-slate-300',
+    },
+    FIRED: {
+        label: 'Неактивен',
+        className: 'border-red-400/30 bg-red-400/10 text-red-200',
+    },
+} as const;
+
+function getRoleLabel(role: string | null | undefined) {
+    switch (role) {
+        case 'ADMIN':
+            return 'Администратор';
+        case 'DISPATCHER':
+            return 'Диспетчер';
+        case 'OPERATOR':
+            return 'Оператор';
+        case 'TECHNICIAN':
+            return 'Зубной техник';
+        default:
+            return role ?? 'Сотрудник';
+    }
+}
+
+function formatJoinedAt(value?: string) {
+    if (!value) return 'Дата не указана';
+
+    return new Intl.DateTimeFormat('ru-RU', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+    }).format(new Date(`${value}T00:00:00`));
+}
+
+function ProfileMetric({
+                           label,
+                           value,
+                           hint,
+                           accentClassName,
+                       }: {
+    label: string;
+    value: string | number;
+    hint: string;
+    accentClassName: string;
+}) {
+    return (
+        <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div className={`mb-4 h-1.5 w-10 rounded-full ${accentClassName}`} />
+            <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">
+                {label}
+            </p>
+            <p className="mt-2 text-3xl font-black tracking-tight text-slate-900">
+                {value}
+            </p>
+            <p className="mt-1 text-xs leading-5 text-slate-500">{hint}</p>
+        </article>
+    );
+}
+
+function ProfileLink({
+                         href,
+                         title,
+                         description,
+                     }: {
+    href: string;
+    title: string;
+    description: string;
+}) {
+    return (
+        <Link
+            href={href}
+            className="group flex min-h-20 items-center justify-between gap-4 rounded-2xl border border-white/10 bg-white/[0.07] px-4 py-3 transition hover:border-blue-400/40 hover:bg-white/[0.12]"
+        >
+            <span>
+                <span className="block text-sm font-bold text-white">{title}</span>
+                <span className="mt-1 block text-xs text-slate-400">{description}</span>
+            </span>
+            <span
+                aria-hidden="true"
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/10 text-lg text-blue-200 transition group-hover:translate-x-0.5 group-hover:bg-blue-500 group-hover:text-white"
+            >
+                →
+            </span>
+        </Link>
+    );
+}
 
 function getStage(status: TaskStatus) {
     return TASK_STAGES.find((stage) => stage.id === status) ?? TASK_STAGES[0];
@@ -234,6 +332,10 @@ function TaskCard({
 
 export default function EmployeePage() {
     const { id, name, role } = useSelector((state: RootState) => state.auth);
+    const currentEmployee = useMemo(
+        () => mockEmployees.find((employee) => employee.id === id),
+        [id]
+    );
     const visibleTasks = useMemo(
         () => mockTasks
             .filter((task) => task.technicianId === id || task.nextTechnicianId === id)
@@ -256,6 +358,12 @@ export default function EmployeePage() {
     const completedTasks = tasks.filter(
         (task) => task.technicianId === id && task.status === 'DONE'
     );
+    const displayName = currentEmployee?.name ?? name ?? 'Сотрудник';
+    const employeeStatus = EMPLOYEE_STATUS[currentEmployee?.status ?? 'ACTIVE'];
+    const completedCount = currentEmployee?.stats.completed ?? completedTasks.length;
+    const inProgressCount = currentEmployee?.stats.inProgress ?? activeTasks.length;
+    const onTimeRate = currentEmployee?.stats.onTimeRate ?? 0;
+    const averageDays = currentEmployee?.stats.averageDays ?? 0;
     const selectedTask = tasks.find((task) => task.id === selectedTaskId) ?? null;
     const selectedSidebarTask: Task | null = selectedTask
         ? {
@@ -386,31 +494,138 @@ export default function EmployeePage() {
 
     return (
         <div className="mx-auto w-full max-w-6xl space-y-6">
-            <header className="rounded-3xl bg-slate-900 px-5 py-6 text-white shadow-lg sm:px-8 sm:py-8">
-                <p className="text-sm font-medium text-blue-300">Рабочая смена</p>
-                <div className="mt-2 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-                    <div>
-                        <h1 className="text-2xl font-black sm:text-3xl">Мои задачи</h1>
-                        <p className="mt-2 text-sm text-slate-300">
-                            {name}, здесь показаны текущие и ожидающие передачи задачи.
-                        </p>
-                    </div>
-                    <div className="flex gap-3 text-sm">
-                        <div className="rounded-2xl bg-white/10 px-4 py-3">
-                            <span className="block text-xs text-slate-400">В работе</span>
-                            <strong className="text-xl">{activeTasks.length}</strong>
+            <section
+                aria-labelledby="employee-profile-title"
+                className="overflow-hidden rounded-3xl border border-slate-800 bg-slate-950 text-white shadow-xl"
+            >
+                <div className="relative overflow-hidden px-5 py-6 sm:px-8 sm:py-8">
+                    <div className="pointer-events-none absolute -right-16 -top-20 h-64 w-64 rounded-full bg-blue-600/20 blur-3xl" />
+                    <div className="pointer-events-none absolute bottom-0 left-1/3 h-40 w-40 rounded-full bg-violet-500/10 blur-3xl" />
+
+                    <div className="relative grid gap-7 lg:grid-cols-[1fr_21rem] lg:items-end">
+                        <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
+                            <div className="flex h-24 w-24 shrink-0 items-center justify-center rounded-3xl border border-white/15 bg-gradient-to-br from-blue-500 to-indigo-600 text-3xl font-black shadow-lg shadow-blue-950/40">
+                                {getInitials(displayName)}
+                            </div>
+
+                            <div className="min-w-0">
+                                <div className="flex flex-wrap items-center gap-2">
+                                    <span
+                                        className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-bold ${employeeStatus.className}`}
+                                    >
+                                        <span className="h-2 w-2 rounded-full bg-current" />
+                                        {employeeStatus.label}
+                                    </span>
+                                    <span className="rounded-full border border-white/10 bg-white/[0.06] px-3 py-1 text-xs font-semibold text-slate-300">
+                                        ID {id ?? '—'}
+                                    </span>
+                                </div>
+
+                                <p className="mt-4 text-xs font-bold uppercase tracking-[0.2em] text-blue-300">
+                                    Профиль сотрудника
+                                </p>
+                                <h1
+                                    id="employee-profile-title"
+                                    className="mt-1 truncate text-3xl font-black tracking-tight sm:text-4xl"
+                                >
+                                    {displayName}
+                                </h1>
+                                <p className="mt-2 text-sm text-slate-300">
+                                    {currentEmployee?.specialization ?? getRoleLabel(role)} ·{' '}
+                                    {getRoleLabel(currentEmployee?.role ?? role)}
+                                </p>
+                            </div>
                         </div>
-                        <div className="rounded-2xl bg-white/10 px-4 py-3">
-                            <span className="block text-xs text-slate-400">Скоро</span>
-                            <strong className="text-xl">{upcomingTasks.length}</strong>
-                        </div>
-                        <div className="rounded-2xl bg-white/10 px-4 py-3">
-                            <span className="block text-xs text-slate-400">Готово</span>
-                            <strong className="text-xl">{completedTasks.length}</strong>
+
+                        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
+                            <ProfileLink
+                                href="/employee/calendar"
+                                title="Мой календарь"
+                                description="Смена, задачи и дедлайны"
+                            />
+                            <ProfileLink
+                                href="/employee/analytics"
+                                title="Моя аналитика"
+                                description="Результаты и эффективность"
+                            />
                         </div>
                     </div>
                 </div>
-            </header>
+
+                <div className="grid gap-px border-t border-white/10 bg-white/10 sm:grid-cols-3">
+                    <div className="bg-slate-900 px-5 py-4 sm:px-6">
+                        <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">
+                            Телефон
+                        </p>
+                        <p className="mt-1 text-sm font-semibold text-slate-200">
+                            {currentEmployee?.phone ?? 'Не указан'}
+                        </p>
+                    </div>
+                    <div className="bg-slate-900 px-5 py-4 sm:px-6">
+                        <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">
+                            Email
+                        </p>
+                        <p className="mt-1 truncate text-sm font-semibold text-slate-200">
+                            {currentEmployee?.email ?? 'Не указан'}
+                        </p>
+                    </div>
+                    <div className="bg-slate-900 px-5 py-4 sm:px-6">
+                        <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">
+                            В команде
+                        </p>
+                        <p className="mt-1 text-sm font-semibold capitalize text-slate-200">
+                            с {formatJoinedAt(currentEmployee?.joinedAt)}
+                        </p>
+                    </div>
+                </div>
+            </section>
+
+            <section aria-label="Показатели сотрудника" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                <ProfileMetric
+                    label="Выполнено"
+                    value={completedCount}
+                    hint="Работ за всё время"
+                    accentClassName="bg-emerald-500"
+                />
+                <ProfileMetric
+                    label="В процессе"
+                    value={inProgressCount}
+                    hint={`${activeTasks.length} в текущей очереди`}
+                    accentClassName="bg-blue-500"
+                />
+                <ProfileMetric
+                    label="В срок"
+                    value={`${onTimeRate}%`}
+                    hint="Задач без просрочки"
+                    accentClassName="bg-violet-500"
+                />
+                <ProfileMetric
+                    label="Средний цикл"
+                    value={`${averageDays} дн.`}
+                    hint="На выполнение работы"
+                    accentClassName="bg-amber-500"
+                />
+            </section>
+
+            <section className="flex flex-col gap-3 border-b border-slate-200 pb-5 sm:flex-row sm:items-end sm:justify-between">
+                <div>
+                    <p className="text-xs font-bold uppercase tracking-[0.18em] text-blue-600">
+                        Рабочая смена
+                    </p>
+                    <h2 className="mt-1 text-2xl font-black text-slate-900">Мои задачи</h2>
+                    <p className="mt-1 text-sm text-slate-500">
+                        Текущие работы и задачи, которые скоро будут переданы вам.
+                    </p>
+                </div>
+                <div className="flex gap-2 text-xs font-bold">
+                    <span className="rounded-full bg-blue-100 px-3 py-1.5 text-blue-700">
+                        В работе: {activeTasks.length}
+                    </span>
+                    <span className="rounded-full bg-violet-100 px-3 py-1.5 text-violet-700">
+                        Скоро: {upcomingTasks.length}
+                    </span>
+                </div>
+            </section>
 
             <p className="sr-only" role="status" aria-live="polite">
                 {notification}

@@ -6,7 +6,7 @@ export type Login = {
 export type LoginResponse = {
     id: string;
     email: string;
-    token: string;
+    token?: string;
     roles: string[];
 }
 

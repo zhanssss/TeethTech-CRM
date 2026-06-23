@@ -15,7 +15,7 @@ export const teethTechApi = createApi({
         prepareHeaders: (headers, { getState }) => {
             const token = (getState() as AuthState).auth?.token;
 
-            if (token && token !== "dev-admin-token") {
+            if (token) {
                 headers.set("Authorization", `Bearer ${token}`);
             }
 

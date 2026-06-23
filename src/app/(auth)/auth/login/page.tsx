@@ -47,7 +47,6 @@ export default function LoginPage() {
                     name: 'Админ системы',
                     role: 'ADMIN',
                     avatarUrl: '',
-                    token: 'dev-admin-token',
                     roles: ['ADMIN'],
                 })
             );
@@ -62,7 +61,7 @@ export default function LoginPage() {
             dispatch(
                 setUser({
                     id: '3',
-                    name: 'Алексей Техник',
+                    name: 'Игорь Нурланов',
                     role: 'TECHNICIAN',
                     avatarUrl: '',
                     roles: ['TECHNICIAN'],
