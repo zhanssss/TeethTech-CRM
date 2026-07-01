@@ -10,6 +10,8 @@ export type LoginResponse = {
     roles: string[];
 }
 
+export type AuthSession = Omit<LoginResponse, 'token'>;
+
 export type SalaryType = 'FIXED' | 'PER_UNIT';
 
 export type Register = {

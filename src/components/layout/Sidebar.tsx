@@ -4,7 +4,8 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useDispatch, useSelector } from 'react-redux';
 import { logout } from '@/src/features/auth/authSlice';
-import { RootState } from '@/src/lib/store';
+import { AppDispatch, RootState } from '@/src/lib/store';
+import { teethTechApi } from '@/src/services/teethTechApi';
 
 type MenuItem = {
     name: string;
@@ -23,7 +24,7 @@ type SidebarProps = {
 
 export default function Sidebar({ onClose }: SidebarProps) {
     const pathname = usePathname();
-    const dispatch = useDispatch();
+    const dispatch = useDispatch<AppDispatch>();
     const router = useRouter();
     const { role } = useSelector((state: RootState) => state.auth);
 
@@ -60,9 +61,17 @@ export default function Sidebar({ onClose }: SidebarProps) {
                 },
             ];
 
-    const handleLogout = () => {
-        dispatch(logout());
-        router.push('/auth/login');
+    const handleLogout = async () => {
+        try {
+            await fetch('/api/auth/logout', {
+                method: 'POST',
+                credentials: 'same-origin',
+            });
+        } finally {
+            dispatch(logout());
+            dispatch(teethTechApi.util.resetApiState());
+            router.push('/auth/login');
+        }
     };
 
     const handleNavigate = () => {

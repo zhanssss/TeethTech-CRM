@@ -14,7 +14,7 @@ export default function DashboardLayout({
     children: React.ReactNode;
 }) {
     const router = useRouter();
-    const { isAuthenticated } = useSelector((state: RootState) => state.auth);
+    const { isAuthenticated, isInitialized } = useSelector((state: RootState) => state.auth);
 
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
@@ -29,12 +29,12 @@ export default function DashboardLayout({
     }, []);
 
     useEffect(() => {
-        if (!isAuthenticated) {
+        if (isInitialized && !isAuthenticated) {
             router.push('/auth/login');
         }
-    }, [isAuthenticated, router]);
+    }, [isAuthenticated, isInitialized, router]);
 
-    if (!isAuthenticated) return null;
+    if (!isInitialized || !isAuthenticated) return null;
 
     return (
         <div className="relative flex h-dvh w-full overflow-hidden bg-slate-50">
@@ -53,9 +53,11 @@ export default function DashboardLayout({
                 <button
                     onClick={() => setIsSidebarOpen(true)}
                     className="absolute left-4 top-4 z-50 hidden h-10 w-10 items-center justify-center rounded-lg bg-slate-900 text-white shadow-lg transition-colors hover:bg-slate-800 lg:flex"
-                    aria-label="Открыть сайдбар"
+                    aria-label="Открыть навигацию"
                 >
-                    ☰
+                    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" className="h-5 w-5">
+                        <path strokeLinecap="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" />
+                    </svg>
                 </button>
             )}
 

@@ -1,8 +1,8 @@
 import {teethTechApi} from "@/src/services/teethTechApi";
 
 import type {
+    AuthSession,
     Login,
-    LoginResponse,
     Register,
 } from "@/src/types/auth.types"
 
@@ -17,7 +17,7 @@ export const authApi = teethTechApi.injectEndpoints({
             }),
             invalidatesTags: ["Users"]
         }),
-        loginUser: builder.mutation<LoginResponse, Login>({
+        loginUser: builder.mutation<AuthSession, Login>({
             query: (body) => ({
                 url: '/auth/login',
                 method: 'POST',

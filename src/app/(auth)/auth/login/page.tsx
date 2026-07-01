@@ -3,23 +3,14 @@
 import { type FormEvent, useState } from 'react';
 import { useDispatch } from 'react-redux';
 import { useRouter } from 'next/navigation';
-import { setUser, type AuthRole } from '@/src/features/auth/authSlice';
+import { setUser } from '@/src/features/auth/authSlice';
+import { getAuthRedirectPath, normalizeAuthRole } from '@/src/features/auth/authUtils';
+import type { AppDispatch } from '@/src/lib/store';
 import { useLoginUserMutation } from '@/src/services/api/authApi';
 import ErrorModal from '@/src/components/ui/ErrorModal';
 
-function normalizeAuthRole(roles: string[]): AuthRole {
-    const normalizedRoles = roles.map((role) =>
-        role.toUpperCase().replace(/^ROLE_/, '')
-    );
-
-    if (normalizedRoles.includes('ADMIN')) return 'ADMIN';
-    if (normalizedRoles.includes('DISPATCHER')) return 'DISPATCHER';
-
-    return 'TECHNICIAN';
-}
-
 export default function LoginPage() {
-    const dispatch = useDispatch();
+    const dispatch = useDispatch<AppDispatch>();
     const router = useRouter();
     const [loginUser, { isLoading }] = useLoginUserMutation();
 
@@ -31,44 +22,10 @@ export default function LoginPage() {
         e.preventDefault();
 
         const emailValue = email.trim();
-        const passwordValue = password.trim();
+        const passwordValue = password;
 
         if (!emailValue || !passwordValue) {
             setError('Заполните email и пароль');
-            return;
-        }
-
-        if (emailValue === 'admin' && passwordValue === 'admin') {
-            setError('');
-
-            dispatch(
-                setUser({
-                    id: '00000000-0000-4000-8000-000000000001',
-                    name: 'Админ системы',
-                    role: 'ADMIN',
-                    avatarUrl: '',
-                    roles: ['ADMIN'],
-                })
-            );
-
-            router.push('/orders');
-            return;
-        }
-
-        if (emailValue === 'technician' && passwordValue === 'technician') {
-            setError('');
-
-            dispatch(
-                setUser({
-                    id: '3',
-                    name: 'Игорь Нурланов',
-                    role: 'TECHNICIAN',
-                    avatarUrl: '',
-                    roles: ['TECHNICIAN'],
-                })
-            );
-
-            router.push('/employee');
             return;
         }
 
@@ -88,12 +45,11 @@ export default function LoginPage() {
                     name: response.email,
                     role,
                     avatarUrl: '',
-                    token: response.token,
                     roles: response.roles,
                 })
             );
 
-            router.push(role === 'TECHNICIAN' ? '/employee' : '/orders');
+            router.push(getAuthRedirectPath(role));
         } catch (requestError) {
             console.error('Ошибка входа:', requestError);
             setError('Неверный email или пароль');
@@ -163,7 +119,7 @@ export default function LoginPage() {
                                         type="text"
                                         value={email}
                                         onChange={(e) => setEmail(e.target.value)}
-                                        placeholder="admin или email@example.com"
+                                        placeholder="email@example.com"
                                         className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-500 focus:bg-white"
                                     />
                                 </div>
