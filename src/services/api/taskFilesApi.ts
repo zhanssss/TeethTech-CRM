@@ -14,11 +14,7 @@ import type {
     UploadTaskFileArgs,
 } from '@/src/types/task.types';
 
-function buildFileFormData(
-    file: Blob,
-    fileName?: string,
-    fields: Record<string, string> = {}
-) {
+function buildFileFormData(file: Blob, fileName?: string) {
     const formData = new FormData();
 
     if (fileName) {
@@ -26,10 +22,6 @@ function buildFileFormData(
     } else {
         formData.append('file', file);
     }
-
-    Object.entries(fields).forEach(([key, value]) => {
-        formData.append(key, value);
-    });
 
     return formData;
 }
@@ -53,7 +45,8 @@ export const taskFilesApi = teethTechApi.injectEndpoints({
             query: ({ taskId, file, type = 'FILE' }) => ({
                 url: `/tasks/${taskId}/files/upload`,
                 method: 'POST',
-                body: buildFileFormData(file, file.name, { type }),
+                params: { type },
+                body: buildFileFormData(file, file.name),
             }),
             invalidatesTags: (_result, _error, { taskId }) => [
                 { type: 'TaskFiles', id: taskId },
@@ -111,7 +104,7 @@ export const taskFilesApi = teethTechApi.injectEndpoints({
             }),
         }),
 
-        completeMultipartTaskFileUpload: builder.mutation<TaskFile | void, MultipartTaskFileArgs>({
+        completeMultipartTaskFileUpload: builder.mutation<TaskFile, MultipartTaskFileArgs>({
             query: ({ taskId, fileId }) => ({
                 url: `/tasks/${taskId}/files/multipart/${fileId}/complete`,
                 method: 'POST',

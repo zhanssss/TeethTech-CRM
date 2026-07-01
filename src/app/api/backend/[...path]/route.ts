@@ -78,6 +78,13 @@ function buildRequestHeaders(request: NextRequest) {
     return headers;
 }
 
+function isMultipartRequest(request: NextRequest) {
+    return request.headers
+        .get('content-type')
+        ?.toLowerCase()
+        .startsWith('multipart/form-data') ?? false;
+}
+
 function buildResponseHeaders(headers: Headers) {
     const responseHeaders = new Headers();
 
@@ -118,6 +125,10 @@ function parseLoginResponse(body: ArrayBuffer): LoginResponse | null {
 async function getRequestBody(request: NextRequest) {
     if (BODYLESS_METHODS.has(request.method)) return undefined;
 
+    if (isMultipartRequest(request)) {
+        return request.formData();
+    }
+
     return request.arrayBuffer();
 }
 
@@ -126,11 +137,16 @@ async function proxyRequest(request: NextRequest, context: RouteContext) {
     const isLoginRequest =
         request.method === 'POST' && path.join('/') === 'auth/login';
     const targetUrl = buildBackendUrl(path, request);
+    const headers = buildRequestHeaders(request);
+
+    if (isMultipartRequest(request)) {
+        headers.delete('content-type');
+    }
 
     try {
         const backendResponse = await fetch(targetUrl, {
             method: request.method,
-            headers: buildRequestHeaders(request),
+            headers,
             body: await getRequestBody(request),
             cache: 'no-store',
             redirect: 'manual',

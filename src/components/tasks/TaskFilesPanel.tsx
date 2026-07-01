@@ -173,7 +173,6 @@ export default function TaskFilesPanel({
                 fileName: file.name,
                 contentType: file.type || 'application/octet-stream',
                 totalParts,
-                type,
             }).unwrap();
 
             multipartFileId = multipartUpload.fileId;

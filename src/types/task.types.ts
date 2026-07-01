@@ -129,7 +129,6 @@ export type InitMultipartTaskFileUploadArgs = {
     fileName: string;
     contentType: string;
     totalParts: number;
-    type?: TaskFileAttachmentType;
 };
 
 export type InitMultipartTaskFileUploadResponse = {

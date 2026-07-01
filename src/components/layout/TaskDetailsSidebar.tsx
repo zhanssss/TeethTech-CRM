@@ -8,9 +8,9 @@ import type { Task, TaskAttachment, TaskImage } from '@/src/types/task.types';
 type TaskDetailsSidebarProps = {
     task: Task | null;
     onClose: () => void;
-    onAddComment: (text: string) => void;
-    onAddAttachments: (files: TaskAttachment[]) => void;
-    onAddImages: (images: TaskImage[]) => void;
+    onAddComment?: (text: string) => void;
+    onAddAttachments?: (files: TaskAttachment[]) => void;
+    onAddImages?: (images: TaskImage[]) => void;
 };
 
 export default function TaskDetailsSidebar({
@@ -27,7 +27,7 @@ export default function TaskDetailsSidebar({
     const handleAddComment = () => {
         const trimmed = commentText.trim();
 
-        if (!trimmed) return;
+        if (!trimmed || !onAddComment) return;
 
         onAddComment(trimmed);
         setCommentText('');
@@ -74,6 +74,11 @@ export default function TaskDetailsSidebar({
                             {task.orderId && <InfoItem label="Заказ" value={`#${task.orderId}`} />}
                             {task.deadline && <InfoItem label="Срок" value={task.deadline} />}
                             {task.priority && <InfoItem label="Приоритет" value={task.priority} />}
+                            {task.type && <InfoItem label="Вид работы" value={task.type} />}
+                            {task.material && <InfoItem label="Материал" value={task.material} />}
+                            <InfoItem label="Кол-во" value={task.units} />
+                            {task.unitPrice ? <InfoItem label="Цена" value={task.unitPrice.toLocaleString('ru-RU')} /> : null}
+                            {task.discount ? <InfoItem label="Скидка" value={`${task.discount}%`} /> : null}
                             <InfoItem label="Цвет" value={task.color} />
                             <InfoItem label="Абатмент" value={task.abutment} />
                             <InfoItem label="Техник" value={task.technicianId} />
@@ -101,23 +106,25 @@ export default function TaskDetailsSidebar({
                             Комментарии
                         </h3>
 
-                        <div className="mt-3 space-y-3">
-                            <textarea
-                                value={commentText}
-                                onChange={(event) => setCommentText(event.target.value)}
-                                placeholder="Написать комментарий..."
-                                className="min-h-24 w-full resize-none rounded-xl border border-slate-200 bg-white p-3 text-sm text-slate-700 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
-                            />
+                        {onAddComment ? (
+                            <div className="mt-3 space-y-3">
+                                <textarea
+                                    value={commentText}
+                                    onChange={(event) => setCommentText(event.target.value)}
+                                    placeholder="Написать комментарий..."
+                                    className="min-h-24 w-full resize-none rounded-xl border border-slate-200 bg-white p-3 text-sm text-slate-700 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+                                />
 
-                            <button
-                                type="button"
-                                onClick={handleAddComment}
-                                className="w-full rounded-xl bg-blue-600 px-4 py-2 text-sm font-bold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300"
-                                disabled={!commentText.trim()}
-                            >
-                                Добавить комментарий
-                            </button>
-                        </div>
+                                <button
+                                    type="button"
+                                    onClick={handleAddComment}
+                                    className="w-full rounded-xl bg-blue-600 px-4 py-2 text-sm font-bold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+                                    disabled={!commentText.trim()}
+                                >
+                                    Добавить комментарий
+                                </button>
+                            </div>
+                        ) : null}
 
                         {task.comments?.length ? (
                             <div className="mt-4 space-y-3">
@@ -152,13 +159,15 @@ export default function TaskDetailsSidebar({
 }
 
 function InfoItem({ label, value }: { label: string; value?: string | number | null }) {
+    const displayValue = value === undefined || value === null || value === '' ? '-' : value;
+
     return (
         <div className="rounded-xl border border-slate-200 bg-white p-3">
             <p className="text-[10px] font-black uppercase text-slate-400">
                 {label}
             </p>
             <p className="mt-1 truncate text-sm font-bold text-slate-800">
-                {value || '-'}
+                {displayValue}
             </p>
         </div>
     );
