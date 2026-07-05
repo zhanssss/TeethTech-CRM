@@ -17,6 +17,48 @@ type InventoryItemArgs = {
     body: UpdateInventoryItemRequest;
 };
 
+type CreateWarehouseMaterialRequest = {
+    name: string;
+    description: string;
+    nomenclatureCode: string;
+    unit: string;
+};
+
+function getArrayFromResponse<T>(response: unknown, keys: string[]): T[] {
+    if (Array.isArray(response)) return response as T[];
+    if (!response || typeof response !== 'object') return [];
+
+    const responseRecord = response as Record<string, unknown>;
+
+    for (const key of keys) {
+        const value = responseRecord[key];
+        if (Array.isArray(value)) return value as T[];
+    }
+
+    const data = responseRecord.data;
+    if (data && typeof data === 'object') {
+        return getArrayFromResponse<T>(data, keys);
+    }
+
+    const embedded = responseRecord._embedded;
+    if (embedded && typeof embedded === 'object') {
+        const embeddedRecord = embedded as Record<string, unknown>;
+        const firstArray = Object.values(embeddedRecord).find(Array.isArray);
+        if (Array.isArray(firstArray)) return firstArray as T[];
+    }
+
+    return [];
+}
+
+function normalizeNomenclatureResponse(response: unknown) {
+    return getArrayFromResponse<NomenclatureItem>(response, [
+        'content',
+        'items',
+        'nomenclature',
+        'nomenclatures',
+    ]);
+}
+
 export const warehouseApi = teethTechApi.injectEndpoints({
     endpoints: (builder) => ({
         getNomenclature: builder.query<NomenclatureItem[], { activeOnly?: boolean } | void>({
@@ -26,6 +68,7 @@ export const warehouseApi = teethTechApi.injectEndpoints({
                     ? undefined
                     : { activeOnly: params.activeOnly },
             }),
+            transformResponse: normalizeNomenclatureResponse,
             providesTags: (result) => [
                 { type: 'Nomenclature', id: 'LIST' },
                 ...(result ?? []).map(({ id }) => ({ type: 'Nomenclature' as const, id })),
@@ -54,6 +97,19 @@ export const warehouseApi = teethTechApi.injectEndpoints({
                 { type: 'Stock', id: 'MOVEMENTS' },
                 { type: 'Nomenclature', id: nomenclatureId },
                 { type: 'Nomenclature', id: 'LIST' },
+            ],
+        }),
+
+        createWarehouseMaterial: builder.mutation<unknown, CreateWarehouseMaterialRequest>({
+            query: (body) => ({
+                url: '/materials',
+                method: 'POST',
+                body,
+            }),
+            invalidatesTags: [
+                'Materials',
+                { type: 'Nomenclature', id: 'LIST' },
+                { type: 'Stock', id: 'OVERVIEW' },
             ],
         }),
 
@@ -159,6 +215,7 @@ export const {
     useGetNomenclatureItemQuery,
     useGetStockBalanceQuery,
     useReceiveStockMutation,
+    useCreateWarehouseMaterialMutation,
     useGetRecentStockMovementsQuery,
     useGetStockOverviewQuery,
     useGetInventoryChecksQuery,

@@ -4,12 +4,14 @@ import { type FormEvent, useMemo, useState } from 'react';
 
 import Modal from '@/src/components/ui/Modal';
 import {
+    useCreateWarehouseMaterialMutation,
+    useGetInventoryChecksQuery,
     useGetNomenclatureItemQuery,
     useGetNomenclatureQuery,
     useGetStockBalanceQuery,
     useReceiveStockMutation,
 } from '@/src/services/api/warehouseApi';
-import { formatQuantity, getApiErrorMessage } from './warehouseUtils';
+import { formatQuantity, getApiErrorMessage, inventoryStatusLabels } from './warehouseUtils';
 
 export default function NomenclaturePanel() {
     const [activeOnly, setActiveOnly] = useState(true);
@@ -19,11 +21,20 @@ export default function NomenclaturePanel() {
     const [reason, setReason] = useState('');
     const [formError, setFormError] = useState('');
     const [successMessage, setSuccessMessage] = useState('');
+    const [createMaterialOpen, setCreateMaterialOpen] = useState(false);
+    const [materialName, setMaterialName] = useState('');
+    const [materialDescription, setMaterialDescription] = useState('');
+    const [materialCode, setMaterialCode] = useState('');
+    const [materialUnit, setMaterialUnit] = useState('');
+    const [createMaterialError, setCreateMaterialError] = useState('');
+    const [createMaterialSuccess, setCreateMaterialSuccess] = useState('');
 
     const listQuery = useGetNomenclatureQuery({ activeOnly });
+    const inventoryChecksQuery = useGetInventoryChecksQuery();
     const detailQuery = useGetNomenclatureItemQuery(selectedId ?? '', { skip: !selectedId });
     const balanceQuery = useGetStockBalanceQuery(selectedId ?? '', { skip: !selectedId });
     const [receiveStock, receiveState] = useReceiveStockMutation();
+    const [createWarehouseMaterial, createMaterialState] = useCreateWarehouseMaterialMutation();
 
     const filteredItems = useMemo(() => {
         const needle = search.trim().toLocaleLowerCase('ru-RU');
@@ -35,6 +46,12 @@ export default function NomenclaturePanel() {
 
     const selectedFromList = listQuery.data?.find((item) => item.id === selectedId);
     const selectedItem = detailQuery.data ?? selectedFromList;
+    const activeInventoryCheck = inventoryChecksQuery.data?.find(
+        (item) => item.status === 'DRAFT' || item.status === 'IN_PROGRESS'
+    );
+    const inventoryLockMessage = activeInventoryCheck
+        ? `Приход заблокирован: есть активная инвентаризация (${inventoryStatusLabels[activeInventoryCheck.status]}). Завершите или отмените её, затем повторите приход.`
+        : '';
 
     const openItem = (id: string) => {
         setSelectedId(id);
@@ -49,11 +66,61 @@ export default function NomenclaturePanel() {
         setSelectedId(null);
     };
 
+    const resetMaterialForm = () => {
+        setMaterialName('');
+        setMaterialDescription('');
+        setMaterialCode('');
+        setMaterialUnit('');
+        setCreateMaterialError('');
+    };
+
+    const closeCreateMaterial = () => {
+        if (createMaterialState.isLoading) return;
+        setCreateMaterialOpen(false);
+        resetMaterialForm();
+    };
+
+    const handleCreateMaterial = async (event: FormEvent<HTMLFormElement>) => {
+        event.preventDefault();
+        setCreateMaterialError('');
+        setCreateMaterialSuccess('');
+
+        const name = materialName.trim();
+        const description = materialDescription.trim();
+        const nomenclatureCode = materialCode.trim();
+        const unit = materialUnit.trim();
+
+        if (!name || !nomenclatureCode || !unit) {
+            setCreateMaterialError('Заполните название, артикул и единицу измерения');
+            return;
+        }
+
+        try {
+            await createWarehouseMaterial({
+                name,
+                description,
+                nomenclatureCode,
+                unit,
+            }).unwrap();
+            setCreateMaterialOpen(false);
+            resetMaterialForm();
+            setSearch('');
+            setCreateMaterialSuccess('Материал добавлен. Складская позиция создана с нулевым остатком.');
+        } catch (error) {
+            setCreateMaterialError(getApiErrorMessage(error, 'Не удалось создать материал'));
+        }
+    };
+
     const handleReceive = async (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault();
         if (!selectedId) return;
         setFormError('');
         setSuccessMessage('');
+
+        if (inventoryLockMessage) {
+            setFormError(inventoryLockMessage);
+            return;
+        }
 
         const parsedQuantity = Number(quantity);
         if (!Number.isFinite(parsedQuantity) || parsedQuantity <= 0) {
@@ -113,8 +180,26 @@ export default function NomenclaturePanel() {
                             />
                             Только активные
                         </label>
+
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setCreateMaterialOpen(true);
+                                setCreateMaterialError('');
+                                setCreateMaterialSuccess('');
+                            }}
+                            className="rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-blue-700"
+                        >
+                            + Добавить материал
+                        </button>
                     </div>
                 </div>
+
+                {createMaterialSuccess && (
+                    <div className="m-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">
+                        {createMaterialSuccess}
+                    </div>
+                )}
 
                 {listQuery.isError && (
                     <div className="m-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
@@ -181,6 +266,104 @@ export default function NomenclaturePanel() {
                 )}
             </section>
 
+            {createMaterialOpen && (
+                <Modal contentClassName="max-w-2xl p-0">
+                    <form onSubmit={handleCreateMaterial}>
+                        <div className="flex items-start justify-between gap-4 border-b border-slate-100 px-5 py-4 sm:px-6">
+                            <div>
+                                <p className="text-xs font-bold uppercase tracking-wider text-blue-600">Новый материал</p>
+                                <h2 className="mt-1 text-lg font-bold text-slate-900">Добавить материал на склад</h2>
+                                <p className="mt-1 text-xs leading-5 text-slate-500">
+                                    Будет создан материал и связанная позиция номенклатуры с нулевым остатком.
+                                </p>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={closeCreateMaterial}
+                                disabled={createMaterialState.isLoading}
+                                aria-label="Закрыть"
+                                className="text-2xl leading-none text-slate-400 transition hover:text-slate-700 disabled:cursor-not-allowed disabled:text-slate-300"
+                            >
+                                &times;
+                            </button>
+                        </div>
+
+                        <div className="space-y-4 p-5 sm:p-6">
+                            <div className="grid gap-4 sm:grid-cols-2">
+                                <label>
+                                    <span className="mb-1.5 block text-sm font-semibold text-slate-700">Название</span>
+                                    <input
+                                        required
+                                        value={materialName}
+                                        onChange={(event) => setMaterialName(event.target.value)}
+                                        placeholder="Например: Zirconia HT A2"
+                                        className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-500 focus:bg-white"
+                                    />
+                                </label>
+
+                                <label>
+                                    <span className="mb-1.5 block text-sm font-semibold text-slate-700">Артикул номенклатуры</span>
+                                    <input
+                                        required
+                                        value={materialCode}
+                                        onChange={(event) => setMaterialCode(event.target.value)}
+                                        placeholder="Например: MAT-ZR-A2"
+                                        className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 font-mono text-sm outline-none transition focus:border-blue-500 focus:bg-white"
+                                    />
+                                </label>
+                            </div>
+
+                            <div className="grid gap-4 sm:grid-cols-[1fr_10rem]">
+                                <label>
+                                    <span className="mb-1.5 block text-sm font-semibold text-slate-700">Описание</span>
+                                    <input
+                                        value={materialDescription}
+                                        onChange={(event) => setMaterialDescription(event.target.value)}
+                                        placeholder="Короткое описание или назначение"
+                                        className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-500 focus:bg-white"
+                                    />
+                                </label>
+
+                                <label>
+                                    <span className="mb-1.5 block text-sm font-semibold text-slate-700">Единица</span>
+                                    <input
+                                        required
+                                        value={materialUnit}
+                                        onChange={(event) => setMaterialUnit(event.target.value)}
+                                        placeholder="шт, г, кг"
+                                        className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-500 focus:bg-white"
+                                    />
+                                </label>
+                            </div>
+
+                            {createMaterialError && (
+                                <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
+                                    {createMaterialError}
+                                </p>
+                            )}
+
+                            <div className="flex flex-col-reverse gap-3 pt-2 sm:flex-row sm:justify-end">
+                                <button
+                                    type="button"
+                                    onClick={closeCreateMaterial}
+                                    disabled={createMaterialState.isLoading}
+                                    className="rounded-xl bg-slate-100 px-5 py-3 text-sm font-bold text-slate-700 transition hover:bg-slate-200 disabled:cursor-not-allowed disabled:text-slate-400"
+                                >
+                                    Отмена
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={createMaterialState.isLoading}
+                                    className="rounded-xl bg-blue-600 px-5 py-3 text-sm font-bold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-300"
+                                >
+                                    {createMaterialState.isLoading ? 'Создаём...' : 'Создать материал'}
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </Modal>
+            )}
+
             {selectedId && (
                 <Modal contentClassName="max-w-2xl p-0">
                     <div className="flex items-start justify-between gap-4 border-b border-slate-100 px-5 py-4 sm:px-6">
@@ -241,6 +424,12 @@ export default function NomenclaturePanel() {
                                 </p>
                             </div>
 
+                            {inventoryLockMessage && (
+                                <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800">
+                                    {inventoryLockMessage}
+                                </p>
+                            )}
+
                             <div className="grid gap-3 sm:grid-cols-[10rem_1fr]">
                                 <label>
                                     <span className="mb-1.5 block text-sm font-semibold text-slate-700">Количество</span>
@@ -252,7 +441,8 @@ export default function NomenclaturePanel() {
                                             step="0.001"
                                             value={quantity}
                                             onChange={(event) => setQuantity(event.target.value)}
-                                            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-3 pr-10 text-sm outline-none focus:border-blue-500"
+                                            disabled={Boolean(inventoryLockMessage)}
+                                            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-3 pr-10 text-sm outline-none focus:border-blue-500 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
                                         />
                                         <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">
                                             {selectedItem?.unit}
@@ -266,7 +456,8 @@ export default function NomenclaturePanel() {
                                         value={reason}
                                         onChange={(event) => setReason(event.target.value)}
                                         placeholder="Например: накладная №348 от поставщика"
-                                        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm outline-none focus:border-blue-500"
+                                        disabled={Boolean(inventoryLockMessage)}
+                                        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm outline-none focus:border-blue-500 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
                                     />
                                 </label>
                             </div>
@@ -281,7 +472,7 @@ export default function NomenclaturePanel() {
                             <div className="flex justify-end">
                                 <button
                                     type="submit"
-                                    disabled={receiveState.isLoading || !selectedItem?.active}
+                                    disabled={receiveState.isLoading || !selectedItem?.active || Boolean(inventoryLockMessage)}
                                     className="rounded-xl bg-blue-600 px-5 py-3 text-sm font-bold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-300"
                                 >
                                     {receiveState.isLoading ? 'Проводим…' : 'Провести приход'}
