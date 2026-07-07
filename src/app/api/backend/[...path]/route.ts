@@ -17,10 +17,12 @@ type RouteContext = {
     }>;
 };
 
+const DEFAULT_BACKEND_API_BASE_URL = 'http://localhost:8081/api/v1';
+
 const BACKEND_API_BASE_URL =
+    process.env.BACKEND_API_BASE_URL ??
     process.env.API_BASE_URL ??
-    process.env.NEXT_PUBLIC_API_BASE_URL ??
-    'http://localhost:8081/api/v1';
+    DEFAULT_BACKEND_API_BASE_URL;
 
 const BODYLESS_METHODS = new Set(['GET', 'HEAD']);
 const BODYLESS_STATUSES = new Set([204, 304]);

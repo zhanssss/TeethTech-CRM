@@ -17,6 +17,13 @@ type InventoryItemArgs = {
     body: UpdateInventoryItemRequest;
 };
 
+type NomenclatureQueryParams = {
+    activeOnly?: boolean;
+    page?: number;
+    size?: number;
+    sort?: string | string[];
+};
+
 type CreateWarehouseMaterialRequest = {
     name: string;
     description: string;
@@ -61,12 +68,14 @@ function normalizeNomenclatureResponse(response: unknown) {
 
 export const warehouseApi = teethTechApi.injectEndpoints({
     endpoints: (builder) => ({
-        getNomenclature: builder.query<NomenclatureItem[], { activeOnly?: boolean } | void>({
+        getNomenclature: builder.query<NomenclatureItem[], NomenclatureQueryParams | void>({
             query: (params) => ({
                 url: '/nomenclature',
-                params: params?.activeOnly === undefined
-                    ? undefined
-                    : { activeOnly: params.activeOnly },
+                params: params
+                    ? Object.fromEntries(
+                        Object.entries(params).filter(([, value]) => value !== undefined)
+                    )
+                    : undefined,
             }),
             transformResponse: normalizeNomenclatureResponse,
             providesTags: (result) => [
@@ -198,8 +207,17 @@ export const warehouseApi = teethTechApi.injectEndpoints({
                     const { data } = await queryFulfilled;
                     dispatch(
                         warehouseApi.util.updateQueryData('getInventoryCheck', id, (draft) => {
-                            const item = draft.items.find((current) => current.id === itemId);
-                            if (item) Object.assign(item, data);
+                            const item = draft.items.find((current) =>
+                                current.id === itemId
+                                || current.nomenclatureId === itemId
+                                || current.nomenclatureId === data.nomenclatureId
+                            );
+
+                            if (item) {
+                                Object.assign(item, data);
+                            } else {
+                                draft.items.push(data);
+                            }
                         })
                     );
                 } catch {

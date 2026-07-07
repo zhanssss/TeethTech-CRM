@@ -148,7 +148,7 @@ export function normalizeOrder(order: OrderListItem): OrderListItem {
     const units = order.units ?? tasks.reduce((sum, task) => sum + task.units, 0);
     const total = order.total ?? tasks.reduce((sum, task) => {
         const subtotal = task.units * task.unitPrice;
-        return sum + Math.max(subtotal - subtotal * (task.discount / 100), 0);
+        return sum + Math.max(subtotal - task.discount, 0);
     }, 0);
 
     return {

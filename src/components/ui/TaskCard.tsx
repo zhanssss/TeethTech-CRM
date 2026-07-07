@@ -16,7 +16,7 @@ export default function TaskCard ({ task, onClick, isSelected }: TaskCardProps) 
         });
 
     const subtotal = task.units * task.unitPrice;
-    const total = Math.max(subtotal - subtotal * (task.discount / 100), 0);
+    const total = Math.max(subtotal - task.discount, 0);
 
     return (
         <div

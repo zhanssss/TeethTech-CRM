@@ -177,7 +177,7 @@ export interface CreateOrderTaskDto {
     colorId: string;
     materialId: string;
     pricePerUnit: number;
-    discountPercent: number;
+    discount: number;
     attachments?: TaskAttachment[];
     images?: TaskImage[];
 }

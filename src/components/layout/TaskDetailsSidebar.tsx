@@ -78,7 +78,7 @@ export default function TaskDetailsSidebar({
                             {task.material && <InfoItem label="Материал" value={task.material} />}
                             <InfoItem label="Кол-во" value={task.units} />
                             {task.unitPrice ? <InfoItem label="Цена" value={task.unitPrice.toLocaleString('ru-RU')} /> : null}
-                            {task.discount ? <InfoItem label="Скидка" value={`${task.discount}%`} /> : null}
+                            {task.discount ? <InfoItem label="Скидка" value={task.discount.toLocaleString('ru-RU')} /> : null}
                             <InfoItem label="Цвет" value={task.color} />
                             <InfoItem label="Абатмент" value={task.abutment} />
                             <InfoItem label="Техник" value={task.technicianId} />

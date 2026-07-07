@@ -9,10 +9,15 @@ import {
     useCreateInventoryCheckMutation,
     useGetInventoryCheckQuery,
     useGetInventoryChecksQuery,
+    useGetNomenclatureQuery,
     useStartInventoryCheckMutation,
     useUpdateInventoryItemMutation,
 } from '@/src/services/api/warehouseApi';
-import type { InventoryCheckStatus } from '@/src/types/warehouse.types';
+import type {
+    InventoryCheckItem,
+    InventoryCheckStatus,
+    NomenclatureItem,
+} from '@/src/types/warehouse.types';
 import {
     formatDateTime,
     formatQuantity,
@@ -32,6 +37,29 @@ const filters: Array<{ value: '' | InventoryCheckStatus; label: string }> = [
 
 type Confirmation = 'cancel' | 'complete' | null;
 
+type InventoryDisplayItem = InventoryCheckItem & {
+    fromNomenclature?: boolean;
+};
+
+function buildInventoryItemFromNomenclature(item: NomenclatureItem): InventoryDisplayItem {
+    return {
+        id: item.id,
+        nomenclatureId: item.id,
+        nomenclatureName: item.name,
+        unit: item.unit,
+        expectedQuantity: item.currentStock,
+        actualQuantity: null,
+        discrepancy: 0,
+        fromNomenclature: true,
+    };
+}
+
+function parseQuantityInput(value: string | undefined) {
+    if (value === undefined || value.trim() === '') return null;
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+}
+
 export default function InventoryPanel() {
     const [filter, setFilter] = useState<'' | InventoryCheckStatus>('');
     const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -46,37 +74,72 @@ export default function InventoryPanel() {
 
     const listQuery = useGetInventoryChecksQuery(filter || undefined);
     const detailQuery = useGetInventoryCheckQuery(selectedId ?? '', { skip: !selectedId });
+    const check = detailQuery.data;
+    const nomenclatureQuery = useGetNomenclatureQuery(
+        { activeOnly: true, size: 1000 },
+        { skip: check?.status !== 'IN_PROGRESS' }
+    );
     const [createCheck, createState] = useCreateInventoryCheckMutation();
     const [startCheck, startState] = useStartInventoryCheckMutation();
     const [cancelCheck, cancelState] = useCancelInventoryCheckMutation();
     const [completeCheck, completeState] = useCompleteInventoryCheckMutation();
     const [updateItem] = useUpdateInventoryItemMutation();
 
-    const check = detailQuery.data;
     const checks = listQuery.data ?? [];
+    const displayItems = useMemo<InventoryDisplayItem[]>(() => {
+        if (!check) return [];
+        if (check.status !== 'IN_PROGRESS') return check.items;
+
+        const nomenclatureItems = nomenclatureQuery.data ?? [];
+        const nomenclatureIds = new Set(nomenclatureItems.map((item) => item.id));
+        const checkItemsByNomenclature = new Map(
+            check.items.map((item) => [item.nomenclatureId, item])
+        );
+        const nomenclatureRows = nomenclatureItems.map((item) =>
+            checkItemsByNomenclature.get(item.id) ?? buildInventoryItemFromNomenclature(item)
+        );
+        const appendedCheckItems = check.items.filter(
+            (item) => !nomenclatureIds.has(item.nomenclatureId)
+        );
+
+        return [...nomenclatureRows, ...appendedCheckItems];
+    }, [check, nomenclatureQuery.data]);
     const activeCheck = checks.find((item) => item.status === 'DRAFT' || item.status === 'IN_PROGRESS');
     const actionLoading = startState.isLoading || cancelState.isLoading || completeState.isLoading;
+    const inventoryNomenclatureFetching = check?.status === 'IN_PROGRESS' && nomenclatureQuery.isFetching;
+    const inventoryRowsLoading = inventoryNomenclatureFetching && displayItems.length === 0;
 
     useEffect(() => {
         if (!check) return;
-        setCounts(Object.fromEntries(
-            check.items.map((item) => [
+        setCounts((current) => Object.fromEntries(
+            displayItems.map((item) => [
                 item.id,
                 item.actualQuantity === null || item.actualQuantity === undefined
-                    ? ''
+                    ? current[item.id] ?? ''
                     : String(item.actualQuantity),
             ])
         ));
-    }, [check]);
+    }, [check, displayItems]);
 
     const progress = useMemo(() => {
         if (!check) return { counted: 0, total: 0, percent: 0 };
-        const counted = check.items.filter(
+        const counted = displayItems.filter(
             (item) => item.actualQuantity !== null && item.actualQuantity !== undefined
         ).length;
-        const total = check.items.length;
-        return { counted, total, percent: total === 0 ? 100 : Math.round((counted / total) * 100) };
-    }, [check]);
+        const total = displayItems.length;
+        return { counted, total, percent: total === 0 ? 0 : Math.round((counted / total) * 100) };
+    }, [check, displayItems]);
+    const completeDisabled = actionLoading
+        || inventoryNomenclatureFetching
+        || progress.total === 0
+        || progress.counted !== progress.total;
+    const completeTitle = inventoryNomenclatureFetching
+        ? 'Дождитесь загрузки позиций'
+        : progress.total === 0
+            ? 'Нет позиций для пересчёта'
+            : progress.counted !== progress.total
+                ? 'Сначала пересчитайте все позиции'
+                : undefined;
 
     const handleCreate = async (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault();
@@ -129,18 +192,18 @@ export default function InventoryPanel() {
 
     const saveCount = async (itemId: string) => {
         if (!selectedId) return;
-        const value = Number(counts[itemId]);
+        const value = parseQuantityInput(counts[itemId]);
         setActionError('');
         setSavedItemId(null);
-        if (!Number.isFinite(value) || value < 0) {
+        if (value === null || value < 0) {
             setActionError('Фактическое количество должно быть числом не меньше нуля');
             return;
         }
 
         setSavingItemId(itemId);
         try {
-            await updateItem({ id: selectedId, itemId, body: { actualQuantity: value } }).unwrap();
-            setSavedItemId(itemId);
+            const savedItem = await updateItem({ id: selectedId, itemId, body: { actualQuantity: value } }).unwrap();
+            setSavedItemId(savedItem?.id || itemId);
         } catch (error) {
             setActionError(getApiErrorMessage(error, 'Не удалось сохранить фактическое количество'));
         } finally {
@@ -189,7 +252,7 @@ export default function InventoryPanel() {
                                         {check.comment || 'Инвентаризация без комментария'}
                                     </h2>
                                     <p className="mt-1 text-sm text-slate-500">
-                                        Создана {formatDateTime(check.startedAt)} · {check.items.length} позиций
+                                        Создана {formatDateTime(check.startedAt)} · {displayItems.length} позиций
                                     </p>
                                     {(check.status === 'COMPLETED' || check.status === 'CANCELLED') && check.completedAt && (
                                         <p className="mt-1 text-xs text-slate-400">Закрыта {formatDateTime(check.completedAt)}</p>
@@ -221,8 +284,8 @@ export default function InventoryPanel() {
                                         <button
                                             type="button"
                                             onClick={() => setConfirmation('complete')}
-                                            disabled={actionLoading || progress.counted !== progress.total}
-                                            title={progress.counted !== progress.total ? 'Сначала пересчитайте все позиции' : undefined}
+                                            disabled={completeDisabled}
+                                            title={completeTitle}
                                             className="rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-300"
                                         >
                                             Завершить и применить
@@ -261,10 +324,16 @@ export default function InventoryPanel() {
                                 <h3 className="font-bold text-slate-900">Позиции для пересчёта</h3>
                                 <p className="mt-1 text-xs text-slate-500">
                                     {check.status === 'IN_PROGRESS'
-                                        ? 'Введите фактическое количество и сохраните каждую строку'
+                                        ? 'Введите фактическое количество: расхождение посчитается от системного остатка'
                                         : 'Зафиксированный снимок остатков на момент создания'}
                                 </p>
                             </div>
+
+                            {check.status === 'IN_PROGRESS' && nomenclatureQuery.isError && displayItems.length === 0 && (
+                                <div className="m-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                                    {getApiErrorMessage(nomenclatureQuery.error, 'Не удалось загрузить номенклатуру для пересчёта')}
+                                </div>
+                            )}
 
                             <div className="overflow-x-auto">
                                 <table className="w-full min-w-[850px] text-left">
@@ -278,9 +347,15 @@ export default function InventoryPanel() {
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-100">
-                                        {check.items.map((item) => {
-                                            const discrepancy = item.discrepancy ?? 0;
-                                            const counted = item.actualQuantity !== null && item.actualQuantity !== undefined;
+                                        {displayItems.map((item) => {
+                                            const typedActualQuantity = check.status === 'IN_PROGRESS'
+                                                ? parseQuantityInput(counts[item.id])
+                                                : item.actualQuantity;
+                                            const hasActualQuantity = typedActualQuantity !== null && typedActualQuantity !== undefined;
+                                            const savedCounted = item.actualQuantity !== null && item.actualQuantity !== undefined;
+                                            const discrepancy = hasActualQuantity
+                                                ? typedActualQuantity - item.expectedQuantity
+                                                : item.discrepancy ?? 0;
                                             return (
                                                 <tr key={item.id} className="hover:bg-slate-50/70">
                                                     <td className="px-5 py-4">
@@ -314,7 +389,7 @@ export default function InventoryPanel() {
                                                         )}
                                                     </td>
                                                     <td className={`px-5 py-4 text-sm font-black ${discrepancy > 0 ? 'text-emerald-600' : discrepancy < 0 ? 'text-red-600' : 'text-slate-400'}`}>
-                                                        {counted ? `${discrepancy > 0 ? '+' : ''}${formatQuantity(discrepancy, item.unit)}` : '—'}
+                                                        {hasActualQuantity ? `${discrepancy > 0 ? '+' : ''}${formatQuantity(discrepancy, item.unit)}` : '—'}
                                                     </td>
                                                     <td className="px-5 py-4 text-right">
                                                         {check.status === 'IN_PROGRESS' ? (
@@ -325,21 +400,35 @@ export default function InventoryPanel() {
                                                                 <button
                                                                     type="button"
                                                                     onClick={() => saveCount(item.id)}
-                                                                    disabled={savingItemId !== null || (counts[item.id] ?? '') === ''}
+                                                                    disabled={savingItemId !== null || (counts[item.id] ?? '').trim() === ''}
                                                                     className="rounded-xl bg-slate-900 px-3.5 py-2.5 text-xs font-bold text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-300"
                                                                 >
                                                                     {savingItemId === item.id ? 'Сохраняем…' : 'Сохранить'}
                                                                 </button>
                                                             </div>
                                                         ) : (
-                                                            <span className={`text-xs font-bold ${counted ? 'text-emerald-600' : 'text-slate-400'}`}>
-                                                                {counted ? 'Пересчитано' : 'Не пересчитано'}
+                                                            <span className={`text-xs font-bold ${savedCounted ? 'text-emerald-600' : 'text-slate-400'}`}>
+                                                                {savedCounted ? 'Пересчитано' : 'Не пересчитано'}
                                                             </span>
                                                         )}
                                                     </td>
                                                 </tr>
                                             );
                                         })}
+                                        {inventoryRowsLoading && (
+                                            <tr>
+                                                <td colSpan={5} className="px-5 py-12 text-center text-sm text-slate-500">
+                                                    Загружаем номенклатуру для пересчёта…
+                                                </td>
+                                            </tr>
+                                        )}
+                                        {!inventoryRowsLoading && displayItems.length === 0 && (
+                                            <tr>
+                                                <td colSpan={5} className="px-5 py-12 text-center text-sm text-slate-500">
+                                                    Нет позиций для пересчёта
+                                                </td>
+                                            </tr>
+                                        )}
                                     </tbody>
                                 </table>
                             </div>

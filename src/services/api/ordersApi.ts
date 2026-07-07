@@ -33,7 +33,7 @@ function buildCreateOrderBody(body: CreateOrderDto): CreateOrderRequest {
             colorId,
             materialId,
             pricePerUnit,
-            discountPercent,
+            discount,
         }) => ({
             workTypeId,
             quantity,
@@ -41,7 +41,7 @@ function buildCreateOrderBody(body: CreateOrderDto): CreateOrderRequest {
             colorId,
             materialId,
             pricePerUnit,
-            discountPercent,
+            discount,
             ...(orderId ? { orderId } : {}),
         })),
     };

@@ -78,7 +78,7 @@ function stripOrderFiles(payload: CreateOrderDto): CreateOrderDto {
             colorId: task.colorId,
             materialId: task.materialId,
             pricePerUnit: task.pricePerUnit,
-            discountPercent: task.discountPercent,
+            discount: task.discount,
         })),
     };
 }
@@ -518,7 +518,7 @@ export default function OrdersPage() {
                                 </td>
                                 <td className="p-4 text-sm">{order.units}</td>
                                 <td className="p-4 text-sm">{formatMoney(order.unitPrice)}</td>
-                                <td className="p-4 text-sm">{(order.discount ?? 0).toLocaleString('ru-RU')}%</td>
+                                <td className="p-4 text-sm">{formatMoney(order.discount)}</td>
                                 <td className="p-4 text-sm font-bold">{formatMoney(order.total)}</td>
                                 <td className="p-4">
                                     <div className="flex justify-end gap-2">

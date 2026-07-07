@@ -46,7 +46,7 @@ const createEmptyTask = (): CreateOrderTaskDto => ({
     colorId: '',
     materialId: '',
     pricePerUnit: 0,
-    discountPercent: 0,
+    discount: 0,
     attachments: [],
     images: [],
 });
@@ -94,6 +94,22 @@ function createPreviewId() {
     }
 
     return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+function parseMoneyInput(value: string) {
+    const numericValue = Number(value);
+
+    return Number.isFinite(numericValue) && numericValue >= 0 ? numericValue : 0;
+}
+
+function getMoneyInputValue(value: number) {
+    return value === 0 ? '' : String(value);
+}
+
+function calculateTaskTotal(task: CreateOrderTaskDto) {
+    const subtotal = Number(task.quantity) * Number(task.pricePerUnit);
+
+    return Math.max(subtotal - Number(task.discount), 0);
 }
 
 function prepareAttachments(files: File[]): TaskAttachment[] {
@@ -294,13 +310,7 @@ export default function CreateOrderModal({
     if (!isOpen) return null;
 
     const total = formData.tasks.reduce((sum, task) => {
-        const subtotal = Number(task.quantity) * Number(task.pricePerUnit);
-        const taskTotal = Math.max(
-            subtotal - subtotal * (Number(task.discountPercent) / 100),
-            0
-        );
-
-        return sum + taskTotal;
+        return sum + calculateTaskTotal(task);
     }, 0);
 
     const handleSubmit = async (e: FormEvent) => {
@@ -314,7 +324,7 @@ export default function CreateOrderModal({
                     ...task,
                     quantity: Number(task.quantity),
                     pricePerUnit: Number(task.pricePerUnit),
-                    discountPercent: Number(task.discountPercent),
+                    discount: Number(task.discount),
                     orderId: task.orderId || '',
                     toothNumbers: task.toothNumbers,
                 })),
@@ -613,8 +623,7 @@ export default function CreateOrderModal({
                     </h3>
 
                     {formData.tasks.map((task, index) => {
-                        const subtotal = Number(task.quantity) * Number(task.pricePerUnit);
-                        const taskTotal = Math.max(subtotal - subtotal * (Number(task.discountPercent) / 100), 0);
+                        const taskTotal = calculateTaskTotal(task);
 
                         return (
                             <div key={index} className="mb-4 rounded-2xl border border-slate-200 bg-white p-3 sm:p-4">
@@ -716,23 +725,24 @@ export default function CreateOrderModal({
                                                 <input
                                                     type="number"
                                                     min="0"
+                                                    placeholder="0"
                                                     className="w-full border-2 border-slate-100 rounded-xl px-3 py-2 text-sm focus:border-blue-500 outline-none transition"
-                                                    value={task.pricePerUnit}
-                                                    onChange={(e) => handleTaskChange(index, 'pricePerUnit', Number(e.target.value))}
+                                                    value={getMoneyInputValue(task.pricePerUnit)}
+                                                    onChange={(e) => handleTaskChange(index, 'pricePerUnit', parseMoneyInput(e.target.value))}
                                                 />
                                             </div>
 
                                             <div>
                                                 <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">
-                                                    Скидка %
+                                                    Скидка
                                                 </label>
                                                 <input
                                                     type="number"
                                                     min="0"
-                                                    max="100"
+                                                    placeholder="0"
                                                     className="w-full border-2 border-slate-100 rounded-xl px-3 py-2 text-sm focus:border-blue-500 outline-none transition"
-                                                    value={task.discountPercent}
-                                                    onChange={(e) => handleTaskChange(index, 'discountPercent', Number(e.target.value))}
+                                                    value={getMoneyInputValue(task.discount)}
+                                                    onChange={(e) => handleTaskChange(index, 'discount', parseMoneyInput(e.target.value))}
                                                 />
                                             </div>
 
