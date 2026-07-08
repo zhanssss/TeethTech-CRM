@@ -48,6 +48,7 @@ function mapApiOrderToListItem(order: OrderApiListItem): OrderListItem {
         units: order.quantity,
         unitPrice: order.pricePerUnit,
         discount: order.discount,
+        discountPercent: 0,
         total: order.totalPrice,
         paid: 0,
         unpaid: order.totalPrice,
@@ -79,6 +80,7 @@ function stripOrderFiles(payload: CreateOrderDto): CreateOrderDto {
             materialId: task.materialId,
             pricePerUnit: task.pricePerUnit,
             discount: task.discount,
+            discountPercent: 0,
         })),
     };
 }

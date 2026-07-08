@@ -57,6 +57,14 @@ export interface ProductionTask {
     title: string;
     technicianId: string;
     nextTechnicianId?: string;
+    attachedUserId?: string;
+    assignedUserId?: string;
+    workType?: string;
+    workTypeCode?: string;
+    workTypeId?: string;
+    currentStatusId?: string;
+    currentStatusCode?: string;
+    currentStatusName?: string;
     status: TaskStatus;
     deadline: string;
     priority: TaskPriority;

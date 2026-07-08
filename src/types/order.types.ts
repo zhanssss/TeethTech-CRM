@@ -113,6 +113,7 @@ export interface OrderListItem {
     operator?: string;
     unitPrice?: number;
     discount?: number;
+    discountPercent?: number,
     total?: number;
     paid?: number;
     unpaid?: number;
@@ -178,6 +179,7 @@ export interface CreateOrderTaskDto {
     materialId: string;
     pricePerUnit: number;
     discount: number;
+    discountPercent: 0;
     attachments?: TaskAttachment[];
     images?: TaskImage[];
 }

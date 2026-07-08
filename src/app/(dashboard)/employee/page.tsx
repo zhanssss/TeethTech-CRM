@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useMemo, useState } from 'react';
+import { type FormEvent, useMemo, useState } from 'react';
 import { useSelector } from 'react-redux';
 
 import TaskDetailsSidebar from '@/src/components/layout/TaskDetailsSidebar';
@@ -9,6 +9,8 @@ import ErrorModal from '@/src/components/ui/ErrorModal';
 import { RootState } from '@/src/lib/store';
 import { mockEmployees } from '@/src/mock/employees';
 import { mockTasks } from '@/src/mock/tasks';
+import { useUpdateTaskStatusMutation } from '@/src/services/api/ordersApi';
+import { useGetAvailableWorkflowTransitionsQuery } from '@/src/services/api/workflowApi';
 import type {
     ProductionTask,
     Task,
@@ -18,6 +20,7 @@ import type {
     TaskImage,
     TaskStatus,
 } from '@/src/types/task.types';
+import type { WorkflowTransition } from '@/src/types/workflow.types';
 
 const TASK_STAGES: Array<{
     id: TaskStatus;
@@ -50,6 +53,7 @@ const TASK_STAGES: Array<{
         badgeClassName: 'border-emerald-200 bg-emerald-50 text-emerald-700',
     },
 ];
+const TASK_STAGE_IDS = new Set<TaskStatus>(TASK_STAGES.map((stage) => stage.id));
 
 const PRIORITY_LABELS: Record<ProductionTask['priority'], string> = {
     LOW: 'Низкий',
@@ -176,6 +180,38 @@ function getNextStage(status: TaskStatus) {
     return TASK_STAGES[currentIndex + 1];
 }
 
+function isTaskStatus(value: string | null | undefined): value is TaskStatus {
+    return TASK_STAGE_IDS.has(value as TaskStatus);
+}
+
+function getTransitionTaskStatus(transition: WorkflowTransition) {
+    const normalizedCode = transition.code?.toUpperCase();
+
+    return isTaskStatus(normalizedCode) ? normalizedCode : null;
+}
+
+function getTransitionLabel(transition: WorkflowTransition) {
+    return transition.name || transition.code || transition.id;
+}
+
+function getTaskWorkflowType(task: ProductionTask) {
+    return task.workTypeCode || task.workType || task.workTypeId || '';
+}
+
+function getTaskCurrentStatusId(task: ProductionTask) {
+    return task.currentStatusId || '';
+}
+
+function canUserMoveTask(task: ProductionTask, userId: string | null | undefined) {
+    if (!userId) return false;
+
+    return [
+        task.technicianId,
+        task.assignedUserId,
+        task.attachedUserId,
+    ].some((value) => value === userId);
+}
+
 function formatDeadline(value: string) {
     return new Intl.DateTimeFormat('ru-RU', {
         day: 'numeric',
@@ -215,16 +251,19 @@ function getInitialHistory(task: ProductionTask): TaskHistoryItem[] {
 function TaskCard({
                       task,
                       variant,
+                      currentUserId,
                       onOpen,
                       onMoveNext,
                   }: {
     task: ProductionTask;
     variant: 'active' | 'upcoming' | 'completed';
+    currentUserId: string | null;
     onOpen: (taskId: string) => void;
-    onMoveNext: (taskId: string) => void;
+    onMoveNext: (taskId: string, transition: WorkflowTransition) => void;
 }) {
     const currentStage = getStage(task.status);
     const nextStage = getNextStage(task.status);
+    const currentStageLabel = task.currentStatusName || currentStage.label;
 
     return (
         <article
@@ -264,7 +303,7 @@ function TaskCard({
                 <span
                     className={`shrink-0 rounded-full border px-3 py-1 text-xs font-bold ${currentStage.badgeClassName}`}
                 >
-                    {currentStage.label}
+                    {currentStageLabel}
                 </span>
             </div>
 
@@ -297,29 +336,19 @@ function TaskCard({
                 {variant === 'upcoming' ? (
                     <>
                         <p className="text-xs text-violet-700">
-                            Будет передана после этапа <span className="font-semibold">«{currentStage.label}»</span>
+                            Будет передана после этапа <span className="font-semibold">«{currentStageLabel}»</span>
                         </p>
                         <span className="inline-flex items-center text-xs font-bold text-slate-500">
                             Открыть детали <span aria-hidden="true" className="ml-1">→</span>
                         </span>
                     </>
-                ) : nextStage ? (
-                    <>
-                        <p className="text-xs text-slate-500">
-                            Следующий этап: <span className="font-semibold text-slate-700">{nextStage.label}</span>
-                        </p>
-                        <button
-                            type="button"
-                            onClick={(event) => {
-                                event.stopPropagation();
-                                onMoveNext(task.id);
-                            }}
-                            className="inline-flex min-h-11 items-center justify-center rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-blue-700 active:scale-[0.99]"
-                        >
-                            Передать на следующий этап
-                            <span aria-hidden="true" className="ml-2">→</span>
-                        </button>
-                    </>
+                ) : variant === 'active' && nextStage ? (
+                    <EmployeeTaskTransitionAction
+                        task={task}
+                        currentUserId={currentUserId}
+                        fallbackNextStageLabel={nextStage.label}
+                        onMoved={onMoveNext}
+                    />
                 ) : (
                     <p className="text-sm font-semibold text-emerald-700">
                         Задача завершена
@@ -327,6 +356,162 @@ function TaskCard({
                 )}
             </div>
         </article>
+    );
+}
+
+function EmployeeTaskTransitionAction({
+                                          task,
+                                          currentUserId,
+                                          fallbackNextStageLabel,
+                                          onMoved,
+                                      }: {
+    task: ProductionTask;
+    currentUserId: string | null;
+    fallbackNextStageLabel: string;
+    onMoved: (taskId: string, transition: WorkflowTransition) => void;
+}) {
+    const workType = getTaskWorkflowType(task);
+    const currentStatusId = getTaskCurrentStatusId(task);
+    const canMoveTask = canUserMoveTask(task, currentUserId);
+    const canLoadTransitions = canMoveTask && Boolean(workType && currentStatusId);
+    const [selectedTransitionId, setSelectedTransitionId] = useState('');
+    const [statusError, setStatusError] = useState('');
+    const [updateTaskStatus, {isLoading: isUpdatingStatus}] = useUpdateTaskStatusMutation();
+    const {
+        data: transitions = [],
+        isError,
+        isFetching,
+        isLoading,
+        refetch,
+    } = useGetAvailableWorkflowTransitionsQuery(
+        {workType, currentStatusId},
+        {skip: !canLoadTransitions}
+    );
+    const sortedTransitions = useMemo(
+        () => [...transitions].sort((first, second) => (first.sortOrder ?? 0) - (second.sortOrder ?? 0)),
+        [transitions]
+    );
+    const nextTransitionId = selectedTransitionId || sortedTransitions[0]?.id || '';
+    const nextTransition = sortedTransitions.find((transition) => transition.id === nextTransitionId);
+
+    const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+        event.preventDefault();
+        event.stopPropagation();
+
+        if (!nextTransitionId || !nextTransition) return;
+
+        setStatusError('');
+
+        try {
+            await updateTaskStatus({
+                taskId: task.id,
+                body: {
+                    nextStatusId: nextTransitionId,
+                    comment: `Завершен этап: ${task.currentStatusName || getStage(task.status).label}`,
+                },
+            }).unwrap();
+            setSelectedTransitionId('');
+            onMoved(task.id, nextTransition);
+        } catch (error) {
+            console.error('Task status update failed:', error);
+            setStatusError('Не удалось передать задачу на следующий этап');
+        }
+    };
+
+    if (!canMoveTask) {
+        return (
+            <p className="text-xs font-semibold text-slate-400">
+                Передача доступна назначенному исполнителю
+            </p>
+        );
+    }
+
+    if (!workType || !currentStatusId) {
+        return (
+            <p className="text-xs font-semibold text-slate-400">
+                Нет данных workflow для передачи
+            </p>
+        );
+    }
+
+    if (isLoading) {
+        return (
+            <p className="text-xs font-semibold text-slate-400">
+                Загрузка доступных переходов...
+            </p>
+        );
+    }
+
+    if (isError) {
+        return (
+            <div
+                onClick={(event) => event.stopPropagation()}
+                className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"
+            >
+                <p className="text-xs font-semibold text-red-600">
+                    Не удалось загрузить переходы
+                </p>
+                <button
+                    type="button"
+                    onClick={() => refetch()}
+                    className="text-xs font-black uppercase text-red-700 hover:underline"
+                >
+                    Повторить
+                </button>
+            </div>
+        );
+    }
+
+    if (sortedTransitions.length === 0) {
+        return (
+            <p className="text-sm font-semibold text-emerald-700">
+                Нет доступных переходов
+            </p>
+        );
+    }
+
+    return (
+        <form
+            onSubmit={handleSubmit}
+            onClick={(event) => event.stopPropagation()}
+            className="flex w-full flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
+        >
+            {sortedTransitions.length > 1 ? (
+                <label className="min-w-0 flex-1">
+                    <span className="sr-only">Следующий этап</span>
+                    <select
+                        value={nextTransitionId}
+                        onChange={(event) => setSelectedTransitionId(event.target.value)}
+                        className="min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                    >
+                        {sortedTransitions.map((transition) => (
+                            <option key={transition.id} value={transition.id}>
+                                {getTransitionLabel(transition)}
+                            </option>
+                        ))}
+                    </select>
+                </label>
+            ) : (
+                <p className="text-xs text-slate-500">
+                    Следующий этап: <span className="font-semibold text-slate-700">{nextTransition ? getTransitionLabel(nextTransition) : fallbackNextStageLabel}</span>
+                </p>
+            )}
+
+            <button
+                type="submit"
+                disabled={isUpdatingStatus || isFetching || !nextTransitionId}
+                className="inline-flex min-h-11 items-center justify-center rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-blue-700 active:scale-[0.99] disabled:cursor-not-allowed disabled:bg-slate-300"
+            >
+                {isUpdatingStatus ? 'Передача...' : 'Завершить этап'}
+                <span aria-hidden="true" className="ml-2">→</span>
+            </button>
+
+            {statusError && (
+                <p className="text-xs font-semibold text-red-600 sm:basis-full">
+                    {statusError}
+                </p>
+            )}
+        </form>
     );
 }
 
@@ -338,7 +523,7 @@ export default function EmployeePage() {
     );
     const visibleTasks = useMemo(
         () => mockTasks
-            .filter((task) => task.technicianId === id || task.nextTechnicianId === id)
+            .filter((task) => canUserMoveTask(task, id) || task.nextTechnicianId === id)
             .map((task) => ({
                 ...task,
                 history: task.history ?? getInitialHistory(task),
@@ -350,13 +535,13 @@ export default function EmployeePage() {
     const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
 
     const activeTasks = tasks.filter(
-        (task) => task.technicianId === id && task.status !== 'DONE'
+        (task) => canUserMoveTask(task, id) && task.status !== 'DONE'
     );
     const upcomingTasks = tasks.filter(
-        (task) => task.nextTechnicianId === id && task.technicianId !== id && task.status !== 'DONE'
+        (task) => task.nextTechnicianId === id && !canUserMoveTask(task, id) && task.status !== 'DONE'
     );
     const completedTasks = tasks.filter(
-        (task) => task.technicianId === id && task.status === 'DONE'
+        (task) => canUserMoveTask(task, id) && task.status === 'DONE'
     );
     const displayName = currentEmployee?.name ?? name ?? 'Сотрудник';
     const employeeStatus = EMPLOYEE_STATUS[currentEmployee?.status ?? 'ACTIVE'];
@@ -369,7 +554,7 @@ export default function EmployeePage() {
         ? {
             id: selectedTask.id,
             title: selectedTask.title,
-            status: getStage(selectedTask.status).label,
+            status: selectedTask.currentStatusName || getStage(selectedTask.status).label,
             patient: selectedTask.patient,
             orderId: selectedTask.orderId,
             deadline: formatDeadline(selectedTask.deadline),
@@ -416,24 +601,25 @@ export default function EmployeePage() {
         );
     };
 
-    const handleMoveNext = (taskId: string) => {
-        const task = tasks.find((item) => item.id === taskId);
-        const nextStage = task ? getNextStage(task.status) : null;
-
-        if (!task || !nextStage) return;
+    const handleMoveNext = (taskId: string, transition: WorkflowTransition) => {
+        const nextStatus = getTransitionTaskStatus(transition);
+        const nextStatusLabel = getTransitionLabel(transition);
 
         setTasks((currentTasks) =>
             currentTasks.map((item) =>
                 item.id === taskId
                     ? {
                         ...item,
-                        status: nextStage.id,
+                        ...(nextStatus ? { status: nextStatus } : {}),
+                        currentStatusId: transition.id,
+                        currentStatusCode: transition.code,
+                        currentStatusName: nextStatusLabel,
                         history: [
                             createHistoryItem(
                                 'STATUS_CHANGED',
                                 'status',
-                                getStage(item.status).label,
-                                nextStage.label
+                                item.currentStatusName || getStage(item.status).label,
+                                nextStatusLabel
                             ),
                             ...(item.history ?? []),
                         ],
@@ -441,7 +627,7 @@ export default function EmployeePage() {
                     : item
             )
         );
-        setNotification(`Задача ${task.id} передана на этап «${nextStage.label}»`);
+        setNotification(`Задача ${taskId} передана на этап «${nextStatusLabel}»`);
     };
 
     const handleAddComment = (text: string) => {
@@ -652,6 +838,7 @@ export default function EmployeePage() {
                             key={task.id}
                             task={task}
                             variant="active"
+                            currentUserId={id}
                             onOpen={setSelectedTaskId}
                             onMoveNext={handleMoveNext}
                         />
@@ -692,6 +879,7 @@ export default function EmployeePage() {
                             key={task.id}
                             task={task}
                             variant="upcoming"
+                            currentUserId={id}
                             onOpen={setSelectedTaskId}
                             onMoveNext={handleMoveNext}
                         />
@@ -716,6 +904,7 @@ export default function EmployeePage() {
                                 key={task.id}
                                 task={task}
                                 variant="completed"
+                                currentUserId={id}
                                 onOpen={setSelectedTaskId}
                                 onMoveNext={handleMoveNext}
                             />
