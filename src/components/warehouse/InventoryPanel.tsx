@@ -7,16 +7,15 @@ import {
     useCancelInventoryCheckMutation,
     useCompleteInventoryCheckMutation,
     useCreateInventoryCheckMutation,
+    useGetInventoryCheckItemsQuery,
     useGetInventoryCheckQuery,
     useGetInventoryChecksQuery,
-    useGetNomenclatureQuery,
     useStartInventoryCheckMutation,
     useUpdateInventoryItemMutation,
 } from '@/src/services/api/warehouseApi';
 import type {
     InventoryCheckItem,
     InventoryCheckStatus,
-    NomenclatureItem,
 } from '@/src/types/warehouse.types';
 import {
     formatDateTime,
@@ -35,24 +34,11 @@ const filters: Array<{ value: '' | InventoryCheckStatus; label: string }> = [
     { value: 'CANCELLED', label: 'Отменённые' },
 ];
 
+const INVENTORY_ITEMS_PAGE_SIZE = 1000;
+
 type Confirmation = 'cancel' | 'complete' | null;
 
-type InventoryDisplayItem = InventoryCheckItem & {
-    fromNomenclature?: boolean;
-};
-
-function buildInventoryItemFromNomenclature(item: NomenclatureItem): InventoryDisplayItem {
-    return {
-        id: item.id,
-        nomenclatureId: item.id,
-        nomenclatureName: item.name,
-        unit: item.unit,
-        expectedQuantity: item.currentStock,
-        actualQuantity: null,
-        discrepancy: 0,
-        fromNomenclature: true,
-    };
-}
+type InventoryDisplayItem = InventoryCheckItem;
 
 function parseQuantityInput(value: string | undefined) {
     if (value === undefined || value.trim() === '') return null;
@@ -74,11 +60,11 @@ export default function InventoryPanel() {
 
     const listQuery = useGetInventoryChecksQuery(filter || undefined);
     const detailQuery = useGetInventoryCheckQuery(selectedId ?? '', { skip: !selectedId });
-    const check = detailQuery.data;
-    const nomenclatureQuery = useGetNomenclatureQuery(
-        { activeOnly: true, size: 1000 },
-        { skip: check?.status !== 'IN_PROGRESS' }
+    const itemsQuery = useGetInventoryCheckItemsQuery(
+        { id: selectedId ?? '', page: 0, size: INVENTORY_ITEMS_PAGE_SIZE },
+        { skip: !selectedId }
     );
+    const check = detailQuery.data;
     const [createCheck, createState] = useCreateInventoryCheckMutation();
     const [startCheck, startState] = useStartInventoryCheckMutation();
     const [cancelCheck, cancelState] = useCancelInventoryCheckMutation();
@@ -86,28 +72,15 @@ export default function InventoryPanel() {
     const [updateItem] = useUpdateInventoryItemMutation();
 
     const checks = listQuery.data ?? [];
-    const displayItems = useMemo<InventoryDisplayItem[]>(() => {
-        if (!check) return [];
-        if (check.status !== 'IN_PROGRESS') return check.items;
-
-        const nomenclatureItems = nomenclatureQuery.data ?? [];
-        const nomenclatureIds = new Set(nomenclatureItems.map((item) => item.id));
-        const checkItemsByNomenclature = new Map(
-            check.items.map((item) => [item.nomenclatureId, item])
-        );
-        const nomenclatureRows = nomenclatureItems.map((item) =>
-            checkItemsByNomenclature.get(item.id) ?? buildInventoryItemFromNomenclature(item)
-        );
-        const appendedCheckItems = check.items.filter(
-            (item) => !nomenclatureIds.has(item.nomenclatureId)
-        );
-
-        return [...nomenclatureRows, ...appendedCheckItems];
-    }, [check, nomenclatureQuery.data]);
+    const itemsPage = itemsQuery.data;
+    const displayItems = useMemo<InventoryDisplayItem[]>(
+        () => itemsPage?.content ?? [],
+        [itemsPage?.content]
+    );
     const activeCheck = checks.find((item) => item.status === 'DRAFT' || item.status === 'IN_PROGRESS');
     const actionLoading = startState.isLoading || cancelState.isLoading || completeState.isLoading;
-    const inventoryNomenclatureFetching = check?.status === 'IN_PROGRESS' && nomenclatureQuery.isFetching;
-    const inventoryRowsLoading = inventoryNomenclatureFetching && displayItems.length === 0;
+    const inventoryItemsFetching = itemsQuery.isFetching;
+    const inventoryRowsLoading = inventoryItemsFetching && displayItems.length === 0;
 
     useEffect(() => {
         if (!check) return;
@@ -130,11 +103,14 @@ export default function InventoryPanel() {
         return { counted, total, percent: total === 0 ? 0 : Math.round((counted / total) * 100) };
     }, [check, displayItems]);
     const completeDisabled = actionLoading
-        || inventoryNomenclatureFetching
+        || inventoryItemsFetching
+        || itemsPage?.last === false
         || progress.total === 0
         || progress.counted !== progress.total;
-    const completeTitle = inventoryNomenclatureFetching
+    const completeTitle = inventoryItemsFetching
         ? 'Дождитесь загрузки позиций'
+        : itemsPage?.last === false
+            ? 'Загружены не все позиции инвентаризации'
         : progress.total === 0
             ? 'Нет позиций для пересчёта'
             : progress.counted !== progress.total
@@ -329,9 +305,9 @@ export default function InventoryPanel() {
                                 </p>
                             </div>
 
-                            {check.status === 'IN_PROGRESS' && nomenclatureQuery.isError && displayItems.length === 0 && (
+                            {itemsQuery.isError && displayItems.length === 0 && (
                                 <div className="m-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                                    {getApiErrorMessage(nomenclatureQuery.error, 'Не удалось загрузить номенклатуру для пересчёта')}
+                                    {getApiErrorMessage(itemsQuery.error, 'Не удалось загрузить позиции инвентаризации')}
                                 </div>
                             )}
 
@@ -418,7 +394,7 @@ export default function InventoryPanel() {
                                         {inventoryRowsLoading && (
                                             <tr>
                                                 <td colSpan={5} className="px-5 py-12 text-center text-sm text-slate-500">
-                                                    Загружаем номенклатуру для пересчёта…
+                                                    Загружаем позиции инвентаризации…
                                                 </td>
                                             </tr>
                                         )}

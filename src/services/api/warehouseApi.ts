@@ -3,6 +3,7 @@ import type {
     CreateInventoryCheckRequest,
     InventoryCheck,
     InventoryCheckItem,
+    InventoryCheckItemsPage,
     InventoryCheckStatus,
     NomenclatureItem,
     ReceiveStockRequest,
@@ -15,6 +16,13 @@ type InventoryItemArgs = {
     id: string;
     itemId: string;
     body: UpdateInventoryItemRequest;
+};
+
+type InventoryCheckItemsQueryParams = {
+    id: string;
+    page?: number;
+    size?: number;
+    sort?: string | string[];
 };
 
 type NomenclatureQueryParams = {
@@ -64,6 +72,49 @@ function normalizeNomenclatureResponse(response: unknown) {
         'nomenclature',
         'nomenclatures',
     ]);
+}
+
+function getNumberField(source: Record<string, unknown>, key: string, fallback: number) {
+    const value = source[key];
+    return typeof value === 'number' ? value : fallback;
+}
+
+function getBooleanField(source: Record<string, unknown>, key: string, fallback: boolean) {
+    const value = source[key];
+    return typeof value === 'boolean' ? value : fallback;
+}
+
+function getOptionalNumberField(source: Record<string, unknown>, key: string) {
+    const value = source[key];
+    return typeof value === 'number' ? value : undefined;
+}
+
+function normalizeInventoryCheckItemsResponse(response: unknown): InventoryCheckItemsPage {
+    const content = getArrayFromResponse<InventoryCheckItem>(response, ['content', 'items']);
+
+    if (!response || typeof response !== 'object' || Array.isArray(response)) {
+        return {
+            content,
+            number: 0,
+            size: content.length,
+            numberOfElements: content.length,
+            first: true,
+            last: true,
+        };
+    }
+
+    const responseRecord = response as Record<string, unknown>;
+
+    return {
+        content,
+        number: getNumberField(responseRecord, 'number', getNumberField(responseRecord, 'page', 0)),
+        size: getNumberField(responseRecord, 'size', content.length),
+        numberOfElements: getNumberField(responseRecord, 'numberOfElements', content.length),
+        first: getBooleanField(responseRecord, 'first', true),
+        last: getBooleanField(responseRecord, 'last', true),
+        totalPages: getOptionalNumberField(responseRecord, 'totalPages'),
+        totalElements: getOptionalNumberField(responseRecord, 'totalElements'),
+    };
 }
 
 export const warehouseApi = teethTechApi.injectEndpoints({
@@ -151,6 +202,19 @@ export const warehouseApi = teethTechApi.injectEndpoints({
             providesTags: (_result, _error, id) => [{ type: 'InventoryChecks', id }],
         }),
 
+        getInventoryCheckItems: builder.query<InventoryCheckItemsPage, InventoryCheckItemsQueryParams>({
+            query: ({ id, ...params }) => ({
+                url: `/inventory-checks/${id}/items`,
+                params: Object.fromEntries(
+                    Object.entries(params).filter(([, value]) => value !== undefined)
+                ),
+            }),
+            transformResponse: normalizeInventoryCheckItemsResponse,
+            providesTags: (_result, _error, { id }) => [
+                { type: 'InventoryChecks', id: `${id}:ITEMS` },
+            ],
+        }),
+
         createInventoryCheck: builder.mutation<InventoryCheck, CreateInventoryCheckRequest>({
             query: (body) => ({
                 url: '/inventory-checks',
@@ -168,6 +232,7 @@ export const warehouseApi = teethTechApi.injectEndpoints({
             invalidatesTags: (_result, _error, id) => [
                 { type: 'InventoryChecks', id },
                 { type: 'InventoryChecks', id: 'LIST' },
+                { type: 'InventoryChecks', id: `${id}:ITEMS` },
             ],
         }),
 
@@ -179,6 +244,7 @@ export const warehouseApi = teethTechApi.injectEndpoints({
             invalidatesTags: (_result, _error, id) => [
                 { type: 'InventoryChecks', id },
                 { type: 'InventoryChecks', id: 'LIST' },
+                { type: 'InventoryChecks', id: `${id}:ITEMS` },
             ],
         }),
 
@@ -190,6 +256,7 @@ export const warehouseApi = teethTechApi.injectEndpoints({
             invalidatesTags: (_result, _error, id) => [
                 { type: 'InventoryChecks', id },
                 { type: 'InventoryChecks', id: 'LIST' },
+                { type: 'InventoryChecks', id: `${id}:ITEMS` },
                 { type: 'Stock', id: 'OVERVIEW' },
                 { type: 'Stock', id: 'MOVEMENTS' },
                 { type: 'Nomenclature', id: 'LIST' },
@@ -202,6 +269,9 @@ export const warehouseApi = teethTechApi.injectEndpoints({
                 method: 'PATCH',
                 body,
             }),
+            invalidatesTags: (_result, _error, { id }) => [
+                { type: 'InventoryChecks', id: `${id}:ITEMS` },
+            ],
             async onQueryStarted({ id, itemId }, { dispatch, queryFulfilled }) {
                 try {
                     const { data } = await queryFulfilled;
@@ -238,6 +308,7 @@ export const {
     useGetStockOverviewQuery,
     useGetInventoryChecksQuery,
     useGetInventoryCheckQuery,
+    useGetInventoryCheckItemsQuery,
     useCreateInventoryCheckMutation,
     useStartInventoryCheckMutation,
     useCancelInventoryCheckMutation,

@@ -62,6 +62,17 @@ export type InventoryCheckItem = {
     discrepancy: number;
 };
 
+export type InventoryCheckItemsPage = {
+    content: InventoryCheckItem[];
+    number: number;
+    size: number;
+    numberOfElements: number;
+    first: boolean;
+    last: boolean;
+    totalPages?: number;
+    totalElements?: number;
+};
+
 export type InventoryCheck = {
     id: string;
     status: InventoryCheckStatus;
