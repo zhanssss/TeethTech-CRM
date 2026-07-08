@@ -46,8 +46,6 @@ export default function EmployeesPage() {
         isLoading,
         isError,
     } = useGetUsersQuery();
-
-
     const filteredEmployees = useMemo(() => {
         const normalizedSearch = search.trim().toLowerCase();
 
@@ -234,7 +232,7 @@ export default function EmployeesPage() {
                                         <span
                                             className={`rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase `}
                                         >
-                                            {employee.role}
+                                            {employee.roles}
                                         </span>
                                 </td>
 
