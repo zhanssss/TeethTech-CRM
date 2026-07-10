@@ -1,6 +1,8 @@
 import { teethTechApi } from '@/src/services/teethTechApi';
 
-import type {
+import {
+    AddTaskDto,
+    AssignTaskArgs,
     CreateOrderDto,
     CreateOrderRequest,
     CreateOrderResponse,
@@ -145,6 +147,18 @@ export const ordersApi = teethTechApi.injectEndpoints({
             ],
         }),
 
+        assignTask: builder.mutation<void, AssignTaskArgs>({
+            query: ({ taskId, userId }) => ({
+                url: `/tasks/${taskId}/assign/${userId}`,
+                method: 'PATCH',
+            }),
+            invalidatesTags: (_result, _error, { taskId, orderId }) => [
+                'Tasks',
+                { type: 'OrderKanban', id: orderId },
+                { type: 'TaskHistory', id: taskId },
+            ],
+        }),
+
         getTaskHistory: builder.query<TaskHistoryResponse, GetTaskHistoryArgs>({
             query: ({ taskId, page = 0, size = 20 }) => ({
                 url: `/tasks/${taskId}/history`,
@@ -158,6 +172,12 @@ export const ordersApi = teethTechApi.injectEndpoints({
                 { type: 'TaskHistory', id: taskId },
             ],
         }),
+        addTask: builder.query<AddTaskDto, string>({
+            query: () =>({
+                url: '/tasks',
+                method: 'POST'
+            })
+        })
     }),
 });
 
@@ -170,5 +190,6 @@ export const {
     useGetOrderKanbanQuery,
     useUpdateOrderStatusMutation,
     useUpdateTaskStatusMutation,
+    useAssignTaskMutation,
     useGetTaskHistoryQuery,
 } = ordersApi;

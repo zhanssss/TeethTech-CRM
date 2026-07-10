@@ -79,10 +79,6 @@ export default function TaskDetailsSidebar({
                             <InfoItem label="Кол-во" value={task.units} />
                             {task.unitPrice ? <InfoItem label="Цена" value={task.unitPrice.toLocaleString('ru-RU')} /> : null}
                             {task.discount ? <InfoItem label="Скидка" value={task.discount.toLocaleString('ru-RU')} /> : null}
-                            <InfoItem label="Цвет" value={task.color} />
-                            <InfoItem label="Абатмент" value={task.abutment} />
-                            <InfoItem label="Техник" value={task.technicianId} />
-                            <InfoItem label="Оператор" value={task.operatorId} />
                         </div>
                     </section>
 

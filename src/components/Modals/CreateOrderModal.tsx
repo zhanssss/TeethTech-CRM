@@ -47,6 +47,7 @@ const createEmptyTask = (): CreateOrderTaskDto => ({
     materialId: '',
     pricePerUnit: 0,
     discount: 0,
+    discountPercent: 0,
     attachments: [],
     images: [],
 });

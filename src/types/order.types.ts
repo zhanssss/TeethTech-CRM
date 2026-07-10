@@ -16,6 +16,16 @@ import type {
     TaskImage,
 } from './task.types';
 
+export type AddTaskDto = {
+    workTypeId: string,
+    quantity: number,
+    toothNumbers: number[]
+    orderId: string,
+    colorId: string,
+    materialId: string,
+    pricePerUnit: number,
+    discountPercent: number
+}
 export type Sort = {
     sorted: boolean;
     unsorted: boolean;
@@ -241,6 +251,9 @@ export interface OrderKanbanTask {
     taskNumber?: string;
     technician?: OrderKanbanAssignee;
     operator?: OrderKanbanAssignee;
+    assignedUser?: OrderKanbanAssignee;
+    assignedUserId?: string;
+    assignedUserFullName?: string;
     cadCamOperatorFullName?: string;
     pricePerUnit?: number;
     totalPrice?: number;
@@ -262,4 +275,10 @@ export interface UpdateTaskStatusDto {
 export interface UpdateTaskStatusArgs {
     taskId: string;
     body: UpdateTaskStatusDto;
+}
+
+export interface AssignTaskArgs {
+    taskId: string;
+    userId: string;
+    orderId: string;
 }

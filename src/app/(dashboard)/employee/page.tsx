@@ -10,6 +10,7 @@ import { RootState } from '@/src/lib/store';
 import { mockEmployees } from '@/src/mock/employees';
 import { mockTasks } from '@/src/mock/tasks';
 import { useUpdateTaskStatusMutation } from '@/src/services/api/ordersApi';
+import { useChangeUserPasswordMutation } from '@/src/services/api/usersApi';
 import { useGetAvailableWorkflowTransitionsQuery } from '@/src/services/api/workflowApi';
 import type {
     ProductionTask,
@@ -163,6 +164,115 @@ function ProfileLink({
                 →
             </span>
         </Link>
+    );
+}
+
+function ChangePasswordCard({userId}: { userId: string | null }) {
+    const [newPassword, setNewPassword] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
+    const [formError, setFormError] = useState('');
+    const [successMessage, setSuccessMessage] = useState('');
+    const [changeUserPassword, {isLoading}] = useChangeUserPasswordMutation();
+
+    const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+        event.preventDefault();
+        setFormError('');
+        setSuccessMessage('');
+
+        if (!userId) {
+            setFormError('Не удалось определить пользователя.');
+            return;
+        }
+
+        if (newPassword.trim().length < 6) {
+            setFormError('Новый пароль должен быть не короче 6 символов.');
+            return;
+        }
+
+        if (newPassword !== confirmPassword) {
+            setFormError('Пароли не совпадают.');
+            return;
+        }
+
+        try {
+            await changeUserPassword({
+                id: userId,
+                newPassword,
+            }).unwrap();
+            setNewPassword('');
+            setConfirmPassword('');
+            setSuccessMessage('Пароль обновлен.');
+        } catch (error) {
+            console.error('Password change failed:', error);
+            setFormError('Не удалось сменить пароль. Попробуйте еще раз.');
+        }
+    };
+
+    return (
+        <section
+            aria-labelledby="employee-password-title"
+            className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
+        >
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                    <p className="text-xs font-bold uppercase tracking-[0.16em] text-blue-600">
+                        Безопасность
+                    </p>
+                    <h2 id="employee-password-title" className="mt-1 text-lg font-black text-slate-900">
+                        Смена пароля
+                    </h2>
+                    <p className="mt-1 text-sm text-slate-500">
+                        Обновите пароль для входа в личный кабинет.
+                    </p>
+                </div>
+            </div>
+
+            <form onSubmit={handleSubmit} className="mt-5 grid gap-3 lg:grid-cols-[1fr_1fr_auto] lg:items-start">
+                <label className="block">
+                    <span className="mb-1.5 block text-xs font-bold text-slate-500">
+                        Новый пароль
+                    </span>
+                    <input
+                        type="password"
+                        value={newPassword}
+                        onChange={(event) => setNewPassword(event.target.value)}
+                        autoComplete="new-password"
+                        className="min-h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-100"
+                    />
+                </label>
+
+                <label className="block">
+                    <span className="mb-1.5 block text-xs font-bold text-slate-500">
+                        Повторите пароль
+                    </span>
+                    <input
+                        type="password"
+                        value={confirmPassword}
+                        onChange={(event) => setConfirmPassword(event.target.value)}
+                        autoComplete="new-password"
+                        className="min-h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-100"
+                    />
+                </label>
+
+                <button
+                    type="submit"
+                    disabled={isLoading || !userId}
+                    className="mt-0 inline-flex min-h-11 items-center justify-center rounded-xl bg-slate-900 px-5 text-sm font-bold text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-300 lg:mt-6"
+                >
+                    {isLoading ? 'Сохранение...' : 'Сменить пароль'}
+                </button>
+
+                {(formError || successMessage) && (
+                    <p
+                        className={`text-sm font-semibold lg:col-span-3 ${
+                            formError ? 'text-red-600' : 'text-emerald-600'
+                        }`}
+                    >
+                        {formError || successMessage}
+                    </p>
+                )}
+            </form>
+        </section>
     );
 }
 
@@ -765,6 +875,8 @@ export default function EmployeePage() {
                     </div>
                 </div>
             </section>
+
+            <ChangePasswordCard userId={id} />
 
             <section aria-label="Показатели сотрудника" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
                 <ProfileMetric

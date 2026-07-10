@@ -1,131 +1,105 @@
 'use client';
 
-import { useMemo } from 'react';
+import { type FormEvent, useMemo, useState } from 'react';
 
-import { useGetMaterialsQuery } from '@/src/services/api/laboratory/materialApi';
+import { useGetFinanceReportQuery } from '@/src/services/api/financeApi';
+import {
+    useConfirmSalaryStatementMutation,
+    useCreateSalaryStatementMutation,
+    useGetSalaryConfigQuery,
+    useUpsertSalaryConfigMutation,
+} from '@/src/services/api/salariesApi';
 import { useGetUsersQuery } from '@/src/services/api/usersApi';
-import type { Material, MaterialUnit } from '@/src/types/laboratory-types/materials.types';
+import type {
+    FinanceReport,
+    SalaryPaymentType,
+    SalaryStatement,
+} from '@/src/types/finance.types';
 import type { User } from '@/src/types/user.types';
 
-type InvoiceStatus = 'paid' | 'partial' | 'overdue' | 'draft';
-
-type InvoiceRow = {
-    id: string;
-    client: string;
-    date: string;
-    amount: number;
-    paid: number;
-    status: InvoiceStatus;
+type SummaryCardProps = {
+    title: string;
+    value: string;
+    description: string;
+    accentClassName: string;
 };
 
-type PayrollRow = {
-    id: string;
-    fullName: string;
-    role: string;
-    salaryType?: 'FIXED' | 'PER_UNIT';
-    rate: number;
-    units: number;
-    accrued: number;
+const emptyReport: FinanceReport = {
+    startDate: '',
+    endDate: '',
+    totalCompletedTasks: 0,
+    grossRevenue: 0,
+    totalDiscounts: 0,
+    netRevenue: 0,
+    totalPayroll: 0,
+    grossProfit: 0,
+    marginPercentage: 0,
 };
 
-const REPORT_REVENUE = 12_480_000;
-const PAID_REVENUE = 8_760_000;
-
-const invoices: InvoiceRow[] = [
-    {
-        id: 'TT-2606-018',
-        client: 'Smile Art Clinic',
-        date: '12.06.2026',
-        amount: 1_840_000,
-        paid: 1_840_000,
-        status: 'paid',
-    },
-    {
-        id: 'TT-2606-017',
-        client: 'Dental Park',
-        date: '11.06.2026',
-        amount: 1_260_000,
-        paid: 760_000,
-        status: 'partial',
-    },
-    {
-        id: 'TT-2606-016',
-        client: 'OrthoLine',
-        date: '10.06.2026',
-        amount: 680_000,
-        paid: 0,
-        status: 'overdue',
-    },
-    {
-        id: 'TT-2606-015',
-        client: 'Nova Dent',
-        date: '09.06.2026',
-        amount: 990_000,
-        paid: 0,
-        status: 'draft',
-    },
-];
-
-const fallbackMaterialPurchases: Material[] = [
-    {
-        id: 'purchase-zirconia',
-        name: 'Zirconia HT A2',
-        description: 'Партия за июнь',
-        quantity: 12,
-        unit: 'KG',
-        price: 920_000,
-        isActive: true,
-    },
-    {
-        id: 'purchase-emax',
-        name: 'E-max Press LT',
-        description: 'Партия за июнь',
-        quantity: 800,
-        unit: 'G',
-        price: 620_000,
-        isActive: true,
-    },
-    {
-        id: 'purchase-pmma',
-        name: 'PMMA Temporary',
-        description: 'Партия за июнь',
-        quantity: 4,
-        unit: 'KG',
-        price: 380_000,
-        isActive: true,
-    },
-];
-
-const statusLabels: Record<InvoiceStatus, string> = {
-    paid: 'Оплачен',
-    partial: 'Частично',
-    overdue: 'Просрочен',
-    draft: 'Черновик',
-};
-
-const statusClasses: Record<InvoiceStatus, string> = {
-    paid: 'border-emerald-100 bg-emerald-50 text-emerald-700',
-    partial: 'border-amber-100 bg-amber-50 text-amber-700',
-    overdue: 'border-red-100 bg-red-50 text-red-700',
-    draft: 'border-slate-200 bg-slate-50 text-slate-600',
+const paymentTypeLabels: Record<SalaryPaymentType, string> = {
+    FIXED: 'Фиксированная',
+    PIECEWORK: 'Сдельная',
+    HYBRID: 'Гибридная',
 };
 
 const roleLabels: Record<string, string> = {
     ADMIN: 'Админ',
     DISPATCHER: 'Диспетчер',
     TECHNICIAN: 'Техник',
+    FINANCIER: 'Финансист',
+    HEAD_TECHNICIAN: 'Старший техник',
     ROLE_ADMIN: 'Админ',
     ROLE_DISPATCHER: 'Диспетчер',
     ROLE_TECHNICIAN: 'Техник',
 };
 
-function formatMoney(value: number) {
-    return `${value.toLocaleString('ru-RU')} ₸`;
+function padDatePart(value: number) {
+    return String(value).padStart(2, '0');
 }
 
-function formatQuantity(quantity?: number, unit?: MaterialUnit) {
-    if (typeof quantity !== 'number' || !Number.isFinite(quantity)) return 'Не указано';
-    return `${quantity.toLocaleString('ru-RU')} ${unit === 'KG' ? 'кг' : 'г'}`;
+function toDatetimeLocalValue(date: Date) {
+    return [
+        date.getFullYear(),
+        padDatePart(date.getMonth() + 1),
+        padDatePart(date.getDate()),
+    ].join('-') + `T${padDatePart(date.getHours())}:${padDatePart(date.getMinutes())}`;
+}
+
+function getDefaultStartDate() {
+    const now = new Date();
+    return toDatetimeLocalValue(new Date(now.getFullYear(), now.getMonth(), 1, 0, 0));
+}
+
+function getDefaultEndDate() {
+    return toDatetimeLocalValue(new Date());
+}
+
+function toApiDate(value: string) {
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? new Date().toISOString() : date.toISOString();
+}
+
+function formatMoney(value?: number | null) {
+    return `${(value ?? 0).toLocaleString('ru-RU')} ₸`;
+}
+
+function formatPercent(value?: number | null) {
+    return `${(value ?? 0).toLocaleString('ru-RU', { maximumFractionDigits: 1 })}%`;
+}
+
+function formatDateTime(value?: string | null) {
+    if (!value) return 'Не указано';
+
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return value;
+
+    return new Intl.DateTimeFormat('ru-RU', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+    }).format(date);
 }
 
 function getUserRole(user: User) {
@@ -133,77 +107,227 @@ function getUserRole(user: User) {
     return roleLabels[role] ?? role;
 }
 
-function getPayrollRows(users: User[]): PayrollRow[] {
-    return users.map((user) => {
-        const rate = typeof user.salary === 'number' ? user.salary : 0;
-        const units = user.unitsCompleted ?? user.stats.completed;
-        const accrued = user.salaryType === 'PER_UNIT' ? rate * units : rate;
+function getUserName(users: User[], userId: string) {
+    return users.find((user) => user.id === userId)?.fullName ?? 'Сотрудник';
+}
 
-        return {
-            id: user.id,
-            fullName: user.fullName,
-            role: getUserRole(user),
-            salaryType: user.salaryType,
-            rate,
-            units,
-            accrued,
-        };
-    });
+function getInitialPaymentType(user?: User): SalaryPaymentType {
+    if (user?.salaryType === 'PER_UNIT') return 'PIECEWORK';
+    return 'FIXED';
+}
+
+function SummaryCard({
+    title,
+    value,
+    description,
+    accentClassName,
+}: SummaryCardProps) {
+    return (
+        <article className={`rounded-lg border border-slate-200 border-l-4 bg-white p-4 shadow-sm sm:p-5 ${accentClassName}`}>
+            <p className="text-sm font-medium text-slate-500">{title}</p>
+            <p className="mt-2 text-2xl font-black text-slate-900 sm:text-3xl">
+                {value}
+            </p>
+            <p className="mt-2 text-xs font-medium text-slate-400">
+                {description}
+            </p>
+        </article>
+    );
+}
+
+function UserSelect({
+    id,
+    value,
+    users,
+    onChange,
+    disabled,
+}: {
+    id: string;
+    value: string;
+    users: User[];
+    onChange: (value: string) => void;
+    disabled?: boolean;
+}) {
+    return (
+        <select
+            id={id}
+            value={value}
+            onChange={(event) => onChange(event.target.value)}
+            disabled={disabled || users.length === 0}
+            className="min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-slate-100"
+        >
+            {users.length === 0 ? (
+                <option value="">Нет сотрудников</option>
+            ) : (
+                users.map((user) => (
+                    <option key={user.id} value={user.id}>
+                        {user.fullName}
+                    </option>
+                ))
+            )}
+        </select>
+    );
 }
 
 export default function AccountingPage() {
+    const [reportStart, setReportStart] = useState(getDefaultStartDate);
+    const [reportEnd, setReportEnd] = useState(getDefaultEndDate);
+    const [selectedConfigUserId, setSelectedConfigUserId] = useState('');
+    const [paymentTypeDraft, setPaymentTypeDraft] = useState<SalaryPaymentType | undefined>();
+    const [baseSalaryDraft, setBaseSalaryDraft] = useState<string | undefined>();
+    const [commissionPercentDraft, setCommissionPercentDraft] = useState<string | undefined>();
+    const [configMessage, setConfigMessage] = useState('');
+    const [configError, setConfigError] = useState('');
+    const [selectedStatementEmployeeId, setSelectedStatementEmployeeId] = useState('');
+    const [statementStart, setStatementStart] = useState(getDefaultStartDate);
+    const [statementEnd, setStatementEnd] = useState(getDefaultEndDate);
+    const [statementComment, setStatementComment] = useState('');
+    const [statement, setStatement] = useState<SalaryStatement | null>(null);
+    const [statementError, setStatementError] = useState('');
+    const [statementMessage, setStatementMessage] = useState('');
+
     const {
         data: users = [],
         isLoading: isUsersLoading,
         isError: isUsersError,
     } = useGetUsersQuery();
+    const firstUserId = users[0]?.id ?? '';
+    const configUserId = selectedConfigUserId || firstUserId;
+    const statementEmployeeId = selectedStatementEmployeeId || firstUserId;
+    const reportRequest = useMemo(
+        () => ({
+            startDate: toApiDate(reportStart),
+            endDate: toApiDate(reportEnd),
+        }),
+        [reportEnd, reportStart]
+    );
     const {
-        data: materials = [],
-        isLoading: isMaterialsLoading,
-        isError: isMaterialsError,
-    } = useGetMaterialsQuery();
-
-    const payrollRows = useMemo(() => getPayrollRows(users), [users]);
-    const materialPurchases = materials.length > 0 ? materials : fallbackMaterialPurchases;
-
-    const payrollTotal = payrollRows.reduce((sum, employee) => sum + employee.accrued, 0);
-    const materialTotal = materialPurchases.reduce(
-        (sum, material) => sum + (material.price ?? 0),
-        0
+        data: reportData,
+        isFetching: isReportFetching,
+        isError: isReportError,
+        refetch: refetchReport,
+    } = useGetFinanceReportQuery(reportRequest);
+    const selectedConfigUser = useMemo(
+        () => users.find((user) => user.id === configUserId),
+        [configUserId, users]
     );
-    const clientDebt = invoices.reduce(
-        (sum, invoice) => sum + Math.max(invoice.amount - invoice.paid, 0),
-        0
-    );
-    const payrollShare = REPORT_REVENUE > 0 ? (payrollTotal / REPORT_REVENUE) * 100 : 0;
-    const preliminaryProfit = PAID_REVENUE - payrollTotal - materialTotal;
+    const {
+        data: salaryConfig,
+        isFetching: isConfigFetching,
+        isError: isConfigLoadError,
+    } = useGetSalaryConfigQuery(configUserId, { skip: !configUserId });
+    const [upsertSalaryConfig, { isLoading: isSavingConfig }] = useUpsertSalaryConfigMutation();
+    const [createSalaryStatement, { isLoading: isCreatingStatement }] = useCreateSalaryStatementMutation();
+    const [confirmSalaryStatement, { isLoading: isConfirmingStatement }] = useConfirmSalaryStatementMutation();
 
+    const report = reportData ?? emptyReport;
+    const paymentType = paymentTypeDraft ?? salaryConfig?.paymentType ?? getInitialPaymentType(selectedConfigUser);
+    const baseSalary = baseSalaryDraft ?? String(salaryConfig?.baseSalary ?? selectedConfigUser?.salary ?? 0);
+    const commissionPercent = commissionPercentDraft ?? String(salaryConfig?.commissionPercent ?? 0);
+    const statementEmployeeName = statementEmployeeId
+        ? getUserName(users, statementEmployeeId)
+        : 'Сотрудник';
     const summaryCards = [
         {
-            title: 'Выручка за июнь',
-            value: formatMoney(REPORT_REVENUE),
-            description: 'Сумма выставленных заказов',
-            accent: 'border-l-emerald-500',
+            title: 'Валовая выручка',
+            value: formatMoney(report.grossRevenue),
+            description: `${report.totalCompletedTasks} завершенных задач`,
+            accentClassName: 'border-l-emerald-500',
         },
         {
-            title: 'Долг клиник',
-            value: formatMoney(clientDebt),
-            description: 'Неоплаченные и частично оплаченные заказы',
-            accent: 'border-l-amber-500',
+            title: 'Скидки',
+            value: formatMoney(report.totalDiscounts),
+            description: 'Суммарные скидки клиникам',
+            accentClassName: 'border-l-amber-500',
         },
         {
-            title: 'Начислено сотрудникам',
-            value: formatMoney(payrollTotal),
-            description: `${payrollShare.toLocaleString('ru-RU', { maximumFractionDigits: 1 })}% от выручки`,
-            accent: 'border-l-purple-500',
+            title: 'ФОТ мастеров',
+            value: formatMoney(report.totalPayroll),
+            description: 'Начисления за выбранный период',
+            accentClassName: 'border-l-purple-500',
         },
         {
-            title: 'Закупки материалов',
-            value: formatMoney(materialTotal),
-            description: 'Полная стоимость закупленных партий',
-            accent: 'border-l-blue-500',
+            title: 'Чистая прибыль',
+            value: formatMoney(report.grossProfit),
+            description: `Маржинальность ${formatPercent(report.marginPercentage)}`,
+            accentClassName: report.grossProfit >= 0 ? 'border-l-blue-500' : 'border-l-red-500',
         },
     ];
+
+    const handleConfigUserChange = (userId: string) => {
+        setSelectedConfigUserId(userId);
+        setPaymentTypeDraft(undefined);
+        setBaseSalaryDraft(undefined);
+        setCommissionPercentDraft(undefined);
+        setConfigMessage('');
+        setConfigError('');
+    };
+
+    const handleConfigSubmit = async (event: FormEvent<HTMLFormElement>) => {
+        event.preventDefault();
+        setConfigError('');
+        setConfigMessage('');
+
+        if (!configUserId) {
+            setConfigError('Выберите сотрудника.');
+            return;
+        }
+
+        try {
+            await upsertSalaryConfig({
+                userId: configUserId,
+                paymentType,
+                baseSalary: Number(baseSalary) || 0,
+                commissionPercent: Number(commissionPercent) || 0,
+            }).unwrap();
+            setConfigMessage('Схема оплаты сохранена.');
+        } catch (error) {
+            console.error('Salary config save failed:', error);
+            setConfigError('Не удалось сохранить схему оплаты.');
+        }
+    };
+
+    const handleStatementSubmit = async (event: FormEvent<HTMLFormElement>) => {
+        event.preventDefault();
+        setStatementError('');
+        setStatementMessage('');
+        setStatement(null);
+
+        if (!statementEmployeeId) {
+            setStatementError('Выберите сотрудника.');
+            return;
+        }
+
+        try {
+            const createdStatement = await createSalaryStatement({
+                employeeId: statementEmployeeId,
+                startDate: toApiDate(statementStart),
+                endDate: toApiDate(statementEnd),
+                comment: statementComment.trim() || undefined,
+            }).unwrap();
+            setStatement(createdStatement);
+            setStatementMessage('Ведомость сформирована.');
+        } catch (error) {
+            console.error('Salary statement create failed:', error);
+            setStatementError('Не удалось сформировать ведомость.');
+        }
+    };
+
+    const handleConfirmStatement = async () => {
+        if (!statement?.statementId) return;
+
+        setStatementError('');
+        setStatementMessage('');
+
+        try {
+            await confirmSalaryStatement(statement.statementId).unwrap();
+            setStatement((current) => current ? { ...current, status: 'PAID' } : current);
+            setStatementMessage('Выплата подтверждена.');
+        } catch (error) {
+            console.error('Salary statement confirm failed:', error);
+            setStatementError('Не удалось подтвердить выплату.');
+        }
+    };
 
     return (
         <div className="space-y-6">
@@ -211,260 +335,367 @@ export default function AccountingPage() {
                 <div>
                     <h1 className="text-2xl font-bold text-slate-900">Бухгалтерия</h1>
                     <p className="mt-1 text-sm text-slate-500">
-                        Зарплаты сотрудников, закупки материалов, долги и прибыль по клиникам
+                        Финансовый отчет, схемы оплаты и зарплатные ведомости
                     </p>
                 </div>
 
-                <div className={`rounded-2xl border px-4 py-3 text-sm shadow-sm ${
-                    preliminaryProfit >= 0
+                <div className={`rounded-xl border px-4 py-3 text-sm shadow-sm ${
+                    report.grossProfit >= 0
                         ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
                         : 'border-red-200 bg-red-50 text-red-700'
                 }`}>
-                    Предварительная прибыль:{' '}
-                    <span className="font-black">{formatMoney(preliminaryProfit)}</span>
+                    Чистый доход:{' '}
+                    <span className="font-black">{formatMoney(report.netRevenue)}</span>
                 </div>
             </header>
 
+            <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+                <div className="grid gap-3 lg:grid-cols-[1fr_1fr_auto] lg:items-end">
+                    <label className="block">
+                        <span className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-500">
+                            Начало периода
+                        </span>
+                        <input
+                            type="datetime-local"
+                            value={reportStart}
+                            onChange={(event) => setReportStart(event.target.value)}
+                            className="min-h-11 w-full rounded-xl border border-slate-200 px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                        />
+                    </label>
+
+                    <label className="block">
+                        <span className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-500">
+                            Конец периода
+                        </span>
+                        <input
+                            type="datetime-local"
+                            value={reportEnd}
+                            onChange={(event) => setReportEnd(event.target.value)}
+                            className="min-h-11 w-full rounded-xl border border-slate-200 px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                        />
+                    </label>
+
+                    <button
+                        type="button"
+                        onClick={() => refetchReport()}
+                        disabled={isReportFetching}
+                        className="inline-flex min-h-11 items-center justify-center rounded-xl bg-blue-600 px-5 text-sm font-bold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+                    >
+                        {isReportFetching ? 'Обновление...' : 'Обновить отчет'}
+                    </button>
+                </div>
+
+                {isReportError && (
+                    <p className="mt-3 text-sm font-semibold text-red-600">
+                        Не удалось загрузить финансовый отчет.
+                    </p>
+                )}
+
+                <p className="mt-3 text-xs text-slate-400">
+                    Период отчета: {formatDateTime(report.startDate || reportRequest.startDate)} - {formatDateTime(report.endDate || reportRequest.endDate)}
+                </p>
+            </section>
+
             <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
                 {summaryCards.map((card) => (
-                    <article
-                        key={card.title}
-                        className={`rounded-2xl border border-slate-200 border-l-4 bg-white p-4 shadow-sm sm:p-5 ${card.accent}`}
-                    >
-                        <p className="text-sm font-medium text-slate-500">{card.title}</p>
-                        <p className="mt-2 text-2xl font-black text-slate-900 sm:text-3xl">
-                            {card.value}
-                        </p>
-                        <p className="mt-2 text-xs font-medium text-slate-400">
-                            {card.description}
-                        </p>
-                    </article>
+                    <SummaryCard key={card.title} {...card} />
                 ))}
             </section>
 
-            <section className="rounded-2xl border border-slate-200 bg-white shadow-sm">
-                <div className="flex flex-col gap-3 border-b border-slate-100 px-5 py-4 md:flex-row md:items-center md:justify-between">
-                    <div>
-                        <h2 className="font-bold text-slate-900">Зарплата сотрудников</h2>
-                        <p className="mt-1 text-xs text-slate-500">
-                            Фиксированная сумма либо ставка за каждую выполненную единицу
+            <section className="grid grid-cols-1 gap-6 xl:grid-cols-[0.95fr_1.05fr]">
+                <form
+                    onSubmit={handleConfigSubmit}
+                    className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:p-5"
+                >
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                        <div>
+                            <h2 className="font-bold text-slate-900">Схема оплаты</h2>
+                            <p className="mt-1 text-sm text-slate-500">
+                                Оклад, сдельная ставка или гибридная схема для сотрудника
+                            </p>
+                        </div>
+                        {isConfigFetching && (
+                            <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700">
+                                Загрузка
+                            </span>
+                        )}
+                    </div>
+
+                    <div className="mt-5 space-y-4">
+                        <label className="block">
+                            <span className="mb-1.5 block text-xs font-bold text-slate-500">
+                                Сотрудник
+                            </span>
+                            <UserSelect
+                                id="salary-config-user"
+                                value={configUserId}
+                                users={users}
+                                disabled={isUsersLoading}
+                                onChange={handleConfigUserChange}
+                            />
+                        </label>
+
+                        <div className="grid gap-3 sm:grid-cols-3">
+                            <label className="block">
+                                <span className="mb-1.5 block text-xs font-bold text-slate-500">
+                                    Тип оплаты
+                                </span>
+                                <select
+                                    value={paymentType}
+                                    onChange={(event) => setPaymentTypeDraft(event.target.value as SalaryPaymentType)}
+                                    className="min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                                >
+                                    <option value="FIXED">Фиксированная</option>
+                                    <option value="PIECEWORK">Сдельная</option>
+                                    <option value="HYBRID">Гибридная</option>
+                                </select>
+                            </label>
+
+                            <label className="block">
+                                <span className="mb-1.5 block text-xs font-bold text-slate-500">
+                                    Оклад
+                                </span>
+                                <input
+                                    type="number"
+                                    min="0"
+                                    value={baseSalary}
+                                    onChange={(event) => setBaseSalaryDraft(event.target.value)}
+                                    className="min-h-11 w-full rounded-xl border border-slate-200 px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                                />
+                            </label>
+
+                            <label className="block">
+                                <span className="mb-1.5 block text-xs font-bold text-slate-500">
+                                    Процент
+                                </span>
+                                <input
+                                    type="number"
+                                    min="0"
+                                    max="100"
+                                    step="0.1"
+                                    value={commissionPercent}
+                                    onChange={(event) => setCommissionPercentDraft(event.target.value)}
+                                    className="min-h-11 w-full rounded-xl border border-slate-200 px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                                />
+                            </label>
+                        </div>
+
+                        <div className="rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-600">
+                            <span className="font-bold text-slate-800">
+                                {selectedConfigUser?.fullName ?? 'Сотрудник'}
+                            </span>
+                            <span className="mx-2 text-slate-300">/</span>
+                            {selectedConfigUser ? getUserRole(selectedConfigUser) : 'роль не указана'}
+                            <span className="mx-2 text-slate-300">/</span>
+                            {isConfigLoadError ? 'схема еще не настроена' : paymentTypeLabels[paymentType]}
+                        </div>
+
+                        {(configError || configMessage) && (
+                            <p className={`text-sm font-semibold ${configError ? 'text-red-600' : 'text-emerald-600'}`}>
+                                {configError || configMessage}
+                            </p>
+                        )}
+
+                        <button
+                            type="submit"
+                            disabled={isSavingConfig || !configUserId}
+                            className="inline-flex min-h-11 w-full items-center justify-center rounded-xl bg-slate-900 px-5 text-sm font-bold text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-300 sm:w-auto"
+                        >
+                            {isSavingConfig ? 'Сохранение...' : 'Сохранить схему'}
+                        </button>
+                    </div>
+                </form>
+
+                <form
+                    onSubmit={handleStatementSubmit}
+                    className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:p-5"
+                >
+                    <h2 className="font-bold text-slate-900">Зарплатная ведомость</h2>
+                    <p className="mt-1 text-sm text-slate-500">
+                        Расчет начислений по завершенным задачам за период
+                    </p>
+
+                    <div className="mt-5 grid gap-3 md:grid-cols-2">
+                        <label className="block md:col-span-2">
+                            <span className="mb-1.5 block text-xs font-bold text-slate-500">
+                                Сотрудник
+                            </span>
+                            <UserSelect
+                                id="salary-statement-user"
+                                value={statementEmployeeId}
+                                users={users}
+                                disabled={isUsersLoading}
+                                onChange={setSelectedStatementEmployeeId}
+                            />
+                        </label>
+
+                        <label className="block">
+                            <span className="mb-1.5 block text-xs font-bold text-slate-500">
+                                Начало
+                            </span>
+                            <input
+                                type="datetime-local"
+                                value={statementStart}
+                                onChange={(event) => setStatementStart(event.target.value)}
+                                className="min-h-11 w-full rounded-xl border border-slate-200 px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                            />
+                        </label>
+
+                        <label className="block">
+                            <span className="mb-1.5 block text-xs font-bold text-slate-500">
+                                Конец
+                            </span>
+                            <input
+                                type="datetime-local"
+                                value={statementEnd}
+                                onChange={(event) => setStatementEnd(event.target.value)}
+                                className="min-h-11 w-full rounded-xl border border-slate-200 px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                            />
+                        </label>
+
+                        <label className="block md:col-span-2">
+                            <span className="mb-1.5 block text-xs font-bold text-slate-500">
+                                Комментарий
+                            </span>
+                            <textarea
+                                value={statementComment}
+                                onChange={(event) => setStatementComment(event.target.value)}
+                                rows={3}
+                                className="w-full resize-none rounded-xl border border-slate-200 px-3 py-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                            />
+                        </label>
+                    </div>
+
+                    {(statementError || statementMessage) && (
+                        <p className={`mt-3 text-sm font-semibold ${statementError ? 'text-red-600' : 'text-emerald-600'}`}>
+                            {statementError || statementMessage}
                         </p>
-                    </div>
-                    <div className="rounded-xl bg-purple-50 px-3 py-2 text-xs font-bold text-purple-700">
-                        Доля ФОТ: {payrollShare.toLocaleString('ru-RU', { maximumFractionDigits: 1 })}%
-                    </div>
-                </div>
+                    )}
 
-                {isUsersError && (
-                    <div className="border-b border-red-100 bg-red-50 px-5 py-3 text-xs font-semibold text-red-600">
-                        Не удалось загрузить сотрудников. Начисления временно не рассчитаны.
+                    <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+                        <button
+                            type="submit"
+                            disabled={isCreatingStatement || !statementEmployeeId}
+                            className="inline-flex min-h-11 items-center justify-center rounded-xl bg-blue-600 px-5 text-sm font-bold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+                        >
+                            {isCreatingStatement ? 'Расчет...' : 'Сформировать ведомость'}
+                        </button>
+
+                        <button
+                            type="button"
+                            onClick={handleConfirmStatement}
+                            disabled={!statement?.statementId || statement.status === 'PAID' || isConfirmingStatement}
+                            className="inline-flex min-h-11 items-center justify-center rounded-xl border border-emerald-600 px-5 text-sm font-bold text-emerald-700 transition hover:bg-emerald-50 disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-300"
+                        >
+                            {isConfirmingStatement ? 'Подтверждение...' : 'Подтвердить выплату'}
+                        </button>
                     </div>
-                )}
-
-                <div className="overflow-x-auto">
-                    <table className="w-full min-w-[860px] border-collapse text-left">
-                        <thead className="border-b border-slate-200 bg-slate-50 text-[11px] uppercase tracking-widest text-slate-400">
-                            <tr>
-                                <th className="p-4 font-bold">Сотрудник</th>
-                                <th className="p-4 font-bold">Схема оплаты</th>
-                                <th className="p-4 font-bold">Оклад / ставка</th>
-                                <th className="p-4 font-bold">Единиц</th>
-                                <th className="p-4 font-bold">Начислено</th>
-                                <th className="p-4 text-right font-bold">Доля выручки</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100">
-                            {payrollRows.map((employee) => (
-                                <tr key={employee.id} className="transition hover:bg-purple-50/30">
-                                    <td className="p-4">
-                                        <p className="text-sm font-bold text-slate-900">
-                                            {employee.fullName}
-                                        </p>
-                                        <p className="mt-1 text-xs text-slate-500">{employee.role}</p>
-                                    </td>
-                                    <td className="p-4 text-sm text-slate-600">
-                                        {employee.salaryType === 'PER_UNIT'
-                                            ? 'За единицу'
-                                            : employee.salaryType === 'FIXED'
-                                                ? 'Фиксированная'
-                                                : 'Не настроена'}
-                                    </td>
-                                    <td className="p-4 text-sm font-bold text-slate-800">
-                                        {formatMoney(employee.rate)}
-                                        {employee.salaryType === 'PER_UNIT' && (
-                                            <span className="ml-1 text-xs font-normal text-slate-400">/ ед.</span>
-                                        )}
-                                    </td>
-                                    <td className="p-4 text-sm text-slate-600">
-                                        {employee.salaryType === 'PER_UNIT' ? employee.units : '—'}
-                                    </td>
-                                    <td className="p-4 text-sm font-black text-slate-900">
-                                        {formatMoney(employee.accrued)}
-                                    </td>
-                                    <td className="p-4 text-right text-sm font-bold text-purple-700">
-                                        {REPORT_REVENUE > 0
-                                            ? `${((employee.accrued / REPORT_REVENUE) * 100).toLocaleString('ru-RU', { maximumFractionDigits: 1 })}%`
-                                            : '0%'}
-                                    </td>
-                                </tr>
-                            ))}
-
-                            {!isUsersLoading && payrollRows.length === 0 && (
-                                <tr>
-                                    <td colSpan={6} className="p-10 text-center text-sm text-slate-400">
-                                        Добавьте сотрудников и настройте схему оплаты
-                                    </td>
-                                </tr>
-                            )}
-                        </tbody>
-                    </table>
-                </div>
+                </form>
             </section>
 
-            <section className="grid grid-cols-1 gap-6 xl:grid-cols-[1.1fr_0.9fr]">
-                <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
-                    <div className="border-b border-slate-100 px-5 py-4">
-                        <h2 className="font-bold text-slate-900">Счета клиник</h2>
-                        <p className="mt-1 text-xs text-slate-500">
-                            Финальная сумма заказа складывается из стоимости его технических задач
-                        </p>
+            {isUsersError && (
+                <section className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-700">
+                    Не удалось загрузить сотрудников. Настройка зарплат временно недоступна.
+                </section>
+            )}
+
+            {statement && (
+                <section className="rounded-lg border border-slate-200 bg-white shadow-sm">
+                    <div className="flex flex-col gap-3 border-b border-slate-100 px-5 py-4 md:flex-row md:items-center md:justify-between">
+                        <div>
+                            <h2 className="font-bold text-slate-900">
+                                Ведомость: {statement.employeeName || statementEmployeeName}
+                            </h2>
+                            <p className="mt-1 text-sm text-slate-500">
+                                {formatDateTime(statement.startDate)} - {formatDateTime(statement.endDate)}
+                            </p>
+                        </div>
+
+                        <div className="flex flex-wrap gap-2 text-xs font-bold">
+                            <span className="rounded-full bg-slate-100 px-3 py-1.5 text-slate-700">
+                                {paymentTypeLabels[statement.paymentType]}
+                            </span>
+                            <span className={`rounded-full px-3 py-1.5 ${
+                                statement.status === 'PAID'
+                                    ? 'bg-emerald-100 text-emerald-700'
+                                    : 'bg-amber-100 text-amber-700'
+                            }`}>
+                                {statement.status === 'PAID' ? 'Оплачено' : 'Черновик'}
+                            </span>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-px bg-slate-100 md:grid-cols-4">
+                        <div className="bg-white p-4">
+                            <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Оклад</p>
+                            <p className="mt-2 text-xl font-black text-slate-900">{formatMoney(statement.baseSalaryAmount)}</p>
+                        </div>
+                        <div className="bg-white p-4">
+                            <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Сдельно</p>
+                            <p className="mt-2 text-xl font-black text-slate-900">{formatMoney(statement.pieceworkAmount)}</p>
+                        </div>
+                        <div className="bg-white p-4">
+                            <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Задач</p>
+                            <p className="mt-2 text-xl font-black text-slate-900">{statement.totalTaskCount}</p>
+                        </div>
+                        <div className="bg-white p-4">
+                            <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Итого</p>
+                            <p className="mt-2 text-xl font-black text-emerald-700">{formatMoney(statement.totalAmount)}</p>
+                        </div>
                     </div>
 
                     <div className="overflow-x-auto">
-                        <table className="w-full min-w-[760px] border-collapse text-left">
+                        <table className="w-full min-w-[900px] border-collapse text-left">
                             <thead className="border-b border-slate-200 bg-slate-50 text-[11px] uppercase tracking-widest text-slate-400">
                                 <tr>
-                                    <th className="p-4 font-bold">Счет</th>
-                                    <th className="p-4 font-bold">Клиника</th>
-                                    <th className="p-4 font-bold">Дата</th>
-                                    <th className="p-4 font-bold">Сумма</th>
-                                    <th className="p-4 font-bold">Оплачено</th>
-                                    <th className="p-4 text-right font-bold">Статус</th>
+                                    <th className="p-4 font-bold">Задача</th>
+                                    <th className="p-4 font-bold">Заказ</th>
+                                    <th className="p-4 font-bold">Работа</th>
+                                    <th className="p-4 font-bold">Кол-во</th>
+                                    <th className="p-4 font-bold">Сумма задачи</th>
+                                    <th className="p-4 font-bold">Начислено</th>
+                                    <th className="p-4 text-right font-bold">Завершено</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
-                                {invoices.map((invoice) => (
-                                    <tr key={invoice.id} className="transition hover:bg-blue-50/30">
-                                        <td className="p-4 font-mono text-sm font-bold text-slate-500">
-                                            #{invoice.id}
+                                {statement.tasks.map((task) => (
+                                    <tr key={task.taskId} className="transition hover:bg-blue-50/30">
+                                        <td className="p-4 font-mono text-xs font-bold text-slate-500">
+                                            {task.taskId}
                                         </td>
-                                        <td className="p-4 text-sm font-bold text-slate-800">
-                                            {invoice.client}
+                                        <td className="p-4 text-sm font-semibold text-slate-700">
+                                            {task.orderNumber}
                                         </td>
-                                        <td className="p-4 text-sm text-slate-500">{invoice.date}</td>
-                                        <td className="p-4 text-sm font-bold text-slate-800">
-                                            {formatMoney(invoice.amount)}
+                                        <td className="p-4 text-sm text-slate-700">
+                                            {task.workTypeName}
                                         </td>
                                         <td className="p-4 text-sm text-slate-600">
-                                            {formatMoney(invoice.paid)}
+                                            {task.quantity}
                                         </td>
-                                        <td className="p-4 text-right">
-                                            <span className={`rounded-full border px-2.5 py-1 text-xs font-bold ${statusClasses[invoice.status]}`}>
-                                                {statusLabels[invoice.status]}
-                                            </span>
+                                        <td className="p-4 text-sm font-bold text-slate-800">
+                                            {formatMoney(task.taskAmount)}
+                                        </td>
+                                        <td className="p-4 text-sm font-black text-emerald-700">
+                                            {formatMoney(task.earnedAmount)}
+                                        </td>
+                                        <td className="p-4 text-right text-sm text-slate-500">
+                                            {formatDateTime(task.completedAt)}
                                         </td>
                                     </tr>
                                 ))}
+
+                                {statement.tasks.length === 0 && (
+                                    <tr>
+                                        <td colSpan={7} className="p-8 text-center text-sm text-slate-400">
+                                            В ведомости нет задач за выбранный период.
+                                        </td>
+                                    </tr>
+                                )}
                             </tbody>
                         </table>
                     </div>
-                </div>
-
-                <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
-                    <h2 className="font-bold text-slate-900">Денежный результат</h2>
-                    <p className="mt-1 text-xs text-slate-500">
-                        Предварительный срез по подтвержденным поступлениям
-                    </p>
-
-                    <div className="mt-5 space-y-4">
-                        {[
-                            { label: 'Поступило от клиник', value: PAID_REVENUE, color: 'bg-emerald-500' },
-                            { label: 'Начислено сотрудникам', value: payrollTotal, color: 'bg-purple-500' },
-                            { label: 'Закуплено материалов', value: materialTotal, color: 'bg-blue-500' },
-                            { label: 'Долги клиник', value: clientDebt, color: 'bg-amber-500' },
-                        ].map((item) => (
-                            <div key={item.label}>
-                                <div className="flex items-center justify-between gap-3">
-                                    <p className="text-sm font-bold text-slate-700">{item.label}</p>
-                                    <p className="text-sm font-black text-slate-900">
-                                        {formatMoney(item.value)}
-                                    </p>
-                                </div>
-                                <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-100">
-                                    <div
-                                        className={`h-full rounded-full ${item.color}`}
-                                        style={{ width: `${Math.min((item.value / REPORT_REVENUE) * 100, 100)}%` }}
-                                    />
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-
-                    <div className="mt-6 rounded-2xl bg-slate-900 p-4 text-white">
-                        <p className="text-xs font-semibold text-slate-400">
-                            Поступления − зарплаты − закупки
-                        </p>
-                        <p className="mt-2 text-2xl font-black">
-                            {formatMoney(preliminaryProfit)}
-                        </p>
-                        <p className="mt-2 text-xs text-slate-400">
-                            Черновой показатель: логика бухгалтерии может быть уточнена после подтверждения ТЗ.
-                        </p>
-                    </div>
-                </div>
-            </section>
-
-            <section className="rounded-2xl border border-slate-200 bg-white shadow-sm">
-                <div className="flex flex-col gap-3 border-b border-slate-100 px-5 py-4 md:flex-row md:items-center md:justify-between">
-                    <div>
-                        <h2 className="font-bold text-slate-900">Закупки материалов</h2>
-                        <p className="mt-1 text-xs text-slate-500">
-                            Учитывается сумма всей партии — цена за грамм или килограмм не рассчитывается
-                        </p>
-                    </div>
-                    <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700">
-                        {isMaterialsLoading ? 'Загрузка...' : formatMoney(materialTotal)}
-                    </span>
-                </div>
-
-                {isMaterialsError && (
-                    <div className="border-b border-amber-100 bg-amber-50 px-5 py-3 text-xs font-semibold text-amber-700">
-                        API материалов недоступен — показаны демонстрационные партии.
-                    </div>
-                )}
-
-                <div className="grid gap-4 p-4 md:grid-cols-2 xl:grid-cols-3">
-                    {materialPurchases.map((material) => (
-                        <article
-                            key={material.id}
-                            className="rounded-2xl border border-slate-200 bg-slate-50 p-4"
-                        >
-                            <h3 className="text-sm font-bold text-slate-900">{material.name}</h3>
-                            <p className="mt-1 text-xs text-slate-500">
-                                {material.description || 'Без описания'}
-                            </p>
-                            <div className="mt-4 grid grid-cols-2 gap-3">
-                                <div className="rounded-xl bg-white p-3">
-                                    <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">
-                                        Количество
-                                    </p>
-                                    <p className="mt-1 text-sm font-black text-slate-900">
-                                        {formatQuantity(material.quantity, material.unit)}
-                                    </p>
-                                </div>
-                                <div className="rounded-xl bg-white p-3">
-                                    <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">
-                                        Сумма партии
-                                    </p>
-                                    <p className="mt-1 text-sm font-black text-slate-900">
-                                        {formatMoney(material.price ?? 0)}
-                                    </p>
-                                </div>
-                            </div>
-                        </article>
-                    ))}
-                </div>
-            </section>
+                </section>
+            )}
         </div>
     );
 }

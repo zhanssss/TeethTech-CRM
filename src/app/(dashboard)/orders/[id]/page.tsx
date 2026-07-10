@@ -3,7 +3,9 @@
 import {type FormEvent, useMemo, useState} from 'react';
 import {useParams} from 'next/navigation';
 import Link from 'next/link';
+import {useSelector} from 'react-redux';
 import TaskDetailsSidebar from '@/src/components/layout/TaskDetailsSidebar';
+import {RootState} from '@/src/lib/store';
 import type {Task} from '@/src/types/task.types';
 import type {OrderApiListItem, OrderDetails, OrderKanbanColumn, OrderKanbanTask} from '@/src/types/order.types';
 import type {User} from '@/src/types/user.types';
@@ -12,6 +14,7 @@ import {
     useGetOrderQuery,
     useGetOrderKanbanQuery,
     useGetOrdersQuery,
+    useAssignTaskMutation,
     useUpdateOrderMutation,
 } from '@/src/services/api/ordersApi';
 import {useGetUsersQuery} from '@/src/services/api/usersApi';
@@ -135,6 +138,70 @@ function getUserLabel(user: User) {
     return meta ? `${user.fullName} (${meta})` : user.fullName;
 }
 
+type AssignmentStage = {
+    label: string;
+    roleTokens: string[];
+};
+
+function getAssignmentStage(column: OrderKanbanColumn): AssignmentStage | null {
+    const value = normalizeRoleValue(`${column.statusName} ${column.title}`);
+
+    if (value.includes('order closed') || value.includes('закрыт')) {
+        return null;
+    }
+
+    if (value.includes('waiting for approval') || (value.includes('ожидани') && value.includes('провер'))) {
+        return {
+            label: 'Диспетчер',
+            roleTokens: ['ROLE_DISPATCHER', 'dispatcher', 'диспетчер'],
+        };
+    }
+
+    if (value.includes('prosthetist work') || value.includes('протезист')) {
+        return {
+            label: 'Протезист',
+            roleTokens: ['ROLE_PROSTHETIST', 'prosthetist', 'протезист'],
+        };
+    }
+
+    if (value.includes('plastering') || value.includes('гипсов')) {
+        return {
+            label: 'Гипсовщик',
+            roleTokens: ['ROLE_PLASTERER', 'plasterer', 'гипсовщик'],
+        };
+    }
+
+    if (value.includes('scanning') || value.includes('сканир')) {
+        return {
+            label: 'Сканировщик',
+            roleTokens: ['ROLE_SCANNER', 'scanner', 'сканировщик'],
+        };
+    }
+
+    if (value.includes('modeling') || value.includes('моделир')) {
+        return {
+            label: 'Оператор',
+            roleTokens: ['ROLE_OPERATOR', 'operator', 'моделировщик', 'оператор'],
+        };
+    }
+
+    if (value.includes('ceramics') || value.includes('керами')) {
+        return {
+            label: 'Керамист',
+            roleTokens: ['ROLE_CERAMIST', 'ceramist', 'керамист'],
+        };
+    }
+
+    if (value.includes('todo') || value.includes('новая задач')) {
+        return {
+            label: 'Диспетчер',
+            roleTokens: ['ROLE_DISPATCHER', 'dispatcher', 'диспетчер'],
+        };
+    }
+
+    return null;
+}
+
 function getAssigneeId(value: unknown) {
     if (!isRecord(value)) return '';
 
@@ -159,6 +226,129 @@ function getTaskTechnicianId(task: OrderKanbanTask) {
 
 function getTaskOperatorId(task: OrderKanbanTask) {
     return task.operator?.id || getStringValue(task, ['cadCamOperatorId', 'operatorId']);
+}
+
+function getTaskAssignedUserId(task: OrderKanbanTask, stage: AssignmentStage) {
+    const assignedUserId = task.assignedUser?.id
+        || task.assignedUserId
+        || getStringValue(task, ['attachedUserId']);
+
+    if (assignedUserId) return assignedUserId;
+
+    if (stage.roleTokens.includes('ROLE_OPERATOR')) {
+        return getTaskOperatorId(task);
+    }
+
+    if (stage.roleTokens.includes('ROLE_CERAMIST')) {
+        return getTaskTechnicianId(task);
+    }
+
+    return '';
+}
+
+function ColumnAssigneeSelect({
+                                  orderId,
+                                  column,
+                                  users,
+                                  canAssign,
+                                  isUsersLoading,
+                              }: {
+    orderId: string;
+    column: OrderKanbanColumn;
+    users: User[];
+    canAssign: boolean;
+    isUsersLoading: boolean;
+}) {
+    const stage = getAssignmentStage(column);
+    const [selectedUserId, setSelectedUserId] = useState('');
+    const [assignmentError, setAssignmentError] = useState('');
+    const [assignTask, {isLoading: isAssigning}] = useAssignTaskMutation();
+
+    if (!stage) return null;
+
+    const eligibleUsers = filterUsersByRole(users, stage.roleTokens)
+        .filter((user) => user.status !== 'FIRED');
+    const assignedUserIds = Array.from(new Set(
+        column.tasks
+            .map((task) => getTaskAssignedUserId(task, stage))
+            .filter(Boolean)
+    ));
+    const currentAssignedUserId = assignedUserIds.length === 1 ? assignedUserIds[0] : '';
+    const selectValue = selectedUserId || currentAssignedUserId;
+    const selectedUser = users.find((user) => user.id === selectValue);
+    const options = selectedUser && !eligibleUsers.some((user) => user.id === selectedUser.id)
+        ? [selectedUser, ...eligibleUsers]
+        : eligibleUsers;
+    const isEmpty = column.tasks.length === 0;
+
+    const handleChange = async (userId: string) => {
+        if (!userId || isEmpty) return;
+
+        setAssignmentError('');
+
+        try {
+            const tasksToAssign = column.tasks.filter(
+                (task) => getTaskAssignedUserId(task, stage) !== userId
+            );
+
+            await Promise.all(
+                tasksToAssign.map((task) =>
+                    assignTask({taskId: task.id, userId, orderId}).unwrap()
+                )
+            );
+            setSelectedUserId(userId);
+        } catch (error) {
+            console.error('Task assignment failed:', error);
+            setAssignmentError('Не удалось назначить сотрудника');
+        }
+    };
+
+    if (!canAssign) {
+        return (
+            <div className="mt-3 border-t border-slate-200 pt-3">
+                <p className="text-[9px] font-bold uppercase tracking-wider text-slate-400">
+                    {stage.label}
+                </p>
+                <p className="mt-1 truncate text-xs font-semibold text-slate-700">
+                    {selectedUser?.fullName || (assignedUserIds.length > 1 ? 'Несколько исполнителей' : 'Не назначен')}
+                </p>
+            </div>
+        );
+    }
+
+    return (
+        <div className="mt-3 border-t border-slate-200 pt-3">
+            <label className="block">
+                <span className="mb-1.5 block text-[9px] font-bold uppercase tracking-wider text-slate-400">
+                    Ответственный · {stage.label}
+                </span>
+                <select
+                    value={selectValue}
+                    disabled={isUsersLoading || isAssigning || isEmpty}
+                    onChange={(event) => void handleChange(event.target.value)}
+                    className="min-h-9 w-full rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-semibold text-slate-700 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+                >
+                    <option value="">
+                        {isEmpty
+                            ? 'Нет задач для назначения'
+                            : assignedUserIds.length > 1
+                                ? 'Несколько исполнителей'
+                                : 'Выберите сотрудника'}
+                    </option>
+                    {options.map((user) => (
+                        <option key={user.id} value={user.id}>
+                            {getUserLabel(user)}
+                        </option>
+                    ))}
+                </select>
+            </label>
+            {assignmentError && (
+                <p className="mt-1.5 text-[10px] font-semibold text-red-600">
+                    {assignmentError}
+                </p>
+            )}
+        </div>
+    );
 }
 
 function mapOrderKanbanTaskToDetailsTask(task: OrderKanbanTask, order?: ServerOrderInfo): Task {
@@ -187,6 +377,10 @@ function mapOrderKanbanTaskToDetailsTask(task: OrderKanbanTask, order?: ServerOr
 export default function OrderBoardPage() {
     const params = useParams<{ id: string | string[] }>();
     const id = Array.isArray(params.id) ? params.id[0] : params.id;
+    const {role, roles} = useSelector((state: RootState) => state.auth);
+    const canAssignTasks = role === 'ADMIN'
+        || role === 'DISPATCHER'
+        || roles.some((userRole) => ['ROLE_ADMIN', 'ROLE_DISPATCHER'].includes(userRole));
     const {data: serverOrders, isLoading: isServerOrdersLoading} = useGetOrdersQuery(ORDER_LOOKUP_PARAMS);
     const {data: serverOrderDetails, isLoading: isServerOrderLoading} = useGetOrderQuery(
         id,
@@ -217,6 +411,7 @@ export default function OrderBoardPage() {
                 columns={serverKanbanColumns ?? []}
                 users={users}
                 isUsersLoading={isUsersLoading}
+                canAssignTasks={canAssignTasks}
             />
         );
     }
@@ -242,12 +437,14 @@ function ServerKanbanBoard({
                                columns,
                                users,
                                isUsersLoading,
+                               canAssignTasks,
                            }: {
     orderId: string;
     order?: ServerOrderInfo;
     columns: OrderKanbanColumn[];
     users: User[];
     isUsersLoading: boolean;
+    canAssignTasks: boolean;
 }) {
     const taskCount = columns.reduce((sum, column) => sum + column.taskCount, 0);
     const [selectedTask, setSelectedTask] = useState<OrderKanbanTask | null>(null);
@@ -390,14 +587,22 @@ function ServerKanbanBoard({
                         key={`${column.statusName}-${column.title}`}
                         className="h-fit min-h-[280px] rounded-xl border border-slate-200 border-t-4 border-t-blue-500 bg-slate-50/60 shadow-sm"
                     >
-                        <div
-                            className="p-4 flex justify-between items-center border-b border-slate-200 bg-white/50 rounded-t-xl">
-                            <h2 className="font-bold text-xs text-slate-800 uppercase tracking-widest">
-                                {column.title || column.statusName}
-                            </h2>
-                            <span className="bg-slate-200 text-slate-700 text-[10px] font-black px-2 py-0.5 rounded">
-                                {column.taskCount}
-                            </span>
+                        <div className="rounded-t-xl border-b border-slate-200 bg-white/50 p-4">
+                            <div className="flex items-center justify-between gap-3">
+                                <h2 className="font-bold text-xs text-slate-800 uppercase tracking-widest">
+                                    {column.title || column.statusName}
+                                </h2>
+                                <span className="bg-slate-200 text-slate-700 text-[10px] font-black px-2 py-0.5 rounded">
+                                    {column.taskCount}
+                                </span>
+                            </div>
+                            <ColumnAssigneeSelect
+                                orderId={orderId}
+                                column={column}
+                                users={users}
+                                canAssign={canAssignTasks}
+                                isUsersLoading={isUsersLoading}
+                            />
                         </div>
 
                         <div className="min-h-[150px] space-y-3 p-3">

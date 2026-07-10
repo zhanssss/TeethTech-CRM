@@ -217,3 +217,53 @@ export interface Task {
     images?: TaskImage[];
     history?: TaskHistoryItem[];
 }
+
+export type GetTaskDashboardParams = {
+    search?: string;
+    workTypeCode?: string;
+    statusId?: string;
+};
+
+export type TaskDashboardTask = {
+    id: string;
+    orderId: string;
+    orderNumber: string;
+    patientName: string;
+    clinicName: string;
+    doctorName: string;
+    workTypeName: string;
+    materialName: string;
+    colorCode: string;
+    quantity: number;
+    toothNumbers: number[];
+    technicianName: string;
+    deadline: string | null;
+    isOverdue: boolean;
+};
+
+export type TaskDashboardColumn = {
+    statusId?: string;
+    statusCode: string;
+    statusName: string;
+    count: number;
+    tasks: TaskDashboardTask[];
+};
+
+export type RecentCompletedDashboardTask = {
+    id: string;
+    orderNumber: string;
+    patientName: string;
+    workTypeName: string;
+    technicianName: string;
+    completedAt: string;
+};
+
+export type TasksDashboardResponse = {
+    totalTasksCount: number;
+    inProgressTasksCount: number;
+    onReviewTasksCount: number;
+    overdueTasksCount: number;
+    columns: TaskDashboardColumn[];
+    totalCompletedCount: number;
+    recentCompletedTasks: RecentCompletedDashboardTask[];
+};

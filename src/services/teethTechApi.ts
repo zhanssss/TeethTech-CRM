@@ -47,6 +47,9 @@ export const teethTechApi = createApi({
         "Nomenclature",
         "Stock",
         "InventoryChecks",
+        "FinanceReport",
+        "SalaryConfig",
+        "SalaryStatements",
     ],
     endpoints: () => ({}),
 });
