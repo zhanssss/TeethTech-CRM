@@ -9,12 +9,14 @@ import type {
     ClinicOrder,
     ClinicPatient,
     ClinicRelatedPageResponse,
+    ClinicSearchResponse,
     UpdateClinicDto
 } from '@/src/types/clinic.types'
 
 import type  {
     GetClinicRelatedParams,
-    GetClinicsParams
+    GetClinicsParams,
+    SearchClinicsParams
 } from '@/src/types/params.types'
 
 export const clinicsApi = teethTechApi.injectEndpoints({
@@ -28,6 +30,18 @@ export const clinicsApi = teethTechApi.injectEndpoints({
                     size,
                     sort: 'name,ASC'
                 }
+            }),
+            providesTags: ["Clinics"],
+        }),
+        searchClinics: builder.query<ClinicSearchResponse, SearchClinicsParams | void>({
+            query: (params) => ({
+                url: '/clinics/search',
+                method: 'GET',
+                params: params
+                    ? Object.fromEntries(
+                        Object.entries(params).filter(([, value]) => value !== undefined)
+                    )
+                    : undefined,
             }),
             providesTags: ["Clinics"],
         }),
@@ -128,6 +142,7 @@ export const clinicsApi = teethTechApi.injectEndpoints({
 
 export const {
     useGetClinicsQuery,
+    useSearchClinicsQuery,
     useGetClinicsByIdQuery,
     useGetClinicDoctorsQuery,
     useGetClinicOrdersQuery,

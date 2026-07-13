@@ -50,6 +50,8 @@ export const teethTechApi = createApi({
         "FinanceReport",
         "SalaryConfig",
         "SalaryStatements",
+        "Workflow",
+        "OrderStatuses",
     ],
     endpoints: () => ({}),
 });

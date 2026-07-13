@@ -5,6 +5,8 @@ import type {
     InventoryCheckItem,
     InventoryCheckItemsPage,
     InventoryCheckStatus,
+    NomenclatureNorm,
+    NomenclatureNormRequest,
     NomenclatureItem,
     ReceiveStockRequest,
     StockMovement,
@@ -138,6 +140,31 @@ export const warehouseApi = teethTechApi.injectEndpoints({
         getNomenclatureItem: builder.query<NomenclatureItem, string>({
             query: (id) => `/nomenclature/${id}`,
             providesTags: (_result, _error, id) => [{ type: 'Nomenclature', id }],
+        }),
+
+        upsertNomenclatureNorm: builder.mutation<NomenclatureNorm, NomenclatureNormRequest>({
+            query: (body) => ({
+                url: '/nomenclature-norms',
+                method: 'POST',
+                body,
+            }),
+            invalidatesTags: [
+                { type: 'Nomenclature', id: 'LIST' },
+                'Materials',
+                'WorkTypes',
+            ],
+        }),
+
+        deleteNomenclatureNorm: builder.mutation<void, string>({
+            query: (id) => ({
+                url: `/nomenclature-norms/${id}`,
+                method: 'DELETE',
+            }),
+            invalidatesTags: [
+                { type: 'Nomenclature', id: 'LIST' },
+                'Materials',
+                'WorkTypes',
+            ],
         }),
 
         getStockBalance: builder.query<number, string>({
@@ -301,6 +328,8 @@ export const warehouseApi = teethTechApi.injectEndpoints({
 export const {
     useGetNomenclatureQuery,
     useGetNomenclatureItemQuery,
+    useUpsertNomenclatureNormMutation,
+    useDeleteNomenclatureNormMutation,
     useGetStockBalanceQuery,
     useReceiveStockMutation,
     useCreateWarehouseMaterialMutation,

@@ -13,6 +13,11 @@ export const materialsApi = teethTechApi.injectEndpoints({
             providesTags: ['Materials'],
         }),
 
+        getMaterial: builder.query<Material, string>({
+            query: (id) => `/materials/${id}`,
+            providesTags: (_result, _error, id) => [{ type: 'Materials', id }],
+        }),
+
         createMaterial: builder.mutation<Material, CreateMaterialDto>({
             query: (body) => ({
                 url: '/materials',
@@ -43,6 +48,7 @@ export const materialsApi = teethTechApi.injectEndpoints({
 
 export const {
     useGetMaterialsQuery,
+    useGetMaterialQuery,
     useCreateMaterialMutation,
     useUpdateMaterialMutation,
     useDeleteMaterialMutation,

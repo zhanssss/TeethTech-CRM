@@ -144,6 +144,8 @@ export interface OrderApiListItem {
     pricePerUnit: number;
     discount: number;
     totalPrice: number;
+    taskIds: string[];
+    clinic: string;
 }
 
 export interface CreateOrderResponse extends OrderApiListItem {
@@ -205,7 +207,16 @@ export interface CreateOrderDto {
     tasks: CreateOrderTaskDto[];
 }
 
-export type CreateOrderTaskRequest = Omit<CreateOrderTaskDto, 'attachments' | 'images'>;
+export interface CreateOrderTaskRequest {
+    workTypeId: string;
+    quantity: number;
+    toothNumbers: number[];
+    orderId?: string;
+    colorId: string;
+    materialId: string;
+    pricePerUnit: number;
+    discountPercent: number;
+}
 
 export interface CreateOrderRequest extends Omit<CreateOrderDto, 'tasks'> {
     tasks: CreateOrderTaskRequest[];

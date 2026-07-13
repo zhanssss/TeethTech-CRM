@@ -35,6 +35,25 @@ export type ClinicGetApiResponse = {
     empty: boolean;
 }
 
+export type ClinicSearchItem = {
+    id: string;
+    name: string;
+    address: string;
+    phone: string;
+}
+
+export type ClinicSearchResponse = {
+    pageable: Pageable;
+    first: boolean;
+    sort: Sort;
+    size: number;
+    content: ClinicSearchItem[];
+    number: number;
+    numberOfElements: number;
+    last: boolean;
+    empty: boolean;
+}
+
 export type ClinicRelatedPageResponse<T> = {
     pageable: Pageable;
     first: boolean;

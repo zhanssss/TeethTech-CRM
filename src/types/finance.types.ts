@@ -59,3 +59,14 @@ export type SalaryStatement = {
     totalTaskCount: number;
     tasks: SalaryStatementTask[];
 };
+
+export type SalaryEmployee = {
+    id: string;
+    name: string;
+    email: string;
+};
+
+export type SalaryStatementsHistoryRequest = {
+    start: string;
+    end: string;
+};

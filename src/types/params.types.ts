@@ -4,6 +4,13 @@ export type GetClinicsParams = {
     sort?: string;
 };
 
+export type SearchClinicsParams = {
+    name?: string;
+    page?: number;
+    size?: number;
+    sort?: string | string[];
+};
+
 export type GetOrdersParams = {
     page: number;
     size: number;

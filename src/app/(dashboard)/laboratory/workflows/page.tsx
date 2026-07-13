@@ -17,6 +17,18 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { type CSSProperties, type FormEvent, useEffect, useState } from 'react';
 
+import { useGetWorkTypesQuery } from '@/src/services/api/laboratory/workTypesApi';
+import {
+    useCreateAdminWorkflowStepMutation,
+    useCreateOrderStatusMutation,
+    useDeleteAdminWorkflowStepMutation,
+    useDeleteOrderStatusMutation,
+    useGetAdminWorkflowStepsQuery,
+    useGetOrderStatusesQuery,
+    useGetWorkflowStatusesQuery,
+    useUpdateOrderStatusConfigMutation,
+} from '@/src/services/api/workflowApi';
+
 type WorkflowStep = {
     id: string;
     name: string;
@@ -36,6 +48,10 @@ const STORAGE_KEY = 'teeth-tech-custom-workflows';
 
 function createId(prefix: string) {
     return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function getColorInputValue(value?: string) {
+    return /^#[0-9a-fA-F]{6}$/.test(value ?? '') ? value as string : '#2563eb';
 }
 
 function SortableStep({
@@ -104,6 +120,42 @@ export default function LaboratoryWorkflowsPage() {
     const [workflows, setWorkflows] = useState<Workflow[]>([]);
     const [error, setError] = useState('');
     const [isStorageReady, setIsStorageReady] = useState(false);
+    const [selectedWorkTypeId, setSelectedWorkTypeId] = useState('');
+    const [fromStatusId, setFromStatusId] = useState('');
+    const [toStatusId, setToStatusId] = useState('');
+    const [requiredRole, setRequiredRole] = useState('');
+    const [stepSortOrder, setStepSortOrder] = useState('0');
+    const [serverWorkflowMessage, setServerWorkflowMessage] = useState('');
+    const [serverWorkflowError, setServerWorkflowError] = useState('');
+    const [statusDraftId, setStatusDraftId] = useState('');
+    const [statusCode, setStatusCode] = useState('');
+    const [statusName, setStatusName] = useState('');
+    const [statusDescription, setStatusDescription] = useState('');
+    const [statusSortOrder, setStatusSortOrder] = useState('0');
+    const [statusColorHex, setStatusColorHex] = useState('#2563eb');
+
+    const { data: workTypes = [], isLoading: isWorkTypesLoading } = useGetWorkTypesQuery();
+    const serverWorkTypeId = selectedWorkTypeId || workTypes[0]?.id || '';
+    const { data: workflowStatuses = [], isLoading: isWorkflowStatusesLoading } = useGetWorkflowStatusesQuery();
+    const {
+        data: serverWorkflowSteps = [],
+        isFetching: isServerWorkflowStepsFetching,
+        isError: isServerWorkflowStepsError,
+    } = useGetAdminWorkflowStepsQuery(
+        { workTypeId: serverWorkTypeId },
+        { skip: !serverWorkTypeId }
+    );
+    const {
+        data: orderStatuses = [],
+        isFetching: isOrderStatusesFetching,
+        isError: isOrderStatusesError,
+    } = useGetOrderStatusesQuery();
+    const [createAdminWorkflowStep, { isLoading: isCreatingServerStep }] = useCreateAdminWorkflowStepMutation();
+    const [deleteAdminWorkflowStep, { isLoading: isDeletingServerStep }] = useDeleteAdminWorkflowStepMutation();
+    const [createOrderStatus, { isLoading: isCreatingOrderStatus }] = useCreateOrderStatusMutation();
+    const [updateOrderStatusConfig, { isLoading: isUpdatingOrderStatus }] = useUpdateOrderStatusConfigMutation();
+    const [deleteOrderStatus, { isLoading: isDeletingOrderStatus }] = useDeleteOrderStatusMutation();
+    const isSavingOrderStatus = isCreatingOrderStatus || isUpdatingOrderStatus;
 
     const sensors = useSensors(
         useSensor(PointerSensor, {
@@ -126,6 +178,131 @@ export default function LaboratoryWorkflowsPage() {
         if (!isStorageReady) return;
         window.localStorage.setItem(STORAGE_KEY, JSON.stringify(workflows));
     }, [isStorageReady, workflows]);
+
+    const clearServerMessages = () => {
+        setServerWorkflowMessage('');
+        setServerWorkflowError('');
+    };
+
+    const handleServerStepSubmit = async (event: FormEvent<HTMLFormElement>) => {
+        event.preventDefault();
+        clearServerMessages();
+
+        if (!serverWorkTypeId || !fromStatusId || !toStatusId || !requiredRole.trim()) {
+            setServerWorkflowError('Выберите тип работы, статусы перехода и роль.');
+            return;
+        }
+
+        if (fromStatusId === toStatusId) {
+            setServerWorkflowError('Начальный и конечный статусы должны отличаться.');
+            return;
+        }
+
+        try {
+            await createAdminWorkflowStep({
+                workTypeId: serverWorkTypeId,
+                fromStatusId,
+                toStatusId,
+                requiredRole: requiredRole.trim(),
+                sortOrder: Number(stepSortOrder) || 0,
+            }).unwrap();
+            setRequiredRole('');
+            setStepSortOrder('0');
+            setServerWorkflowMessage('Шаг workflow сохранен.');
+        } catch (error) {
+            console.error('Workflow step create failed:', error);
+            setServerWorkflowError('Не удалось сохранить шаг workflow.');
+        }
+    };
+
+    const handleDeleteServerStep = async (id: string) => {
+        clearServerMessages();
+
+        try {
+            await deleteAdminWorkflowStep(id).unwrap();
+            setServerWorkflowMessage('Шаг workflow удален.');
+        } catch (error) {
+            console.error('Workflow step delete failed:', error);
+            setServerWorkflowError('Не удалось удалить шаг workflow.');
+        }
+    };
+
+    const selectStatusDraft = (id: string) => {
+        const selectedStatus = orderStatuses.find((status) => status.id === id);
+
+        setStatusDraftId(id);
+        clearServerMessages();
+
+        if (!selectedStatus) {
+            setStatusCode('');
+            setStatusName('');
+            setStatusDescription('');
+            setStatusSortOrder('0');
+            setStatusColorHex('#2563eb');
+            return;
+        }
+
+        setStatusCode(selectedStatus.code);
+        setStatusName(selectedStatus.name);
+        setStatusDescription(selectedStatus.description ?? '');
+        setStatusSortOrder(String(selectedStatus.sortOrder ?? 0));
+        setStatusColorHex(getColorInputValue(selectedStatus.colorHex));
+    };
+
+    const handleOrderStatusSubmit = async (event: FormEvent<HTMLFormElement>) => {
+        event.preventDefault();
+        clearServerMessages();
+
+        if (!statusCode.trim() || !statusName.trim()) {
+            setServerWorkflowError('Укажите код и название статуса.');
+            return;
+        }
+
+        const body = {
+            code: statusCode.trim(),
+            name: statusName.trim(),
+            description: statusDescription.trim(),
+            sortOrder: Number(statusSortOrder) || 0,
+            colorHex: statusColorHex.trim() || '#2563eb',
+        };
+
+        try {
+            if (statusDraftId) {
+                await updateOrderStatusConfig({
+                    id: statusDraftId,
+                    body: {
+                        id: statusDraftId,
+                        ...body,
+                    },
+                }).unwrap();
+                setServerWorkflowMessage('Статус заказа обновлен.');
+            } else {
+                await createOrderStatus(body).unwrap();
+                setServerWorkflowMessage('Статус заказа создан.');
+            }
+        } catch (error) {
+            console.error('Order status save failed:', error);
+            setServerWorkflowError('Не удалось сохранить статус заказа.');
+        }
+    };
+
+    const handleDeleteOrderStatus = async () => {
+        if (!statusDraftId) {
+            setServerWorkflowError('Выберите статус для удаления.');
+            return;
+        }
+
+        clearServerMessages();
+
+        try {
+            await deleteOrderStatus(statusDraftId).unwrap();
+            selectStatusDraft('');
+            setServerWorkflowMessage('Статус заказа удален.');
+        } catch (error) {
+            console.error('Order status delete failed:', error);
+            setServerWorkflowError('Не удалось удалить статус заказа.');
+        }
+    };
 
     const addStep = () => {
         const name = newStepName.trim();
@@ -194,6 +371,272 @@ export default function LaboratoryWorkflowsPage() {
                     добавить промежуточные шаги и расставить их перетаскиванием.
                 </p>
             </header>
+
+            <section className="grid gap-6 xl:grid-cols-[minmax(22rem,1.05fr)_minmax(22rem,0.95fr)]">
+                <form
+                    onSubmit={handleServerStepSubmit}
+                    className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5"
+                >
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                        <div>
+                            <h2 className="font-bold text-slate-900">Серверные шаги workflow</h2>
+                            <p className="mt-1 text-xs text-slate-500">
+                                Настройка цепочки этапов по типу работы через backend.
+                            </p>
+                        </div>
+                        {isServerWorkflowStepsFetching && (
+                            <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700">
+                                Загрузка
+                            </span>
+                        )}
+                    </div>
+
+                    <div className="mt-5 grid gap-3 md:grid-cols-2">
+                        <label className="block md:col-span-2">
+                            <span className="mb-1.5 block text-sm font-semibold text-slate-700">Тип работы</span>
+                            <select
+                                value={serverWorkTypeId}
+                                onChange={(event) => setSelectedWorkTypeId(event.target.value)}
+                                disabled={isWorkTypesLoading || workTypes.length === 0}
+                                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-500 focus:bg-white disabled:cursor-not-allowed disabled:bg-slate-100"
+                            >
+                                {workTypes.length === 0 ? (
+                                    <option value="">Нет типов работ</option>
+                                ) : (
+                                    workTypes.map((workType) => (
+                                        <option key={workType.id} value={workType.id}>
+                                            {workType.name}
+                                        </option>
+                                    ))
+                                )}
+                            </select>
+                        </label>
+
+                        <label>
+                            <span className="mb-1.5 block text-sm font-semibold text-slate-700">Из статуса</span>
+                            <select
+                                required
+                                value={fromStatusId}
+                                onChange={(event) => setFromStatusId(event.target.value)}
+                                disabled={isWorkflowStatusesLoading || workflowStatuses.length === 0}
+                                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-500 focus:bg-white disabled:cursor-not-allowed disabled:bg-slate-100"
+                            >
+                                <option value="">Выберите статус</option>
+                                {workflowStatuses.map((status) => (
+                                    <option key={status.id} value={status.id}>
+                                        {status.name}
+                                    </option>
+                                ))}
+                            </select>
+                        </label>
+
+                        <label>
+                            <span className="mb-1.5 block text-sm font-semibold text-slate-700">В статус</span>
+                            <select
+                                required
+                                value={toStatusId}
+                                onChange={(event) => setToStatusId(event.target.value)}
+                                disabled={isWorkflowStatusesLoading || workflowStatuses.length === 0}
+                                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-500 focus:bg-white disabled:cursor-not-allowed disabled:bg-slate-100"
+                            >
+                                <option value="">Выберите статус</option>
+                                {workflowStatuses.map((status) => (
+                                    <option key={status.id} value={status.id}>
+                                        {status.name}
+                                    </option>
+                                ))}
+                            </select>
+                        </label>
+
+                        <label>
+                            <span className="mb-1.5 block text-sm font-semibold text-slate-700">Роль</span>
+                            <input
+                                required
+                                value={requiredRole}
+                                onChange={(event) => setRequiredRole(event.target.value)}
+                                placeholder="TECHNICIAN"
+                                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-500 focus:bg-white"
+                            />
+                        </label>
+
+                        <label>
+                            <span className="mb-1.5 block text-sm font-semibold text-slate-700">Сортировка</span>
+                            <input
+                                type="number"
+                                value={stepSortOrder}
+                                onChange={(event) => setStepSortOrder(event.target.value)}
+                                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-500 focus:bg-white"
+                            />
+                        </label>
+                    </div>
+
+                    <button
+                        type="submit"
+                        disabled={isCreatingServerStep || !serverWorkTypeId}
+                        className="mt-4 w-full rounded-xl bg-blue-600 px-5 py-3 text-sm font-bold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300 sm:w-auto"
+                    >
+                        {isCreatingServerStep ? 'Сохраняем...' : 'Добавить серверный шаг'}
+                    </button>
+
+                    <div className="mt-5 space-y-3">
+                        {isServerWorkflowStepsError && (
+                            <p className="rounded-xl bg-red-50 px-4 py-3 text-sm font-semibold text-red-600">
+                                Не удалось загрузить шаги workflow.
+                            </p>
+                        )}
+
+                        {serverWorkflowSteps.map((step) => (
+                            <div
+                                key={step.id}
+                                className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3 sm:flex-row sm:items-center sm:justify-between"
+                            >
+                                <div className="min-w-0">
+                                    <p className="truncate text-sm font-bold text-slate-800">
+                                        {step.fromStatusName} → {step.toStatusName}
+                                    </p>
+                                    <p className="mt-1 text-xs text-slate-500">
+                                        {step.workTypeName} / {step.requiredRole} / #{step.sortOrder}
+                                    </p>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => handleDeleteServerStep(step.id)}
+                                    disabled={isDeletingServerStep}
+                                    className="rounded-lg px-3 py-2 text-xs font-bold text-red-500 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:text-slate-300"
+                                >
+                                    Удалить
+                                </button>
+                            </div>
+                        ))}
+
+                        {!isServerWorkflowStepsFetching && serverWorkflowSteps.length === 0 && (
+                            <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-8 text-center text-sm text-slate-400">
+                                Для выбранного типа работы серверных шагов пока нет.
+                            </div>
+                        )}
+                    </div>
+                </form>
+
+                <form
+                    onSubmit={handleOrderStatusSubmit}
+                    className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5"
+                >
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                        <div>
+                            <h2 className="font-bold text-slate-900">Статусы заказа</h2>
+                            <p className="mt-1 text-xs text-slate-500">
+                                Глобальные этапы для канбана и фильтров.
+                            </p>
+                        </div>
+                        {isOrderStatusesFetching && (
+                            <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700">
+                                Загрузка
+                            </span>
+                        )}
+                    </div>
+
+                    <div className="mt-5 space-y-3">
+                        <label className="block">
+                            <span className="mb-1.5 block text-sm font-semibold text-slate-700">Редактируемый статус</span>
+                            <select
+                                value={statusDraftId}
+                                onChange={(event) => selectStatusDraft(event.target.value)}
+                                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-500 focus:bg-white"
+                            >
+                                <option value="">Создать новый статус</option>
+                                {orderStatuses.map((status) => (
+                                    <option key={status.id} value={status.id}>
+                                        {status.name}
+                                    </option>
+                                ))}
+                            </select>
+                        </label>
+
+                        <div className="grid gap-3 sm:grid-cols-2">
+                            <label>
+                                <span className="mb-1.5 block text-sm font-semibold text-slate-700">Код</span>
+                                <input
+                                    required
+                                    value={statusCode}
+                                    onChange={(event) => setStatusCode(event.target.value)}
+                                    placeholder="IN_PROGRESS"
+                                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 font-mono text-sm outline-none transition focus:border-blue-500 focus:bg-white"
+                                />
+                            </label>
+
+                            <label>
+                                <span className="mb-1.5 block text-sm font-semibold text-slate-700">Название</span>
+                                <input
+                                    required
+                                    value={statusName}
+                                    onChange={(event) => setStatusName(event.target.value)}
+                                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-500 focus:bg-white"
+                                />
+                            </label>
+                        </div>
+
+                        <label className="block">
+                            <span className="mb-1.5 block text-sm font-semibold text-slate-700">Описание</span>
+                            <input
+                                value={statusDescription}
+                                onChange={(event) => setStatusDescription(event.target.value)}
+                                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-500 focus:bg-white"
+                            />
+                        </label>
+
+                        <div className="grid gap-3 sm:grid-cols-[1fr_8rem]">
+                            <label>
+                                <span className="mb-1.5 block text-sm font-semibold text-slate-700">Сортировка</span>
+                                <input
+                                    type="number"
+                                    value={statusSortOrder}
+                                    onChange={(event) => setStatusSortOrder(event.target.value)}
+                                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-500 focus:bg-white"
+                                />
+                            </label>
+
+                            <label>
+                                <span className="mb-1.5 block text-sm font-semibold text-slate-700">Цвет</span>
+                                <input
+                                    type="color"
+                                    value={statusColorHex}
+                                    onChange={(event) => setStatusColorHex(event.target.value)}
+                                    className="h-[46px] w-full rounded-xl border border-slate-200 bg-slate-50 px-2 py-2 outline-none transition focus:border-blue-500 focus:bg-white"
+                                />
+                            </label>
+                        </div>
+                    </div>
+
+                    <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+                        <button
+                            type="submit"
+                            disabled={isSavingOrderStatus}
+                            className="inline-flex min-h-11 items-center justify-center rounded-xl bg-slate-900 px-5 text-sm font-bold text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+                        >
+                            {isSavingOrderStatus ? 'Сохраняем...' : statusDraftId ? 'Обновить статус' : 'Создать статус'}
+                        </button>
+
+                        <button
+                            type="button"
+                            onClick={handleDeleteOrderStatus}
+                            disabled={!statusDraftId || isDeletingOrderStatus}
+                            className="inline-flex min-h-11 items-center justify-center rounded-xl border border-red-500 px-5 text-sm font-bold text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-300"
+                        >
+                            {isDeletingOrderStatus ? 'Удаляем...' : 'Удалить'}
+                        </button>
+                    </div>
+                </form>
+            </section>
+
+            {(serverWorkflowError || serverWorkflowMessage || isOrderStatusesError) && (
+                <section className={`rounded-xl px-4 py-3 text-sm font-semibold ${
+                    serverWorkflowError || isOrderStatusesError
+                        ? 'bg-red-50 text-red-600'
+                        : 'bg-emerald-50 text-emerald-700'
+                }`}>
+                    {serverWorkflowError || (isOrderStatusesError ? 'Не удалось загрузить статусы заказа.' : serverWorkflowMessage)}
+                </section>
+            )}
 
             <form
                 onSubmit={handleSubmit}

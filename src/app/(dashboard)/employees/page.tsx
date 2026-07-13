@@ -13,7 +13,7 @@ import {
     getStatusLabel,
 } from '@/src/utils/employeesUtils';
 import CreateEmployeeModal from '@/src/components/Modals/CreateEmployeeModal';
-import {useGetUsersQuery} from "@/src/services/api/usersApi";
+import { useDeleteUserMutation, useGetUsersQuery } from "@/src/services/api/usersApi";
 import ErrorModal from '@/src/components/ui/ErrorModal';
 
 
@@ -40,12 +40,15 @@ export default function EmployeesPage() {
     const [selectedRole, setSelectedRole] = useState<EmployeeRoleFilter>('ALL');
     const [showFiredEmployees, setShowFiredEmployees] = useState(false);
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+    const [actionError, setActionError] = useState('');
+    const [actionMessage, setActionMessage] = useState('');
 
     const {
         data: users = [],
         isLoading,
         isError,
     } = useGetUsersQuery();
+    const [deleteUser, { isLoading: isDeletingUser }] = useDeleteUserMutation();
     const filteredEmployees = useMemo(() => {
         const normalizedSearch = search.trim().toLowerCase();
 
@@ -93,6 +96,22 @@ export default function EmployeesPage() {
             averageOnTimeRate,
         };
     }, [filteredEmployees]);
+
+    const handleDeleteUser = async (id: string, fullName: string) => {
+        setActionError('');
+        setActionMessage('');
+
+        const shouldDelete = window.confirm(`Удалить сотрудника "${fullName}"?`);
+        if (!shouldDelete) return;
+
+        try {
+            await deleteUser(id).unwrap();
+            setActionMessage('Сотрудник удален.');
+        } catch (error) {
+            console.error('User delete failed:', error);
+            setActionError('Не удалось удалить сотрудника.');
+        }
+    };
 
     if (isLoading) {
         return <div className="text-sm text-slate-500">Загрузка сотрудников...</div>;
@@ -182,6 +201,13 @@ export default function EmployeesPage() {
                     </div>
                 </div>
             </section>
+            {(actionError || actionMessage) && (
+                <section className={`rounded-xl px-4 py-3 text-sm font-semibold ${
+                    actionError ? 'bg-red-50 text-red-700' : 'bg-emerald-50 text-emerald-700'
+                }`}>
+                    {actionError || actionMessage}
+                </section>
+            )}
             <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
                 <div className="border-b border-slate-200 bg-slate-50 px-4 py-3">
                     <h2 className="text-sm font-bold uppercase tracking-wider text-slate-500">
@@ -276,13 +302,23 @@ export default function EmployeesPage() {
                                         </span>
                                 </td>
 
-                                <td className="p-4 text-right">
-                                    <Link
-                                        href={`/employees/${employee.id}`}
-                                        className="rounded-lg border border-blue-600 px-3 py-1.5 text-xs font-bold text-blue-600 transition hover:bg-blue-600 hover:text-white"
-                                    >
-                                        Открыть
-                                    </Link>
+                                <td className="p-4">
+                                    <div className="flex justify-end gap-2">
+                                        <Link
+                                            href={`/employees/${employee.id}`}
+                                            className="rounded-lg border border-blue-600 px-3 py-1.5 text-xs font-bold text-blue-600 transition hover:bg-blue-600 hover:text-white"
+                                        >
+                                            Открыть
+                                        </Link>
+                                        <button
+                                            type="button"
+                                            onClick={() => handleDeleteUser(employee.id, employee.fullName)}
+                                            disabled={isDeletingUser}
+                                            className="rounded-lg border border-red-500 px-3 py-1.5 text-xs font-bold text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-300"
+                                        >
+                                            Удалить
+                                        </button>
+                                    </div>
                                 </td>
                             </tr>
                         ))}

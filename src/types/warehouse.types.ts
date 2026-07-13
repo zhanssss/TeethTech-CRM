@@ -90,3 +90,16 @@ export type CreateInventoryCheckRequest = {
 export type UpdateInventoryItemRequest = {
     actualQuantity: number;
 };
+
+export type NomenclatureNormRequest = {
+    workTypeId: string;
+    materialId: string;
+    nomenclatureId: string;
+    normQuantity: number;
+};
+
+export type NomenclatureNorm = NomenclatureNormRequest & {
+    id: string;
+    createdAt: string;
+    updatedAt: string;
+};

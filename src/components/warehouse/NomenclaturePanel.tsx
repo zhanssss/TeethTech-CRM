@@ -3,13 +3,17 @@
 import { type FormEvent, useMemo, useState } from 'react';
 
 import Modal from '@/src/components/ui/Modal';
+import { useGetMaterialsQuery } from '@/src/services/api/laboratory/materialApi';
+import { useGetWorkTypesQuery } from '@/src/services/api/laboratory/workTypesApi';
 import {
     useCreateWarehouseMaterialMutation,
+    useDeleteNomenclatureNormMutation,
     useGetInventoryChecksQuery,
     useGetNomenclatureItemQuery,
     useGetNomenclatureQuery,
     useGetStockBalanceQuery,
     useReceiveStockMutation,
+    useUpsertNomenclatureNormMutation,
 } from '@/src/services/api/warehouseApi';
 import { formatQuantity, getApiErrorMessage, inventoryStatusLabels } from './warehouseUtils';
 
@@ -28,13 +32,23 @@ export default function NomenclaturePanel() {
     const [materialUnit, setMaterialUnit] = useState('');
     const [createMaterialError, setCreateMaterialError] = useState('');
     const [createMaterialSuccess, setCreateMaterialSuccess] = useState('');
+    const [normWorkTypeId, setNormWorkTypeId] = useState('');
+    const [normMaterialId, setNormMaterialId] = useState('');
+    const [normQuantity, setNormQuantity] = useState('');
+    const [normIdToDelete, setNormIdToDelete] = useState('');
+    const [normError, setNormError] = useState('');
+    const [normSuccess, setNormSuccess] = useState('');
 
     const listQuery = useGetNomenclatureQuery({ activeOnly });
     const inventoryChecksQuery = useGetInventoryChecksQuery();
     const detailQuery = useGetNomenclatureItemQuery(selectedId ?? '', { skip: !selectedId });
     const balanceQuery = useGetStockBalanceQuery(selectedId ?? '', { skip: !selectedId });
+    const { data: workTypes = [], isLoading: isWorkTypesLoading } = useGetWorkTypesQuery();
+    const { data: materials = [], isLoading: isMaterialsLoading } = useGetMaterialsQuery();
     const [receiveStock, receiveState] = useReceiveStockMutation();
     const [createWarehouseMaterial, createMaterialState] = useCreateWarehouseMaterialMutation();
+    const [upsertNomenclatureNorm, upsertNormState] = useUpsertNomenclatureNormMutation();
+    const [deleteNomenclatureNorm, deleteNormState] = useDeleteNomenclatureNormMutation();
 
     const filteredItems = useMemo(() => {
         const needle = search.trim().toLocaleLowerCase('ru-RU');
@@ -59,6 +73,12 @@ export default function NomenclaturePanel() {
         setReason('');
         setFormError('');
         setSuccessMessage('');
+        setNormWorkTypeId('');
+        setNormMaterialId('');
+        setNormQuantity('');
+        setNormIdToDelete('');
+        setNormError('');
+        setNormSuccess('');
     };
 
     const closeItem = () => {
@@ -142,6 +162,59 @@ export default function NomenclaturePanel() {
             setSuccessMessage('Приход проведён. Остаток обновлён.');
         } catch (error) {
             setFormError(getApiErrorMessage(error, 'Не удалось провести приход'));
+        }
+    };
+
+    const handleUpsertNorm = async (event: FormEvent<HTMLFormElement>) => {
+        event.preventDefault();
+        if (!selectedId) return;
+
+        setNormError('');
+        setNormSuccess('');
+
+        const parsedQuantity = Number(normQuantity);
+
+        if (!normWorkTypeId || !normMaterialId) {
+            setNormError('Выберите тип работы и материал для нормы расхода.');
+            return;
+        }
+
+        if (!Number.isFinite(parsedQuantity) || parsedQuantity <= 0) {
+            setNormError('Норма расхода должна быть больше нуля.');
+            return;
+        }
+
+        try {
+            await upsertNomenclatureNorm({
+                workTypeId: normWorkTypeId,
+                materialId: normMaterialId,
+                nomenclatureId: selectedId,
+                normQuantity: parsedQuantity,
+            }).unwrap();
+            setNormQuantity('');
+            setNormSuccess('Норма расхода сохранена.');
+        } catch (error) {
+            setNormError(getApiErrorMessage(error, 'Не удалось сохранить норму расхода'));
+        }
+    };
+
+    const handleDeleteNorm = async () => {
+        const normId = normIdToDelete.trim();
+
+        if (!normId) {
+            setNormError('Укажите ID нормы расхода для удаления.');
+            return;
+        }
+
+        setNormError('');
+        setNormSuccess('');
+
+        try {
+            await deleteNomenclatureNorm(normId).unwrap();
+            setNormIdToDelete('');
+            setNormSuccess('Норма расхода удалена.');
+        } catch (error) {
+            setNormError(getApiErrorMessage(error, 'Не удалось удалить норму расхода'));
         }
     };
 
@@ -476,6 +549,108 @@ export default function NomenclaturePanel() {
                                     className="rounded-xl bg-blue-600 px-5 py-3 text-sm font-bold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-300"
                                 >
                                     {receiveState.isLoading ? 'Проводим…' : 'Провести приход'}
+                                </button>
+                            </div>
+                        </form>
+
+                        <form onSubmit={handleUpsertNorm} className="space-y-4 rounded-2xl border border-emerald-100 bg-emerald-50/60 p-4 sm:p-5">
+                            <div>
+                                <h3 className="font-bold text-slate-900">Норма расхода</h3>
+                                <p className="mt-1 text-xs leading-5 text-slate-600">
+                                    Привяжите эту складскую позицию к типу работы и материалу, чтобы backend знал плановый расход.
+                                </p>
+                            </div>
+
+                            <div className="grid gap-3 sm:grid-cols-2">
+                                <label>
+                                    <span className="mb-1.5 block text-sm font-semibold text-slate-700">Тип работы</span>
+                                    <select
+                                        required
+                                        value={normWorkTypeId}
+                                        onChange={(event) => setNormWorkTypeId(event.target.value)}
+                                        disabled={isWorkTypesLoading}
+                                        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm outline-none focus:border-emerald-500 disabled:cursor-not-allowed disabled:bg-slate-100"
+                                    >
+                                        <option value="">Выберите тип работы</option>
+                                        {workTypes.map((workType) => (
+                                            <option key={workType.id} value={workType.id}>
+                                                {workType.name}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </label>
+
+                                <label>
+                                    <span className="mb-1.5 block text-sm font-semibold text-slate-700">Материал</span>
+                                    <select
+                                        required
+                                        value={normMaterialId}
+                                        onChange={(event) => setNormMaterialId(event.target.value)}
+                                        disabled={isMaterialsLoading}
+                                        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm outline-none focus:border-emerald-500 disabled:cursor-not-allowed disabled:bg-slate-100"
+                                    >
+                                        <option value="">Выберите материал</option>
+                                        {materials.map((material) => (
+                                            <option key={material.id} value={material.id}>
+                                                {material.name}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </label>
+                            </div>
+
+                            <label>
+                                <span className="mb-1.5 block text-sm font-semibold text-slate-700">Количество на работу</span>
+                                <div className="relative">
+                                    <input
+                                        required
+                                        type="number"
+                                        min="0.001"
+                                        step="0.001"
+                                        value={normQuantity}
+                                        onChange={(event) => setNormQuantity(event.target.value)}
+                                        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-3 pr-10 text-sm outline-none focus:border-emerald-500"
+                                    />
+                                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">
+                                        {selectedItem?.unit}
+                                    </span>
+                                </div>
+                            </label>
+
+                            <div className="rounded-xl border border-slate-200 bg-white p-3">
+                                <label>
+                                    <span className="mb-1.5 block text-sm font-semibold text-slate-700">ID нормы для удаления</span>
+                                    <input
+                                        value={normIdToDelete}
+                                        onChange={(event) => setNormIdToDelete(event.target.value)}
+                                        placeholder="UUID нормы расхода"
+                                        className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 font-mono text-sm outline-none focus:border-red-500"
+                                    />
+                                </label>
+                                <button
+                                    type="button"
+                                    onClick={handleDeleteNorm}
+                                    disabled={deleteNormState.isLoading}
+                                    className="mt-3 rounded-xl border border-red-500 px-4 py-2 text-sm font-bold text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-300"
+                                >
+                                    {deleteNormState.isLoading ? 'Удаляем...' : 'Удалить норму'}
+                                </button>
+                            </div>
+
+                            {normError && (
+                                <p className="rounded-xl bg-red-50 px-3 py-2.5 text-sm font-semibold text-red-700">{normError}</p>
+                            )}
+                            {normSuccess && (
+                                <p className="rounded-xl bg-emerald-100 px-3 py-2.5 text-sm font-semibold text-emerald-700">{normSuccess}</p>
+                            )}
+
+                            <div className="flex justify-end">
+                                <button
+                                    type="submit"
+                                    disabled={upsertNormState.isLoading}
+                                    className="rounded-xl bg-emerald-600 px-5 py-3 text-sm font-bold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-emerald-300"
+                                >
+                                    {upsertNormState.isLoading ? 'Сохраняем...' : 'Сохранить норму'}
                                 </button>
                             </div>
                         </form>

@@ -5,7 +5,7 @@ import type { CreateOrderDto, CreateOrderTaskDto } from '@/src/types/order.types
 import type { TaskAttachment, TaskImage } from '@/src/types/task.types';
 import Modal from '@/src/components/ui/Modal';
 import ErrorModal from '@/src/components/ui/ErrorModal';
-import { useGetClinicDoctorsQuery, useGetClinicPatientsQuery, useGetClinicsQuery } from '@/src/services/api/clinicsApi';
+import { useGetClinicDoctorsQuery, useGetClinicPatientsQuery, useSearchClinicsQuery } from '@/src/services/api/clinicsApi';
 import { useGetUsersQuery } from '@/src/services/api/usersApi';
 import { useGetWorkTypesQuery } from '@/src/services/api/laboratory/workTypesApi';
 import { useGetMaterialsQuery } from '@/src/services/api/laboratory/materialApi';
@@ -239,7 +239,7 @@ export default function CreateOrderModal({
     onClose,
     onSubmit,
 }: CreateOrderModalProps) {
-    const { data: clinicsPage, isLoading: isClinicsLoading } = useGetClinicsQuery(CLINICS_LOOKUP_PARAMS);
+    const { data: clinicsPage, isLoading: isClinicsLoading } = useSearchClinicsQuery(CLINICS_LOOKUP_PARAMS);
     const clinics = clinicsPage?.content ?? [];
     const { data: users = [], isLoading: isUsersLoading } = useGetUsersQuery();
     const { data: workTypes = [], isLoading: isWorkTypesLoading } = useGetWorkTypesQuery();

@@ -1,6 +1,9 @@
 import {teethTechApi} from "@/src/services/teethTechApi"
 
 import type {
+    BatchCreateUsersRequest,
+    UpdateUserAdminSetupRequest,
+    UpdateUserProfileRequest,
     User
 } from "@/src/types/user.types"
 
@@ -15,6 +18,22 @@ export const usersApi = teethTechApi.injectEndpoints({
             query: ()=> '/users',
             providesTags: ['Users']
         }),
+        updateUser: builder.mutation<void, { id: string; body: UpdateUserProfileRequest }>({
+            query: ({ id, body }) => ({
+                url: `/users/${id}`,
+                method: 'PATCH',
+                body,
+            }),
+            invalidatesTags: ['Users'],
+        }),
+        updateUserAdminSetup: builder.mutation<void, { id: string; body: UpdateUserAdminSetupRequest }>({
+            query: ({ id, body }) => ({
+                url: `/users/${id}/admin-setup`,
+                method: 'PATCH',
+                body,
+            }),
+            invalidatesTags: ['Users'],
+        }),
         changeUserPassword: builder.mutation<void, ChangeUserPasswordArgs>({
             query: ({id, newPassword}) => ({
                 url: `/users/${id}/change-password`,
@@ -23,11 +42,30 @@ export const usersApi = teethTechApi.injectEndpoints({
                     newPassword,
                 },
             }),
-        })
+        }),
+        createUsersBatch: builder.mutation<string[], BatchCreateUsersRequest>({
+            query: (body) => ({
+                url: '/users/batch',
+                method: 'POST',
+                body,
+            }),
+            invalidatesTags: ['Users'],
+        }),
+        deleteUser: builder.mutation<void, string>({
+            query: (id) => ({
+                url: `/users/${id}`,
+                method: 'DELETE',
+            }),
+            invalidatesTags: ['Users'],
+        }),
     })
 })
 
 export const {
     useGetUsersQuery,
+    useUpdateUserMutation,
+    useUpdateUserAdminSetupMutation,
     useChangeUserPasswordMutation,
+    useCreateUsersBatchMutation,
+    useDeleteUserMutation,
 } = usersApi;

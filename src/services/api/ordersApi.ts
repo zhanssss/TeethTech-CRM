@@ -20,6 +20,8 @@ import type {
 } from '@/src/types/params.types'
 
 import type {
+    EmployeeKanbanResponse,
+    GetOrderEmployeeKanbanArgs,
     GetTaskHistoryArgs,
     TaskHistoryResponse,
 } from '@/src/types/task.types';
@@ -35,7 +37,6 @@ function buildCreateOrderBody(body: CreateOrderDto): CreateOrderRequest {
             colorId,
             materialId,
             pricePerUnit,
-            discount,
             discountPercent,
         }) => ({
             workTypeId,
@@ -44,7 +45,6 @@ function buildCreateOrderBody(body: CreateOrderDto): CreateOrderRequest {
             colorId,
             materialId,
             pricePerUnit,
-            discount,
             discountPercent,
             ...(orderId ? { orderId } : {}),
         })),
@@ -172,12 +172,36 @@ export const ordersApi = teethTechApi.injectEndpoints({
                 { type: 'TaskHistory', id: taskId },
             ],
         }),
-        addTask: builder.query<AddTaskDto, string>({
-            query: () =>({
+        addTask: builder.mutation<string, AddTaskDto>({
+            query: (body) => ({
                 url: '/tasks',
-                method: 'POST'
-            })
-        })
+                method: 'POST',
+                body,
+            }),
+            invalidatesTags: (_result, _error, { orderId }) => [
+                'Orders',
+                'OrderKanban',
+                'Tasks',
+                { type: 'OrderKanban', id: orderId },
+            ],
+        }),
+        getMyTasksKanban: builder.query<EmployeeKanbanResponse, void>({
+            query: () => ({
+                url: '/tasks/kanban/my',
+                method: 'GET',
+            }),
+            providesTags: ['Tasks'],
+        }),
+        getOrderEmployeeKanban: builder.query<EmployeeKanbanResponse, GetOrderEmployeeKanbanArgs>({
+            query: ({ orderId }) => ({
+                url: `/tasks/order/${orderId}/kanban/employee`,
+                method: 'GET',
+            }),
+            providesTags: (_result, _error, { orderId }) => [
+                'Tasks',
+                { type: 'OrderKanban', id: orderId },
+            ],
+        }),
     }),
 });
 
@@ -192,4 +216,7 @@ export const {
     useUpdateTaskStatusMutation,
     useAssignTaskMutation,
     useGetTaskHistoryQuery,
+    useAddTaskMutation,
+    useGetMyTasksKanbanQuery,
+    useGetOrderEmployeeKanbanQuery,
 } = ordersApi;

@@ -6,22 +6,37 @@ import { useGetFinanceReportQuery } from '@/src/services/api/financeApi';
 import {
     useConfirmSalaryStatementMutation,
     useCreateSalaryStatementMutation,
+    useDeleteSalaryStatementMutation,
     useGetSalaryConfigQuery,
+    useGetSalaryEmployeesQuery,
+    useGetSalaryStatementsHistoryQuery,
+    useGetSalaryStatementTasksQuery,
     useUpsertSalaryConfigMutation,
 } from '@/src/services/api/salariesApi';
-import { useGetUsersQuery } from '@/src/services/api/usersApi';
 import type {
     FinanceReport,
+    SalaryEmployee,
     SalaryPaymentType,
     SalaryStatement,
+    SalaryStatementTask,
 } from '@/src/types/finance.types';
-import type { User } from '@/src/types/user.types';
 
 type SummaryCardProps = {
     title: string;
     value: string;
     description: string;
     accentClassName: string;
+};
+
+type SalaryUserOption = {
+    id: string;
+    fullName: string;
+    email?: string;
+    role?: string | null;
+    roles?: string[];
+    specialization?: string | null;
+    salaryType?: 'FIXED' | 'PER_UNIT';
+    salary?: number;
 };
 
 const emptyReport: FinanceReport = {
@@ -102,16 +117,20 @@ function formatDateTime(value?: string | null) {
     }).format(date);
 }
 
-function getUserRole(user: User) {
+function getSalaryEmployeeName(employee: SalaryEmployee) {
+    return employee.name || employee.email || employee.id;
+}
+
+function getUserRole(user: SalaryUserOption) {
     const role = user.role || user.roles?.[0] || user.specialization || 'Без роли';
     return roleLabels[role] ?? role;
 }
 
-function getUserName(users: User[], userId: string) {
+function getUserName(users: SalaryUserOption[], userId: string) {
     return users.find((user) => user.id === userId)?.fullName ?? 'Сотрудник';
 }
 
-function getInitialPaymentType(user?: User): SalaryPaymentType {
+function getInitialPaymentType(user?: SalaryUserOption): SalaryPaymentType {
     if (user?.salaryType === 'PER_UNIT') return 'PIECEWORK';
     return 'FIXED';
 }
@@ -144,7 +163,7 @@ function UserSelect({
 }: {
     id: string;
     value: string;
-    users: User[];
+    users: SalaryUserOption[];
     onChange: (value: string) => void;
     disabled?: boolean;
 }) {
@@ -187,10 +206,18 @@ export default function AccountingPage() {
     const [statementMessage, setStatementMessage] = useState('');
 
     const {
-        data: users = [],
+        data: salaryEmployees = [],
         isLoading: isUsersLoading,
         isError: isUsersError,
-    } = useGetUsersQuery();
+    } = useGetSalaryEmployeesQuery();
+    const users = useMemo<SalaryUserOption[]>(
+        () => salaryEmployees.map((employee) => ({
+            id: employee.id,
+            fullName: getSalaryEmployeeName(employee),
+            email: employee.email,
+        })),
+        [salaryEmployees]
+    );
     const firstUserId = users[0]?.id ?? '';
     const configUserId = selectedConfigUserId || firstUserId;
     const statementEmployeeId = selectedStatementEmployeeId || firstUserId;
@@ -200,6 +227,13 @@ export default function AccountingPage() {
             endDate: toApiDate(reportEnd),
         }),
         [reportEnd, reportStart]
+    );
+    const historyRequest = useMemo(
+        () => ({
+            start: toApiDate(statementStart),
+            end: toApiDate(statementEnd),
+        }),
+        [statementEnd, statementStart]
     );
     const {
         data: reportData,
@@ -219,6 +253,19 @@ export default function AccountingPage() {
     const [upsertSalaryConfig, { isLoading: isSavingConfig }] = useUpsertSalaryConfigMutation();
     const [createSalaryStatement, { isLoading: isCreatingStatement }] = useCreateSalaryStatementMutation();
     const [confirmSalaryStatement, { isLoading: isConfirmingStatement }] = useConfirmSalaryStatementMutation();
+    const [deleteSalaryStatement, { isLoading: isDeletingStatement }] = useDeleteSalaryStatementMutation();
+    const {
+        data: statementTasks,
+        isFetching: isStatementTasksFetching,
+        isError: isStatementTasksError,
+    } = useGetSalaryStatementTasksQuery(statement?.statementId ?? '', {
+        skip: !statement?.statementId,
+    });
+    const {
+        data: salaryStatementsHistory = [],
+        isFetching: isHistoryFetching,
+        isError: isHistoryError,
+    } = useGetSalaryStatementsHistoryQuery(historyRequest);
 
     const report = reportData ?? emptyReport;
     const paymentType = paymentTypeDraft ?? salaryConfig?.paymentType ?? getInitialPaymentType(selectedConfigUser);
@@ -227,6 +274,7 @@ export default function AccountingPage() {
     const statementEmployeeName = statementEmployeeId
         ? getUserName(users, statementEmployeeId)
         : 'Сотрудник';
+    const displayedStatementTasks: SalaryStatementTask[] = statementTasks ?? statement?.tasks ?? [];
     const summaryCards = [
         {
             title: 'Валовая выручка',
@@ -326,6 +374,22 @@ export default function AccountingPage() {
         } catch (error) {
             console.error('Salary statement confirm failed:', error);
             setStatementError('Не удалось подтвердить выплату.');
+        }
+    };
+
+    const handleDeleteStatement = async () => {
+        if (!statement?.statementId || statement.status !== 'DRAFT') return;
+
+        setStatementError('');
+        setStatementMessage('');
+
+        try {
+            await deleteSalaryStatement(statement.statementId).unwrap();
+            setStatement(null);
+            setStatementMessage('Черновик ведомости удален.');
+        } catch (error) {
+            console.error('Salary statement delete failed:', error);
+            setStatementError('Не удалось удалить черновик ведомости.');
         }
     };
 
@@ -589,6 +653,15 @@ export default function AccountingPage() {
                         >
                             {isConfirmingStatement ? 'Подтверждение...' : 'Подтвердить выплату'}
                         </button>
+
+                        <button
+                            type="button"
+                            onClick={handleDeleteStatement}
+                            disabled={!statement?.statementId || statement.status !== 'DRAFT' || isDeletingStatement}
+                            className="inline-flex min-h-11 items-center justify-center rounded-xl border border-red-500 px-5 text-sm font-bold text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-300"
+                        >
+                            {isDeletingStatement ? 'Удаление...' : 'Удалить черновик'}
+                        </button>
                     </div>
                 </form>
             </section>
@@ -644,6 +717,14 @@ export default function AccountingPage() {
                         </div>
                     </div>
 
+                    {(isStatementTasksFetching || isStatementTasksError) && (
+                        <div className={`border-b border-slate-100 px-5 py-3 text-sm font-semibold ${
+                            isStatementTasksError ? 'bg-red-50 text-red-700' : 'bg-blue-50 text-blue-700'
+                        }`}>
+                            {isStatementTasksError ? 'Не удалось загрузить детализацию задач ведомости.' : 'Загружаем детализацию задач ведомости...'}
+                        </div>
+                    )}
+
                     <div className="overflow-x-auto">
                         <table className="w-full min-w-[900px] border-collapse text-left">
                             <thead className="border-b border-slate-200 bg-slate-50 text-[11px] uppercase tracking-widest text-slate-400">
@@ -658,7 +739,7 @@ export default function AccountingPage() {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
-                                {statement.tasks.map((task) => (
+                                {displayedStatementTasks.map((task) => (
                                     <tr key={task.taskId} className="transition hover:bg-blue-50/30">
                                         <td className="p-4 font-mono text-xs font-bold text-slate-500">
                                             {task.taskId}
@@ -684,7 +765,7 @@ export default function AccountingPage() {
                                     </tr>
                                 ))}
 
-                                {statement.tasks.length === 0 && (
+                                {displayedStatementTasks.length === 0 && (
                                     <tr>
                                         <td colSpan={7} className="p-8 text-center text-sm text-slate-400">
                                             В ведомости нет задач за выбранный период.
@@ -696,6 +777,79 @@ export default function AccountingPage() {
                     </div>
                 </section>
             )}
+
+            <section className="rounded-lg border border-slate-200 bg-white shadow-sm">
+                <div className="flex flex-col gap-2 border-b border-slate-100 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                        <h2 className="font-bold text-slate-900">История ведомостей</h2>
+                        <p className="mt-1 text-sm text-slate-500">
+                            {formatDateTime(historyRequest.start)} - {formatDateTime(historyRequest.end)}
+                        </p>
+                    </div>
+                    <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600">
+                        {isHistoryFetching ? 'Загрузка...' : `${salaryStatementsHistory.length} шт.`}
+                    </span>
+                </div>
+
+                {isHistoryError && (
+                    <div className="border-b border-red-100 bg-red-50 px-5 py-3 text-sm font-semibold text-red-700">
+                        Не удалось загрузить историю ведомостей.
+                    </div>
+                )}
+
+                <div className="overflow-x-auto">
+                    <table className="w-full min-w-[820px] border-collapse text-left">
+                        <thead className="border-b border-slate-200 bg-slate-50 text-[11px] uppercase tracking-widest text-slate-400">
+                            <tr>
+                                <th className="p-4 font-bold">Сотрудник</th>
+                                <th className="p-4 font-bold">Период</th>
+                                <th className="p-4 font-bold">Тип</th>
+                                <th className="p-4 font-bold">Статус</th>
+                                <th className="p-4 font-bold">Задач</th>
+                                <th className="p-4 text-right font-bold">Итого</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                            {salaryStatementsHistory.map((historyItem) => (
+                                <tr key={historyItem.statementId} className="transition hover:bg-blue-50/30">
+                                    <td className="p-4 text-sm font-bold text-slate-800">
+                                        {historyItem.employeeName || getUserName(users, historyItem.employeeId)}
+                                    </td>
+                                    <td className="p-4 text-sm text-slate-500">
+                                        {formatDateTime(historyItem.startDate)} - {formatDateTime(historyItem.endDate)}
+                                    </td>
+                                    <td className="p-4 text-sm text-slate-600">
+                                        {paymentTypeLabels[historyItem.paymentType]}
+                                    </td>
+                                    <td className="p-4">
+                                        <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${
+                                            historyItem.status === 'PAID'
+                                                ? 'bg-emerald-100 text-emerald-700'
+                                                : 'bg-amber-100 text-amber-700'
+                                        }`}>
+                                            {historyItem.status === 'PAID' ? 'Оплачено' : 'Черновик'}
+                                        </span>
+                                    </td>
+                                    <td className="p-4 text-sm font-semibold text-slate-700">
+                                        {historyItem.totalTaskCount}
+                                    </td>
+                                    <td className="p-4 text-right text-sm font-black text-emerald-700">
+                                        {formatMoney(historyItem.totalAmount)}
+                                    </td>
+                                </tr>
+                            ))}
+
+                            {!isHistoryFetching && salaryStatementsHistory.length === 0 && (
+                                <tr>
+                                    <td colSpan={6} className="p-8 text-center text-sm text-slate-400">
+                                        За выбранный период ведомостей нет.
+                                    </td>
+                                </tr>
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+            </section>
         </div>
     );
 }

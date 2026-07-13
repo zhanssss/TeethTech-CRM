@@ -267,3 +267,36 @@ export type TasksDashboardResponse = {
     totalCompletedCount: number;
     recentCompletedTasks: RecentCompletedDashboardTask[];
 };
+
+export type EmployeeKanbanTask = {
+    id: string;
+    orderId: string;
+    workTypeName: string;
+    workTypeCode: string;
+    materialName: string;
+    colorCode: string;
+    quantity: number;
+    totalAmount: number;
+    currentStatusFormName: string;
+    currentStatusCode: string;
+    dentalTechnicianFullName: string;
+    toothNumbers: number[];
+    allowedNextStatusIds: string[];
+};
+
+export type EmployeeKanbanColumn = {
+    statusName: string;
+    title: string;
+    taskCount: number;
+    tasks: EmployeeKanbanTask[];
+};
+
+export type EmployeeKanbanResponse = {
+    previousColumn: EmployeeKanbanColumn;
+    currentColumn: EmployeeKanbanColumn;
+    nextColumn: EmployeeKanbanColumn;
+};
+
+export type GetOrderEmployeeKanbanArgs = {
+    orderId: string;
+};
