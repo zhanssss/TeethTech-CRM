@@ -141,6 +141,10 @@ async function proxyRequest(request: NextRequest, context: RouteContext) {
     const targetUrl = buildBackendUrl(path, request);
     const headers = buildRequestHeaders(request);
 
+    if (isLoginRequest) {
+        headers.delete('authorization');
+    }
+
     if (isMultipartRequest(request)) {
         headers.delete('content-type');
     }
