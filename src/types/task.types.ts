@@ -328,3 +328,35 @@ export type EmployeeKanbanResponse = {
 export type GetOrderEmployeeKanbanArgs = {
     orderId: string;
 };
+
+export type GetMyTasksCalendarArgs = {
+    year: number;
+    month: number;
+};
+
+export type EmployeeCalendarTask = {
+    taskId: string;
+    orderId: string;
+    orderNumber: string;
+    deadline: string;
+    patientName: string;
+    clinicName: string;
+    workTypeName: string;
+    workTypeCode: string;
+    statusName: string;
+    statusCode: string;
+    statusColor: string;
+    quantity: number;
+};
+
+export type EmployeeCalendarDay = {
+    date: string;
+    taskCount: number;
+    tasks: EmployeeCalendarTask[];
+};
+
+export type EmployeeCalendarResponse = {
+    year: number;
+    month: number;
+    days: EmployeeCalendarDay[];
+};
