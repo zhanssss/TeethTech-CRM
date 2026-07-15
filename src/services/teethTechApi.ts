@@ -44,6 +44,7 @@ export const teethTechApi = createApi({
         "Tasks",
         "TaskHistory",
         "TaskFiles",
+        "TaskAssignment",
         "Nomenclature",
         "Stock",
         "InventoryChecks",

@@ -11,9 +11,11 @@ export type OrderTaskType =
 
 import type {
     OrderTaskStatus,
+    TaskAssignmentMode,
     TaskAttachment,
     TaskComment,
     TaskImage,
+    TaskStatusAssigneeRequest,
 } from './task.types';
 
 export type AddTaskDto = {
@@ -192,6 +194,8 @@ export interface CreateOrderTaskDto {
     pricePerUnit: number;
     discount: number;
     discountPercent: 0;
+    assignmentMode: TaskAssignmentMode;
+    statusAssignees: TaskStatusAssigneeRequest[];
     attachments?: TaskAttachment[];
     images?: TaskImage[];
 }
@@ -201,8 +205,6 @@ export interface CreateOrderDto {
     patientFullName: string;
     doctorFullName: string;
     deadline: string;
-    dentalTechnicianId: string;
-    cadCamOperatorId: string;
     comment: string;
     tasks: CreateOrderTaskDto[];
 }
@@ -216,6 +218,8 @@ export interface CreateOrderTaskRequest {
     materialId: string;
     pricePerUnit: number;
     discountPercent: number;
+    assignmentMode: TaskAssignmentMode;
+    statusAssignees: TaskStatusAssigneeRequest[];
 }
 
 export interface CreateOrderRequest extends Omit<CreateOrderDto, 'tasks'> {
@@ -247,6 +251,7 @@ export interface OrderKanbanAssignee {
 export interface OrderKanbanTask {
     id: string;
     orderId: string;
+    workTypeId?: string;
     taskType?: OrderTaskType;
     workTypeName: string;
     workTypeCode: string;

@@ -23,7 +23,9 @@ import type {
     EmployeeKanbanResponse,
     GetOrderEmployeeKanbanArgs,
     GetTaskHistoryArgs,
+    TaskAssignment,
     TaskHistoryResponse,
+    UpdateTaskAssignmentArgs,
 } from '@/src/types/task.types';
 
 function buildCreateOrderBody(body: CreateOrderDto): CreateOrderRequest {
@@ -38,6 +40,8 @@ function buildCreateOrderBody(body: CreateOrderDto): CreateOrderRequest {
             materialId,
             pricePerUnit,
             discountPercent,
+            assignmentMode,
+            statusAssignees,
         }) => ({
             workTypeId,
             quantity,
@@ -46,6 +50,8 @@ function buildCreateOrderBody(body: CreateOrderDto): CreateOrderRequest {
             materialId,
             pricePerUnit,
             discountPercent,
+            assignmentMode,
+            statusAssignees,
             ...(orderId ? { orderId } : {}),
         })),
     };
@@ -159,6 +165,30 @@ export const ordersApi = teethTechApi.injectEndpoints({
             ],
         }),
 
+        getTaskAssignment: builder.query<TaskAssignment, string>({
+            query: (taskId) => ({
+                url: `/tasks/${taskId}/assignment`,
+                method: 'GET',
+            }),
+            providesTags: (_result, _error, taskId) => [
+                { type: 'TaskAssignment', id: taskId },
+            ],
+        }),
+
+        updateTaskAssignment: builder.mutation<TaskAssignment, UpdateTaskAssignmentArgs>({
+            query: ({ taskId, body }) => ({
+                url: `/tasks/${taskId}/assignment`,
+                method: 'PATCH',
+                body,
+            }),
+            invalidatesTags: (_result, _error, { taskId }) => [
+                'Tasks',
+                'OrderKanban',
+                { type: 'TaskAssignment', id: taskId },
+                { type: 'TaskHistory', id: taskId },
+            ],
+        }),
+
         getTaskHistory: builder.query<TaskHistoryResponse, GetTaskHistoryArgs>({
             query: ({ taskId, page = 0, size = 20 }) => ({
                 url: `/tasks/${taskId}/history`,
@@ -215,6 +245,8 @@ export const {
     useUpdateOrderStatusMutation,
     useUpdateTaskStatusMutation,
     useAssignTaskMutation,
+    useGetTaskAssignmentQuery,
+    useUpdateTaskAssignmentMutation,
     useGetTaskHistoryQuery,
     useAddTaskMutation,
     useGetMyTasksKanbanQuery,

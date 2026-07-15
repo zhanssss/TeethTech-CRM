@@ -18,6 +18,34 @@ export type TaskStatus =
 
 export type TaskPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
 
+export type TaskAssignmentMode = 'AUTO' | 'PREASSIGNED';
+
+export type TaskStatusAssigneeRequest = {
+    statusId: string;
+    userId: string;
+};
+
+export type TaskStatusAssignee = TaskStatusAssigneeRequest & {
+    statusCode: string;
+    statusName: string;
+    userFullName: string;
+};
+
+export type TaskAssignment = {
+    assignmentMode: TaskAssignmentMode;
+    statusAssignees: TaskStatusAssignee[];
+};
+
+export type UpdateTaskAssignmentRequest = {
+    assignmentMode: TaskAssignmentMode;
+    statusAssignees: TaskStatusAssigneeRequest[];
+};
+
+export type UpdateTaskAssignmentArgs = {
+    taskId: string;
+    body: UpdateTaskAssignmentRequest;
+};
+
 export interface KanbanColumn<Status extends string = TaskStatus> {
     id: Status;
     title: string;

@@ -81,6 +81,8 @@ function stripOrderFiles(payload: CreateOrderDto): CreateOrderDto {
             pricePerUnit: task.pricePerUnit,
             discount: task.discount,
             discountPercent: 0,
+            assignmentMode: task.assignmentMode,
+            statusAssignees: task.statusAssignees,
         })),
     };
 }

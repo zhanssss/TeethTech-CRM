@@ -1,0 +1,462 @@
+'use client';
+
+import { type FormEvent, useMemo, useState } from 'react';
+import Modal from '@/src/components/ui/Modal';
+import {
+    useGetTaskAssignmentQuery,
+    useUpdateTaskAssignmentMutation,
+} from '@/src/services/api/ordersApi';
+import { useGetWorkTypesQuery } from '@/src/services/api/laboratory/workTypesApi';
+import { useGetAdminWorkflowStepsQuery } from '@/src/services/api/workflowApi';
+import type { OrderKanbanTask } from '@/src/types/order.types';
+import type {
+    TaskAssignment,
+    TaskAssignmentMode,
+    TaskStatusAssigneeRequest,
+} from '@/src/types/task.types';
+import type { User } from '@/src/types/user.types';
+import type { WorkflowStep } from '@/src/types/workflow.types';
+
+type TaskAssignmentModalProps = {
+    isOpen: boolean;
+    initialTaskId?: string;
+    tasks: OrderKanbanTask[];
+    users: User[];
+    isUsersLoading: boolean;
+    canEdit: boolean;
+    onClose: () => void;
+};
+
+type AssignmentStage = {
+    statusId: string;
+    statusCode?: string;
+    statusName: string;
+    requiredRole: string;
+};
+
+function normalizeRoleValue(value: string | undefined | null) {
+    return (value ?? '')
+        .toLowerCase()
+        .replace(/[-_/]+/g, ' ')
+        .replace(/^role\s+/u, '')
+        .trim();
+}
+
+function normalizeName(value: string | undefined | null) {
+    return (value ?? '').trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
+function getUserRoleValues(user: User) {
+    return [
+        user.role,
+        ...(user.roles ?? []),
+        user.specialization,
+    ].filter((value): value is string => Boolean(value));
+}
+
+function getUserLabel(user: User) {
+    const roles = getUserRoleValues(user).join(' / ');
+    return roles ? `${user.fullName} (${roles})` : user.fullName;
+}
+
+function getEligibleUsers(users: User[], requiredRole: string) {
+    const activeUsers = users.filter((user) => user.status !== 'FIRED');
+    const normalizedRequiredRole = normalizeRoleValue(requiredRole);
+
+    if (!normalizedRequiredRole) return activeUsers;
+
+    return activeUsers.filter((user) =>
+        getUserRoleValues(user).some((role) => {
+            const normalizedUserRole = normalizeRoleValue(role);
+            return normalizedUserRole === normalizedRequiredRole
+                || normalizedUserRole.includes(normalizedRequiredRole)
+                || normalizedRequiredRole.includes(normalizedUserRole);
+        })
+    );
+}
+
+function getIntermediateWorkflowStages(steps: WorkflowStep[]): AssignmentStage[] {
+    const sourceStatusIds = new Set(steps.map((step) => step.fromStatusId));
+    const seenStatusIds = new Set<string>();
+
+    return [...steps]
+        .sort((left, right) => left.sortOrder - right.sortOrder)
+        .filter((step) => {
+            const isIntermediate = sourceStatusIds.has(step.toStatusId);
+
+            if (!isIntermediate || seenStatusIds.has(step.toStatusId)) {
+                return false;
+            }
+
+            seenStatusIds.add(step.toStatusId);
+            return true;
+        })
+        .map((step) => ({
+            statusId: step.toStatusId,
+            statusName: step.toStatusName,
+            requiredRole: step.requiredRole,
+        }));
+}
+
+function getAssignmentStages(steps: WorkflowStep[], assignment?: TaskAssignment) {
+    const stages = getIntermediateWorkflowStages(steps);
+    const knownStatusIds = new Set(stages.map((stage) => stage.statusId));
+
+    for (const assignee of assignment?.statusAssignees ?? []) {
+        if (!knownStatusIds.has(assignee.statusId)) {
+            stages.push({
+                statusId: assignee.statusId,
+                statusCode: assignee.statusCode,
+                statusName: assignee.statusName,
+                requiredRole: '',
+            });
+        }
+    }
+
+    return stages;
+}
+
+function getUniqueTasks(tasks: OrderKanbanTask[]) {
+    return Array.from(new Map(tasks.map((task) => [task.id, task])).values());
+}
+
+function getTaskLabel(task: OrderKanbanTask) {
+    const number = task.taskNumber || task.id.slice(0, 8);
+    return `${number} · ${task.workTypeName || task.workTypeCode || 'Техническая задача'}`;
+}
+
+function TaskAssignmentEditor({
+    task,
+    users,
+    isUsersLoading,
+    canEdit,
+}: {
+    task: OrderKanbanTask;
+    users: User[];
+    isUsersLoading: boolean;
+    canEdit: boolean;
+}) {
+    const {
+        data: assignment,
+        isFetching: isAssignmentFetching,
+        isError: isAssignmentError,
+        refetch,
+    } = useGetTaskAssignmentQuery(task.id);
+    const {
+        data: workTypes = [],
+        isFetching: isWorkTypesFetching,
+    } = useGetWorkTypesQuery();
+    const workTypeId = task.workTypeId
+        || workTypes.find((workType) =>
+            normalizeName(workType.name) === normalizeName(task.workTypeName)
+        )?.id
+        || '';
+    const {
+        data: workflowSteps = [],
+        isFetching: isWorkflowFetching,
+        isError: isWorkflowError,
+    } = useGetAdminWorkflowStepsQuery(
+        { workTypeId },
+        { skip: !workTypeId }
+    );
+    const [updateTaskAssignment, { isLoading: isSaving }] = useUpdateTaskAssignmentMutation();
+    const [draftMode, setDraftMode] = useState<TaskAssignmentMode | null>(null);
+    const [draftAssignees, setDraftAssignees] = useState<TaskStatusAssigneeRequest[] | null>(null);
+    const [saveError, setSaveError] = useState('');
+    const [saveMessage, setSaveMessage] = useState('');
+    const assignmentMode = draftMode ?? assignment?.assignmentMode ?? 'AUTO';
+    const statusAssignees = draftAssignees ?? assignment?.statusAssignees.map((assignee) => ({
+        statusId: assignee.statusId,
+        userId: assignee.userId,
+    })) ?? [];
+    const stages = useMemo(
+        () => getAssignmentStages(workflowSteps, assignment),
+        [assignment, workflowSteps]
+    );
+    const assigneeByStatus = new Map(
+        statusAssignees.map((assignee) => [assignee.statusId, assignee.userId])
+    );
+    const isPreassigned = assignmentMode === 'PREASSIGNED';
+    const hasCompletePlan = stages.length > 0 && stages.every((stage) => {
+        const selectedUserId = assigneeByStatus.get(stage.statusId);
+        return getEligibleUsers(users, stage.requiredRole).some(
+            (user) => user.id === selectedUserId
+        );
+    });
+    const canSave = canEdit
+        && !isAssignmentFetching
+        && !isSaving
+        && !isUsersLoading
+        && (!isPreassigned || hasCompletePlan);
+
+    const clearMessages = () => {
+        setSaveError('');
+        setSaveMessage('');
+    };
+
+    const handleModeChange = (mode: TaskAssignmentMode) => {
+        clearMessages();
+        setDraftMode(mode);
+        setDraftAssignees(mode === 'AUTO' ? [] : statusAssignees);
+    };
+
+    const handleAssigneeChange = (statusId: string, userId: string) => {
+        clearMessages();
+        const nextAssignees = statusAssignees.filter(
+            (assignee) => assignee.statusId !== statusId
+        );
+
+        if (userId) {
+            nextAssignees.push({ statusId, userId });
+        }
+
+        setDraftAssignees(nextAssignees);
+    };
+
+    const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+        event.preventDefault();
+        if (!canSave) return;
+
+        clearMessages();
+
+        const body = {
+            assignmentMode,
+            statusAssignees: assignmentMode === 'AUTO'
+                ? []
+                : stages.map((stage) => ({
+                    statusId: stage.statusId,
+                    userId: assigneeByStatus.get(stage.statusId) ?? '',
+                })),
+        };
+
+        try {
+            const savedAssignment = await updateTaskAssignment({
+                taskId: task.id,
+                body,
+            }).unwrap();
+
+            setDraftMode(savedAssignment.assignmentMode);
+            setDraftAssignees(savedAssignment.statusAssignees.map((assignee) => ({
+                statusId: assignee.statusId,
+                userId: assignee.userId,
+            })));
+            setSaveMessage('План ответственных сохранён.');
+        } catch (error) {
+            console.error('Task assignment update failed:', error);
+            setSaveError('Не удалось сохранить ответственных по этапам.');
+        }
+    };
+
+    if (isAssignmentFetching && !assignment) {
+        return <p className="py-10 text-center text-sm font-semibold text-slate-500">Загрузка назначений...</p>;
+    }
+
+    if (isAssignmentError) {
+        return (
+            <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-600">
+                <p>Не удалось загрузить план ответственных.</p>
+                <button
+                    type="button"
+                    onClick={() => void refetch()}
+                    className="mt-3 rounded-lg bg-red-600 px-3 py-2 text-xs font-bold text-white"
+                >
+                    Повторить
+                </button>
+            </div>
+        );
+    }
+
+    return (
+        <form onSubmit={handleSubmit} className="space-y-5">
+            <div className="grid gap-4 md:grid-cols-[260px_1fr]">
+                <label className="block">
+                    <span className="mb-1.5 block text-xs font-black uppercase tracking-wider text-slate-500">
+                        Режим назначения
+                    </span>
+                    <select
+                        value={assignmentMode}
+                        disabled={!canEdit || isSaving}
+                        onChange={(event) => handleModeChange(event.target.value as TaskAssignmentMode)}
+                        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-700 outline-none focus:border-blue-500 disabled:bg-slate-100"
+                    >
+                        <option value="AUTO">Автоматическое</option>
+                        <option value="PREASSIGNED">Назначить заранее</option>
+                    </select>
+                </label>
+
+                <div className="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-xs font-semibold text-blue-700">
+                    {assignmentMode === 'AUTO'
+                        ? 'При сохранении ручной план будет очищен, исполнителей назначит система.'
+                        : 'Для PREASSIGNED необходимо выбрать сотрудника для каждого промежуточного этапа.'}
+                </div>
+            </div>
+
+            {isPreassigned && (
+                <div>
+                    <div className="mb-3 flex items-center justify-between gap-3">
+                        <h3 className="text-xs font-black uppercase tracking-wider text-slate-700">
+                            Ответственные по этапам
+                        </h3>
+                        {(isWorkflowFetching || isWorkTypesFetching) && (
+                            <span className="text-xs font-semibold text-blue-600">Загрузка workflow...</span>
+                        )}
+                    </div>
+
+                    {!isWorkTypesFetching && !workTypeId && stages.length === 0 && (
+                        <p className="rounded-xl border border-yellow-200 bg-yellow-50 px-4 py-3 text-xs font-semibold text-yellow-700">
+                            Backend не вернул workTypeId задачи, поэтому список этапов получить невозможно.
+                        </p>
+                    )}
+
+                    {isWorkflowError && stages.length === 0 && (
+                        <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-xs font-semibold text-red-600">
+                            Не удалось загрузить этапы workflow.
+                        </p>
+                    )}
+
+                    {!isWorkflowFetching && !isWorkTypesFetching && stages.length === 0 && workTypeId && !isWorkflowError && (
+                        <p className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-center text-sm text-slate-500">
+                            Для этого вида работы нет промежуточных этапов.
+                        </p>
+                    )}
+
+                    {stages.length > 0 && (
+                        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                            {stages.map((stage) => {
+                                const eligibleUsers = getEligibleUsers(users, stage.requiredRole);
+
+                                return (
+                                    <label key={stage.statusId} className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                                        <span className="block text-sm font-black text-slate-800">
+                                            {stage.statusName || stage.statusCode || stage.statusId}
+                                        </span>
+                                        <span className="mt-0.5 block text-[10px] font-bold uppercase text-slate-400">
+                                            {stage.requiredRole || 'Роль не указана'}
+                                        </span>
+                                        <select
+                                            required
+                                            value={assigneeByStatus.get(stage.statusId) ?? ''}
+                                            disabled={!canEdit || isSaving || isUsersLoading}
+                                            onChange={(event) => handleAssigneeChange(stage.statusId, event.target.value)}
+                                            className="mt-2 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs font-semibold text-slate-700 outline-none focus:border-blue-500 disabled:bg-slate-100"
+                                        >
+                                            <option value="">Выберите сотрудника</option>
+                                            {eligibleUsers.map((user) => (
+                                                <option key={user.id} value={user.id}>
+                                                    {getUserLabel(user)}
+                                                </option>
+                                            ))}
+                                        </select>
+                                        {eligibleUsers.length === 0 && (
+                                            <span className="mt-1 block text-[10px] font-semibold text-red-500">
+                                                Нет активных сотрудников с ролью {stage.requiredRole}
+                                            </span>
+                                        )}
+                                    </label>
+                                );
+                            })}
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {!canEdit && (
+                <p className="rounded-xl bg-slate-100 px-4 py-3 text-xs font-semibold text-slate-600">
+                    Изменять ответственных могут только администратор и диспетчер.
+                </p>
+            )}
+
+            {(saveError || saveMessage) && (
+                <p className={`rounded-xl px-4 py-3 text-sm font-semibold ${
+                    saveError ? 'bg-red-50 text-red-600' : 'bg-emerald-50 text-emerald-700'
+                }`}>
+                    {saveError || saveMessage}
+                </p>
+            )}
+
+            {canEdit && (
+                <div className="flex justify-end border-t border-slate-100 pt-4">
+                    <button
+                        type="submit"
+                        disabled={!canSave}
+                        className="w-full rounded-xl bg-blue-600 px-6 py-3 text-sm font-black text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300 sm:w-auto"
+                    >
+                        {isSaving ? 'Сохраняем...' : 'Сохранить ответственных'}
+                    </button>
+                </div>
+            )}
+        </form>
+    );
+}
+
+export default function TaskAssignmentModal({
+    isOpen,
+    initialTaskId = '',
+    tasks,
+    users,
+    isUsersLoading,
+    canEdit,
+    onClose,
+}: TaskAssignmentModalProps) {
+    const uniqueTasks = useMemo(() => getUniqueTasks(tasks), [tasks]);
+    const [selectedTaskId, setSelectedTaskId] = useState(initialTaskId);
+    const selectedTask = uniqueTasks.find((task) => task.id === selectedTaskId) ?? uniqueTasks[0];
+
+    if (!isOpen) return null;
+
+    return (
+        <Modal contentClassName="max-w-5xl p-0">
+            <div className="flex items-start justify-between gap-4 border-b border-slate-200 bg-slate-50 px-4 py-4 sm:px-6">
+                <div>
+                    <h2 className="text-xl font-black text-slate-900">Ответственные по этапам</h2>
+                    <p className="mt-1 text-xs text-slate-500">
+                        Режим назначения и полный план исполнителей для технической задачи
+                    </p>
+                </div>
+                <button
+                    type="button"
+                    onClick={onClose}
+                    className="text-2xl text-slate-400 transition hover:text-slate-700"
+                    aria-label="Закрыть"
+                >
+                    &times;
+                </button>
+            </div>
+
+            <div className="space-y-5 overflow-y-auto p-4 sm:p-6">
+                {uniqueTasks.length > 1 && (
+                    <label className="block">
+                        <span className="mb-1.5 block text-xs font-black uppercase tracking-wider text-slate-500">
+                            Техническая задача
+                        </span>
+                        <select
+                            value={selectedTask?.id ?? ''}
+                            onChange={(event) => setSelectedTaskId(event.target.value)}
+                            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-700 outline-none focus:border-blue-500"
+                        >
+                            {uniqueTasks.map((task) => (
+                                <option key={task.id} value={task.id}>
+                                    {getTaskLabel(task)}
+                                </option>
+                            ))}
+                        </select>
+                    </label>
+                )}
+
+                {selectedTask ? (
+                    <TaskAssignmentEditor
+                        key={selectedTask.id}
+                        task={selectedTask}
+                        users={users}
+                        isUsersLoading={isUsersLoading}
+                        canEdit={canEdit}
+                    />
+                ) : (
+                    <p className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-10 text-center text-sm text-slate-500">
+                        В заказе нет технических задач.
+                    </p>
+                )}
+            </div>
+        </Modal>
+    );
+}

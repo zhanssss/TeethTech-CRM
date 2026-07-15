@@ -3,6 +3,7 @@
 import { type ChangeEvent, type FormEvent, useMemo, useState } from 'react';
 import type { CreateOrderDto, CreateOrderTaskDto } from '@/src/types/order.types';
 import type { TaskAttachment, TaskImage } from '@/src/types/task.types';
+import type { WorkflowStep } from '@/src/types/workflow.types';
 import Modal from '@/src/components/ui/Modal';
 import ErrorModal from '@/src/components/ui/ErrorModal';
 import { useGetClinicDoctorsQuery, useGetClinicPatientsQuery, useSearchClinicsQuery } from '@/src/services/api/clinicsApi';
@@ -10,6 +11,7 @@ import { useGetUsersQuery } from '@/src/services/api/usersApi';
 import { useGetWorkTypesQuery } from '@/src/services/api/laboratory/workTypesApi';
 import { useGetMaterialsQuery } from '@/src/services/api/laboratory/materialApi';
 import { useGetColorsQuery } from '@/src/services/api/laboratory/colorsApi';
+import { useGetAdminWorkflowStepsQuery } from '@/src/services/api/workflowApi';
 import type { User } from '@/src/types/user.types';
 
 type CreateOrderModalProps = {
@@ -48,12 +50,18 @@ const createEmptyTask = (): CreateOrderTaskDto => ({
     pricePerUnit: 0,
     discount: 0,
     discountPercent: 0,
+    assignmentMode: 'AUTO',
+    statusAssignees: [],
     attachments: [],
     images: [],
 });
 
 function normalizeRoleValue(value: string | undefined) {
-    return (value ?? '').toLowerCase().replace(/[-_/]+/g, ' ');
+    return (value ?? '')
+        .toLowerCase()
+        .replace(/[-_/]+/g, ' ')
+        .replace(/^role\s+/u, '')
+        .trim();
 }
 
 function getUserRoleValues(user: User) {
@@ -233,6 +241,173 @@ function PersonAutocompleteInput({
     );
 }
 
+type AssignmentStage = {
+    statusId: string;
+    statusName: string;
+    requiredRole: string;
+};
+
+function getIntermediateAssignmentStages(steps: WorkflowStep[]): AssignmentStage[] {
+    const sourceStatusIds = new Set(steps.map((step) => step.fromStatusId));
+    const seenStatusIds = new Set<string>();
+
+    return [...steps]
+        .sort((left, right) => left.sortOrder - right.sortOrder)
+        .filter((step) => {
+            const isIntermediate = sourceStatusIds.has(step.toStatusId);
+
+            if (!isIntermediate || seenStatusIds.has(step.toStatusId)) {
+                return false;
+            }
+
+            seenStatusIds.add(step.toStatusId);
+            return true;
+        })
+        .map((step) => ({
+            statusId: step.toStatusId,
+            statusName: step.toStatusName,
+            requiredRole: step.requiredRole,
+        }));
+}
+
+function getEligibleAssignmentUsers(users: User[], requiredRole: string) {
+    const activeUsers = users.filter((user) => user.status !== 'FIRED');
+
+    if (!requiredRole.trim()) return activeUsers;
+
+    return filterUsersByRole(activeUsers, [requiredRole]);
+}
+
+function TaskAssignmentFields({
+    task,
+    users,
+    onChange,
+}: {
+    task: CreateOrderTaskDto;
+    users: User[];
+    onChange: (changes: Pick<CreateOrderTaskDto, 'assignmentMode' | 'statusAssignees'>) => void;
+}) {
+    const isPreassigned = task.assignmentMode === 'PREASSIGNED';
+    const {
+        data: workflowSteps = [],
+        isFetching,
+        isError,
+    } = useGetAdminWorkflowStepsQuery(
+        { workTypeId: task.workTypeId },
+        { skip: !task.workTypeId || !isPreassigned }
+    );
+    const stages = useMemo(
+        () => getIntermediateAssignmentStages(workflowSteps),
+        [workflowSteps]
+    );
+    const assigneeByStatus = new Map(
+        task.statusAssignees.map((assignee) => [assignee.statusId, assignee.userId])
+    );
+
+    const handleModeChange = (assignmentMode: CreateOrderTaskDto['assignmentMode']) => {
+        onChange({
+            assignmentMode,
+            statusAssignees: [],
+        });
+    };
+
+    const handleAssigneeChange = (statusId: string, userId: string) => {
+        const statusAssignees = task.statusAssignees.filter(
+            (assignee) => assignee.statusId !== statusId
+        );
+
+        if (userId) {
+            statusAssignees.push({ statusId, userId });
+        }
+
+        onChange({
+            assignmentMode: task.assignmentMode,
+            statusAssignees,
+        });
+    };
+
+    return (
+        <div className="mt-5 rounded-2xl border border-violet-100 bg-violet-50/60 p-4">
+            <div className="grid gap-4 md:grid-cols-[minmax(0,260px)_1fr]">
+                <label className="block">
+                    <span className="mb-1 block text-[10px] font-black uppercase tracking-widest text-violet-700">
+                        Назначение по этапам
+                    </span>
+                    <select
+                        value={task.assignmentMode}
+                        onChange={(event) => handleModeChange(event.target.value as CreateOrderTaskDto['assignmentMode'])}
+                        className="w-full rounded-xl border-2 border-violet-100 bg-white px-3 py-2 text-sm outline-none transition focus:border-violet-500"
+                    >
+                        <option value="AUTO">Автоматическое</option>
+                        <option value="PREASSIGNED">Назначить заранее</option>
+                    </select>
+                </label>
+
+                <div className="rounded-xl border border-violet-100 bg-white/80 px-3 py-2 text-xs text-slate-500">
+                    {isPreassigned
+                        ? 'Выберите ответственного для каждого промежуточного этапа workflow.'
+                        : 'Система сама назначит исполнителей. Ручной план ответственных не отправляется.'}
+                </div>
+            </div>
+
+            {isPreassigned && (
+                <div className="mt-4">
+                    {!task.workTypeId ? (
+                        <p className="rounded-xl border border-dashed border-violet-200 bg-white px-3 py-3 text-xs font-semibold text-slate-500">
+                            Сначала выберите вид работы.
+                        </p>
+                    ) : isFetching ? (
+                        <p className="text-xs font-semibold text-violet-700">Загрузка этапов workflow...</p>
+                    ) : isError ? (
+                        <p className="rounded-xl bg-red-50 px-3 py-3 text-xs font-semibold text-red-600">
+                            Не удалось загрузить этапы workflow.
+                        </p>
+                    ) : stages.length === 0 ? (
+                        <p className="rounded-xl border border-dashed border-violet-200 bg-white px-3 py-3 text-xs font-semibold text-slate-500">
+                            У этого вида работы нет промежуточных этапов для назначения.
+                        </p>
+                    ) : (
+                        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                            {stages.map((stage) => {
+                                const eligibleUsers = getEligibleAssignmentUsers(users, stage.requiredRole);
+
+                                return (
+                                    <label key={stage.statusId} className="block rounded-xl border border-violet-100 bg-white p-3">
+                                        <span className="block text-xs font-black text-slate-700">
+                                            {stage.statusName}
+                                        </span>
+                                        <span className="mt-0.5 block text-[10px] font-bold uppercase text-slate-400">
+                                            {stage.requiredRole || 'Любая роль'}
+                                        </span>
+                                        <select
+                                            required
+                                            value={assigneeByStatus.get(stage.statusId) ?? ''}
+                                            onChange={(event) => handleAssigneeChange(stage.statusId, event.target.value)}
+                                            className="mt-2 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs font-semibold text-slate-700 outline-none transition focus:border-violet-500"
+                                        >
+                                            <option value="">Выберите сотрудника</option>
+                                            {eligibleUsers.map((user) => (
+                                                <option key={user.id} value={user.id}>
+                                                    {getUserLabel(user)}
+                                                </option>
+                                            ))}
+                                        </select>
+                                        {eligibleUsers.length === 0 && (
+                                            <span className="mt-1 block text-[10px] font-semibold text-red-500">
+                                                Нет активных сотрудников с подходящей ролью
+                                            </span>
+                                        )}
+                                    </label>
+                                );
+                            })}
+                        </div>
+                    )}
+                </div>
+            )}
+        </div>
+    );
+}
+
 export default function CreateOrderModal({
     isOpen,
     isSubmitting = false,
@@ -252,8 +427,6 @@ export default function CreateOrderModal({
         patientFullName: '',
         doctorFullName: '',
         deadline: '',
-        dentalTechnicianId: '',
-        cadCamOperatorId: '',
         comment: '',
         tasks: [createEmptyTask()],
     });
@@ -288,16 +461,6 @@ export default function CreateOrderModal({
     const patientOptions = useMemo(
         () => formData.clinicId ? getUniqueFullNames(patientsPage?.content ?? []) : [],
         [patientsPage?.content, formData.clinicId]
-    );
-
-    const technicianOptions = useMemo(
-        () => filterUsersByRole(users, ['керамист', 'зуб техник', 'technician', 'ceramist', 'dental technician', 'ROLE_CERAMIST']),
-        [users]
-    );
-
-    const operatorOptions = useMemo(
-        () => filterUsersByRole(users, ['cad', 'cam', 'оператор', 'operator', 'моделировщик', 'modeler', 'ROLE_OPERATOR']),
-        [users]
     );
 
     const handleClinicChange = (clinicId: string) => {
@@ -362,6 +525,29 @@ export default function CreateOrderModal({
             updatedTasks[index] = {
                 ...updatedTasks[index],
                 [field]: value,
+            };
+
+            if (field === 'workTypeId') {
+                updatedTasks[index].statusAssignees = [];
+            }
+
+            return {
+                ...prev,
+                tasks: updatedTasks,
+            };
+        });
+    };
+
+    const handleTaskAssignmentChange = (
+        index: number,
+        changes: Pick<CreateOrderTaskDto, 'assignmentMode' | 'statusAssignees'>
+    ) => {
+        setFormData((prev) => {
+            const updatedTasks = [...prev.tasks];
+
+            updatedTasks[index] = {
+                ...updatedTasks[index],
+                ...changes,
             };
 
             return {
@@ -572,49 +758,6 @@ export default function CreateOrderModal({
                             />
                         </div>
 
-                        <div>
-                            <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Керамист</label>
-                            <select
-                                required
-                                className="w-full border-2 border-slate-100 rounded-xl px-3 py-2 text-sm focus:border-blue-500 outline-none transition bg-white"
-                                value={formData.dentalTechnicianId}
-                                onChange={(e) => setFormData({ ...formData, dentalTechnicianId: e.target.value })}
-                            >
-                                <option value="">Выбрать</option>
-                                {technicianOptions.map((user) => (
-                                    <option key={user.id} value={user.id}>
-                                        {getUserLabel(user)}
-                                    </option>
-                                ))}
-                                {!technicianOptions.length && (
-                                    <option value="" disabled>
-                                        Нет доступных керамистов
-                                    </option>
-                                )}
-                            </select>
-                        </div>
-
-                        <div>
-                            <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">CAD/CAM оператор</label>
-                            <select
-                                required
-                                className="w-full border-2 border-slate-100 rounded-xl px-3 py-2 text-sm focus:border-blue-500 outline-none transition bg-white"
-                                value={formData.cadCamOperatorId}
-                                onChange={(e) => setFormData({ ...formData, cadCamOperatorId: e.target.value })}
-                            >
-                                <option value="">Выбрать</option>
-                                {operatorOptions.map((user) => (
-                                    <option key={user.id} value={user.id}>
-                                        {getUserLabel(user)}
-                                    </option>
-                                ))}
-                                {!operatorOptions.length && (
-                                    <option value="" disabled>
-                                        Нет доступных операторов
-                                    </option>
-                                )}
-                            </select>
-                        </div>
                     </div>
                 </section>
 
@@ -899,6 +1042,12 @@ export default function CreateOrderModal({
                                         </div>
                                     </div>
                                 </div>
+
+                                <TaskAssignmentFields
+                                    task={task}
+                                    users={users}
+                                    onChange={(changes) => handleTaskAssignmentChange(index, changes)}
+                                />
                             </div>
                         );
                     })}
