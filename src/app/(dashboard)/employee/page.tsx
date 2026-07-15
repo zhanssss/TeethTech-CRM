@@ -4,71 +4,11 @@ import Link from 'next/link';
 import { type FormEvent, useMemo, useState } from 'react';
 import { useSelector } from 'react-redux';
 
-import TaskDetailsSidebar from '@/src/components/layout/TaskDetailsSidebar';
+import EmployeeTasksKanban from '@/src/components/employee/EmployeeTasksKanban';
 import ErrorModal from '@/src/components/ui/ErrorModal';
 import { RootState } from '@/src/lib/store';
 import { mockEmployees } from '@/src/mock/employees';
-import { mockTasks } from '@/src/mock/tasks';
-import { useUpdateTaskStatusMutation } from '@/src/services/api/ordersApi';
 import { useChangeUserPasswordMutation } from '@/src/services/api/usersApi';
-import { useGetAvailableWorkflowTransitionsQuery } from '@/src/services/api/workflowApi';
-import type {
-    ProductionTask,
-    Task,
-    TaskAttachment,
-    TaskComment,
-    TaskHistoryItem,
-    TaskImage,
-    TaskStatus,
-} from '@/src/types/task.types';
-import type { WorkflowTransition } from '@/src/types/workflow.types';
-
-const TASK_STAGES: Array<{
-    id: TaskStatus;
-    label: string;
-    badgeClassName: string;
-}> = [
-    {
-        id: 'TODO',
-        label: 'Нужно сделать',
-        badgeClassName: 'border-slate-200 bg-slate-100 text-slate-700',
-    },
-    {
-        id: 'MODELING',
-        label: 'Моделирование',
-        badgeClassName: 'border-blue-200 bg-blue-50 text-blue-700',
-    },
-    {
-        id: 'MILLING',
-        label: 'Фрезеровка',
-        badgeClassName: 'border-violet-200 bg-violet-50 text-violet-700',
-    },
-    {
-        id: 'POST_PROCESSING',
-        label: 'Обработка',
-        badgeClassName: 'border-orange-200 bg-orange-50 text-orange-700',
-    },
-    {
-        id: 'DONE',
-        label: 'Готово',
-        badgeClassName: 'border-emerald-200 bg-emerald-50 text-emerald-700',
-    },
-];
-const TASK_STAGE_IDS = new Set<TaskStatus>(TASK_STAGES.map((stage) => stage.id));
-
-const PRIORITY_LABELS: Record<ProductionTask['priority'], string> = {
-    LOW: 'Низкий',
-    MEDIUM: 'Средний',
-    HIGH: 'Высокий',
-    URGENT: 'Срочный',
-};
-
-const PRIORITY_CLASSES: Record<ProductionTask['priority'], string> = {
-    LOW: 'bg-slate-100 text-slate-600',
-    MEDIUM: 'bg-blue-100 text-blue-700',
-    HIGH: 'bg-orange-100 text-orange-700',
-    URGENT: 'bg-red-100 text-red-700',
-};
 
 const EMPLOYEE_STATUS = {
     ACTIVE: {
@@ -114,36 +54,20 @@ function formatJoinedAt(value?: string) {
     }).format(new Date(`${value}T00:00:00`));
 }
 
-function ProfileMetric({
-                           label,
-                           value,
-                           hint,
-                           accentClassName,
-                       }: {
-    label: string;
-    value: string | number;
-    hint: string;
-    accentClassName: string;
-}) {
-    return (
-        <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <div className={`mb-4 h-1.5 w-10 rounded-full ${accentClassName}`} />
-            <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">
-                {label}
-            </p>
-            <p className="mt-2 text-3xl font-black tracking-tight text-slate-900">
-                {value}
-            </p>
-            <p className="mt-1 text-xs leading-5 text-slate-500">{hint}</p>
-        </article>
-    );
+function getInitials(value: string | null) {
+    return (value ?? 'Сотрудник')
+        .split(' ')
+        .filter(Boolean)
+        .slice(0, 2)
+        .map((part) => part[0]?.toUpperCase())
+        .join('');
 }
 
 function ProfileLink({
-                         href,
-                         title,
-                         description,
-                     }: {
+    href,
+    title,
+    description,
+}: {
     href: string;
     title: string;
     description: string;
@@ -167,12 +91,12 @@ function ProfileLink({
     );
 }
 
-function ChangePasswordCard({userId}: { userId: string | null }) {
+function ChangePasswordCard({ userId }: { userId: string | null }) {
     const [newPassword, setNewPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [formError, setFormError] = useState('');
     const [successMessage, setSuccessMessage] = useState('');
-    const [changeUserPassword, {isLoading}] = useChangeUserPasswordMutation();
+    const [changeUserPassword, { isLoading }] = useChangeUserPasswordMutation();
 
     const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault();
@@ -213,18 +137,16 @@ function ChangePasswordCard({userId}: { userId: string | null }) {
             aria-labelledby="employee-password-title"
             className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
         >
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                <div>
-                    <p className="text-xs font-bold uppercase tracking-[0.16em] text-blue-600">
-                        Безопасность
-                    </p>
-                    <h2 id="employee-password-title" className="mt-1 text-lg font-black text-slate-900">
-                        Смена пароля
-                    </h2>
-                    <p className="mt-1 text-sm text-slate-500">
-                        Обновите пароль для входа в личный кабинет.
-                    </p>
-                </div>
+            <div>
+                <p className="text-xs font-bold uppercase tracking-[0.16em] text-blue-600">
+                    Безопасность
+                </p>
+                <h2 id="employee-password-title" className="mt-1 text-lg font-black text-slate-900">
+                    Смена пароля
+                </h2>
+                <p className="mt-1 text-sm text-slate-500">
+                    Обновите пароль для входа в личный кабинет.
+                </p>
             </div>
 
             <form onSubmit={handleSubmit} className="mt-5 grid gap-3 lg:grid-cols-[1fr_1fr_auto] lg:items-start">
@@ -257,7 +179,7 @@ function ChangePasswordCard({userId}: { userId: string | null }) {
                 <button
                     type="submit"
                     disabled={isLoading || !userId}
-                    className="mt-0 inline-flex min-h-11 items-center justify-center rounded-xl bg-slate-900 px-5 text-sm font-bold text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-300 lg:mt-6"
+                    className="inline-flex min-h-11 items-center justify-center rounded-xl bg-slate-900 px-5 text-sm font-bold text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-300 lg:mt-6"
                 >
                     {isLoading ? 'Сохранение...' : 'Сменить пароль'}
                 </button>
@@ -276,509 +198,14 @@ function ChangePasswordCard({userId}: { userId: string | null }) {
     );
 }
 
-function getStage(status: TaskStatus) {
-    return TASK_STAGES.find((stage) => stage.id === status) ?? TASK_STAGES[0];
-}
-
-function getNextStage(status: TaskStatus) {
-    const currentIndex = TASK_STAGES.findIndex((stage) => stage.id === status);
-
-    if (currentIndex < 0 || currentIndex === TASK_STAGES.length - 1) {
-        return null;
-    }
-
-    return TASK_STAGES[currentIndex + 1];
-}
-
-function isTaskStatus(value: string | null | undefined): value is TaskStatus {
-    return TASK_STAGE_IDS.has(value as TaskStatus);
-}
-
-function getTransitionTaskStatus(transition: WorkflowTransition) {
-    const normalizedCode = transition.code?.toUpperCase();
-
-    return isTaskStatus(normalizedCode) ? normalizedCode : null;
-}
-
-function getTransitionLabel(transition: WorkflowTransition) {
-    return transition.name || transition.code || transition.id;
-}
-
-function getTaskWorkflowType(task: ProductionTask) {
-    return task.workTypeCode || task.workType || task.workTypeId || '';
-}
-
-function getTaskCurrentStatusId(task: ProductionTask) {
-    return task.currentStatusId || '';
-}
-
-function canUserMoveTask(task: ProductionTask, userId: string | null | undefined) {
-    if (!userId) return false;
-
-    return [
-        task.technicianId,
-        task.assignedUserId,
-        task.attachedUserId,
-    ].some((value) => value === userId);
-}
-
-function formatDeadline(value: string) {
-    return new Intl.DateTimeFormat('ru-RU', {
-        day: 'numeric',
-        month: 'long',
-        year: 'numeric',
-    }).format(new Date(`${value}T00:00:00`));
-}
-
-function createId() {
-    return globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`;
-}
-
-function getInitials(value: string | null) {
-    return (value ?? 'Сотрудник')
-        .split(' ')
-        .filter(Boolean)
-        .slice(0, 2)
-        .map((part) => part[0]?.toUpperCase())
-        .join('');
-}
-
-function getInitialHistory(task: ProductionTask): TaskHistoryItem[] {
-    return [
-        {
-            id: `${task.id}-created`,
-            eventType: 'CREATED',
-            changedAt: '2026-06-22T08:00:00+05:00',
-            changedBy: {
-                userId: 'dispatcher',
-                fullName: 'Мария Диспетчер',
-                initials: 'МД',
-            },
-        },
-    ];
-}
-
-function TaskCard({
-                      task,
-                      variant,
-                      currentUserId,
-                      onOpen,
-                      onMoveNext,
-                  }: {
-    task: ProductionTask;
-    variant: 'active' | 'upcoming' | 'completed';
-    currentUserId: string | null;
-    onOpen: (taskId: string) => void;
-    onMoveNext: (taskId: string, transition: WorkflowTransition) => void;
-}) {
-    const currentStage = getStage(task.status);
-    const nextStage = getNextStage(task.status);
-    const currentStageLabel = task.currentStatusName || currentStage.label;
-
-    return (
-        <article
-            role="button"
-            tabIndex={0}
-            aria-label={`Открыть детали задачи ${task.title}`}
-            onClick={() => onOpen(task.id)}
-            onKeyDown={(event) => {
-                if (event.target === event.currentTarget && (event.key === 'Enter' || event.key === ' ')) {
-                    event.preventDefault();
-                    onOpen(task.id);
-                }
-            }}
-            className={`cursor-pointer rounded-2xl border bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-blue-400 sm:p-5 ${
-                variant === 'upcoming'
-                    ? 'border-violet-200 hover:border-violet-300'
-                    : 'border-slate-200 hover:border-blue-200'
-            }`}
-        >
-            <div className="flex flex-wrap items-start justify-between gap-3">
-                <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                        <span className="font-mono text-xs font-bold text-blue-600">
-                            {task.id}
-                        </span>
-                        <span
-                            className={`rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide ${PRIORITY_CLASSES[task.priority]}`}
-                        >
-                            {PRIORITY_LABELS[task.priority]}
-                        </span>
-                    </div>
-                    <h2 className="mt-3 text-lg font-bold text-slate-900">
-                        {task.title}
-                    </h2>
-                </div>
-
-                <span
-                    className={`shrink-0 rounded-full border px-3 py-1 text-xs font-bold ${currentStage.badgeClassName}`}
-                >
-                    {currentStageLabel}
-                </span>
-            </div>
-
-            <dl className="mt-5 grid gap-3 text-sm sm:grid-cols-3">
-                <div>
-                    <dt className="text-xs text-slate-400">Пациент</dt>
-                    <dd className="mt-1 font-semibold text-slate-700">{task.patient}</dd>
-                </div>
-                <div>
-                    <dt className="text-xs text-slate-400">Заказ</dt>
-                    <dd className="mt-1">
-                        <Link
-                            href={`/orders/${task.orderId}`}
-                            onClick={(event) => event.stopPropagation()}
-                            className="font-semibold text-blue-600 hover:underline"
-                        >
-                            #{task.orderId}
-                        </Link>
-                    </dd>
-                </div>
-                <div>
-                    <dt className="text-xs text-slate-400">Срок</dt>
-                    <dd className="mt-1 font-semibold text-slate-700">
-                        {formatDeadline(task.deadline)}
-                    </dd>
-                </div>
-            </dl>
-
-            <div className="mt-5 flex flex-col gap-3 border-t border-slate-100 pt-4 sm:flex-row sm:items-center sm:justify-between">
-                {variant === 'upcoming' ? (
-                    <>
-                        <p className="text-xs text-violet-700">
-                            Будет передана после этапа <span className="font-semibold">«{currentStageLabel}»</span>
-                        </p>
-                        <span className="inline-flex items-center text-xs font-bold text-slate-500">
-                            Открыть детали <span aria-hidden="true" className="ml-1">→</span>
-                        </span>
-                    </>
-                ) : variant === 'active' && nextStage ? (
-                    <EmployeeTaskTransitionAction
-                        task={task}
-                        currentUserId={currentUserId}
-                        fallbackNextStageLabel={nextStage.label}
-                        onMoved={onMoveNext}
-                    />
-                ) : (
-                    <p className="text-sm font-semibold text-emerald-700">
-                        Задача завершена
-                    </p>
-                )}
-            </div>
-        </article>
-    );
-}
-
-function EmployeeTaskTransitionAction({
-                                          task,
-                                          currentUserId,
-                                          fallbackNextStageLabel,
-                                          onMoved,
-                                      }: {
-    task: ProductionTask;
-    currentUserId: string | null;
-    fallbackNextStageLabel: string;
-    onMoved: (taskId: string, transition: WorkflowTransition) => void;
-}) {
-    const workType = getTaskWorkflowType(task);
-    const currentStatusId = getTaskCurrentStatusId(task);
-    const canMoveTask = canUserMoveTask(task, currentUserId);
-    const canLoadTransitions = canMoveTask && Boolean(workType && currentStatusId);
-    const [selectedTransitionId, setSelectedTransitionId] = useState('');
-    const [statusError, setStatusError] = useState('');
-    const [updateTaskStatus, {isLoading: isUpdatingStatus}] = useUpdateTaskStatusMutation();
-    const {
-        data: transitions = [],
-        isError,
-        isFetching,
-        isLoading,
-        refetch,
-    } = useGetAvailableWorkflowTransitionsQuery(
-        {workType, currentStatusId},
-        {skip: !canLoadTransitions}
-    );
-    const sortedTransitions = useMemo(
-        () => [...transitions].sort((first, second) => (first.sortOrder ?? 0) - (second.sortOrder ?? 0)),
-        [transitions]
-    );
-    const nextTransitionId = selectedTransitionId || sortedTransitions[0]?.id || '';
-    const nextTransition = sortedTransitions.find((transition) => transition.id === nextTransitionId);
-
-    const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
-        event.preventDefault();
-        event.stopPropagation();
-
-        if (!nextTransitionId || !nextTransition) return;
-
-        setStatusError('');
-
-        try {
-            await updateTaskStatus({
-                taskId: task.id,
-                body: {
-                    nextStatusId: nextTransitionId,
-                    comment: `Завершен этап: ${task.currentStatusName || getStage(task.status).label}`,
-                },
-            }).unwrap();
-            setSelectedTransitionId('');
-            onMoved(task.id, nextTransition);
-        } catch (error) {
-            console.error('Task status update failed:', error);
-            setStatusError('Не удалось передать задачу на следующий этап');
-        }
-    };
-
-    if (!canMoveTask) {
-        return (
-            <p className="text-xs font-semibold text-slate-400">
-                Передача доступна назначенному исполнителю
-            </p>
-        );
-    }
-
-    if (!workType || !currentStatusId) {
-        return (
-            <p className="text-xs font-semibold text-slate-400">
-                Нет данных workflow для передачи
-            </p>
-        );
-    }
-
-    if (isLoading) {
-        return (
-            <p className="text-xs font-semibold text-slate-400">
-                Загрузка доступных переходов...
-            </p>
-        );
-    }
-
-    if (isError) {
-        return (
-            <div
-                onClick={(event) => event.stopPropagation()}
-                className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"
-            >
-                <p className="text-xs font-semibold text-red-600">
-                    Не удалось загрузить переходы
-                </p>
-                <button
-                    type="button"
-                    onClick={() => refetch()}
-                    className="text-xs font-black uppercase text-red-700 hover:underline"
-                >
-                    Повторить
-                </button>
-            </div>
-        );
-    }
-
-    if (sortedTransitions.length === 0) {
-        return (
-            <p className="text-sm font-semibold text-emerald-700">
-                Нет доступных переходов
-            </p>
-        );
-    }
-
-    return (
-        <form
-            onSubmit={handleSubmit}
-            onClick={(event) => event.stopPropagation()}
-            className="flex w-full flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
-        >
-            {sortedTransitions.length > 1 ? (
-                <label className="min-w-0 flex-1">
-                    <span className="sr-only">Следующий этап</span>
-                    <select
-                        value={nextTransitionId}
-                        onChange={(event) => setSelectedTransitionId(event.target.value)}
-                        className="min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                    >
-                        {sortedTransitions.map((transition) => (
-                            <option key={transition.id} value={transition.id}>
-                                {getTransitionLabel(transition)}
-                            </option>
-                        ))}
-                    </select>
-                </label>
-            ) : (
-                <p className="text-xs text-slate-500">
-                    Следующий этап: <span className="font-semibold text-slate-700">{nextTransition ? getTransitionLabel(nextTransition) : fallbackNextStageLabel}</span>
-                </p>
-            )}
-
-            <button
-                type="submit"
-                disabled={isUpdatingStatus || isFetching || !nextTransitionId}
-                className="inline-flex min-h-11 items-center justify-center rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-blue-700 active:scale-[0.99] disabled:cursor-not-allowed disabled:bg-slate-300"
-            >
-                {isUpdatingStatus ? 'Передача...' : 'Завершить этап'}
-                <span aria-hidden="true" className="ml-2">→</span>
-            </button>
-
-            {statusError && (
-                <p className="text-xs font-semibold text-red-600 sm:basis-full">
-                    {statusError}
-                </p>
-            )}
-        </form>
-    );
-}
-
 export default function EmployeePage() {
     const { id, name, role } = useSelector((state: RootState) => state.auth);
     const currentEmployee = useMemo(
         () => mockEmployees.find((employee) => employee.id === id),
         [id]
     );
-    const visibleTasks = useMemo(
-        () => mockTasks
-            .filter((task) => canUserMoveTask(task, id) || task.nextTechnicianId === id)
-            .map((task) => ({
-                ...task,
-                history: task.history ?? getInitialHistory(task),
-            })),
-        [id]
-    );
-    const [tasks, setTasks] = useState<ProductionTask[]>(visibleTasks);
-    const [notification, setNotification] = useState('');
-    const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
-
-    const activeTasks = tasks.filter(
-        (task) => canUserMoveTask(task, id) && task.status !== 'DONE'
-    );
-    const upcomingTasks = tasks.filter(
-        (task) => task.nextTechnicianId === id && !canUserMoveTask(task, id) && task.status !== 'DONE'
-    );
-    const completedTasks = tasks.filter(
-        (task) => canUserMoveTask(task, id) && task.status === 'DONE'
-    );
     const displayName = currentEmployee?.name ?? name ?? 'Сотрудник';
     const employeeStatus = EMPLOYEE_STATUS[currentEmployee?.status ?? 'ACTIVE'];
-    const completedCount = currentEmployee?.stats.completed ?? completedTasks.length;
-    const inProgressCount = currentEmployee?.stats.inProgress ?? activeTasks.length;
-    const onTimeRate = currentEmployee?.stats.onTimeRate ?? 0;
-    const averageDays = currentEmployee?.stats.averageDays ?? 0;
-    const selectedTask = tasks.find((task) => task.id === selectedTaskId) ?? null;
-    const selectedSidebarTask: Task | null = selectedTask
-        ? {
-            id: selectedTask.id,
-            title: selectedTask.title,
-            status: selectedTask.currentStatusName || getStage(selectedTask.status).label,
-            patient: selectedTask.patient,
-            orderId: selectedTask.orderId,
-            deadline: formatDeadline(selectedTask.deadline),
-            priority: PRIORITY_LABELS[selectedTask.priority],
-            technicianId: selectedTask.technicianId,
-            units: 1,
-            unitPrice: 0,
-            discount: 0,
-            comments: selectedTask.comments,
-            attachments: selectedTask.attachments,
-            images: selectedTask.images,
-            history: selectedTask.history,
-        }
-        : null;
-
-    const createHistoryItem = (
-        eventType: string,
-        fieldName?: string,
-        oldValue?: string,
-        newValue?: string
-    ): TaskHistoryItem => ({
-        id: createId(),
-        eventType,
-        fieldName,
-        oldValue,
-        newValue,
-        changedAt: new Date().toISOString(),
-        changedBy: {
-            userId: id ?? 'employee',
-            fullName: name ?? 'Сотрудник',
-            initials: getInitials(name),
-        },
-    });
-
-    const updateSelectedTask = (
-        updater: (task: ProductionTask) => ProductionTask
-    ) => {
-        if (!selectedTaskId) return;
-
-        setTasks((currentTasks) =>
-            currentTasks.map((task) =>
-                task.id === selectedTaskId ? updater(task) : task
-            )
-        );
-    };
-
-    const handleMoveNext = (taskId: string, transition: WorkflowTransition) => {
-        const nextStatus = getTransitionTaskStatus(transition);
-        const nextStatusLabel = getTransitionLabel(transition);
-
-        setTasks((currentTasks) =>
-            currentTasks.map((item) =>
-                item.id === taskId
-                    ? {
-                        ...item,
-                        ...(nextStatus ? { status: nextStatus } : {}),
-                        currentStatusId: transition.id,
-                        currentStatusCode: transition.code,
-                        currentStatusName: nextStatusLabel,
-                        history: [
-                            createHistoryItem(
-                                'STATUS_CHANGED',
-                                'status',
-                                item.currentStatusName || getStage(item.status).label,
-                                nextStatusLabel
-                            ),
-                            ...(item.history ?? []),
-                        ],
-                    }
-                    : item
-            )
-        );
-        setNotification(`Задача ${taskId} передана на этап «${nextStatusLabel}»`);
-    };
-
-    const handleAddComment = (text: string) => {
-        const comment: TaskComment = {
-            id: createId(),
-            author: name ?? 'Сотрудник',
-            text,
-            createdAt: new Date().toLocaleString('ru-RU'),
-        };
-
-        updateSelectedTask((task) => ({
-            ...task,
-            comments: [comment, ...(task.comments ?? [])],
-            history: [
-                createHistoryItem('COMMENT_ADDED'),
-                ...(task.history ?? []),
-            ],
-        }));
-    };
-
-    const handleAddAttachments = (files: TaskAttachment[]) => {
-        updateSelectedTask((task) => ({
-            ...task,
-            attachments: [...(task.attachments ?? []), ...files],
-            history: [
-                createHistoryItem('ATTACHMENT_ADDED'),
-                ...(task.history ?? []),
-            ],
-        }));
-    };
-
-    const handleAddImages = (images: TaskImage[]) => {
-        updateSelectedTask((task) => ({
-            ...task,
-            images: [...(task.images ?? []), ...images],
-            history: [
-                createHistoryItem('ATTACHMENT_ADDED'),
-                ...(task.history ?? []),
-            ],
-        }));
-    };
 
     if (role === 'ADMIN' || role === 'DISPATCHER') {
         return (
@@ -789,7 +216,7 @@ export default function EmployeePage() {
     }
 
     return (
-        <div className="mx-auto w-full max-w-6xl space-y-6">
+        <div className="mx-auto w-full max-w-7xl space-y-6">
             <section
                 aria-labelledby="employee-profile-title"
                 className="overflow-hidden rounded-3xl border border-slate-800 bg-slate-950 text-white shadow-xl"
@@ -877,161 +304,7 @@ export default function EmployeePage() {
             </section>
 
             <ChangePasswordCard userId={id} />
-
-            <section aria-label="Показатели сотрудника" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                <ProfileMetric
-                    label="Выполнено"
-                    value={completedCount}
-                    hint="Работ за всё время"
-                    accentClassName="bg-emerald-500"
-                />
-                <ProfileMetric
-                    label="В процессе"
-                    value={inProgressCount}
-                    hint={`${activeTasks.length} в текущей очереди`}
-                    accentClassName="bg-blue-500"
-                />
-                <ProfileMetric
-                    label="В срок"
-                    value={`${onTimeRate}%`}
-                    hint="Задач без просрочки"
-                    accentClassName="bg-violet-500"
-                />
-                <ProfileMetric
-                    label="Средний цикл"
-                    value={`${averageDays} дн.`}
-                    hint="На выполнение работы"
-                    accentClassName="bg-amber-500"
-                />
-            </section>
-
-            <section className="flex flex-col gap-3 border-b border-slate-200 pb-5 sm:flex-row sm:items-end sm:justify-between">
-                <div>
-                    <p className="text-xs font-bold uppercase tracking-[0.18em] text-blue-600">
-                        Рабочая смена
-                    </p>
-                    <h2 className="mt-1 text-2xl font-black text-slate-900">Мои задачи</h2>
-                    <p className="mt-1 text-sm text-slate-500">
-                        Текущие работы и задачи, которые скоро будут переданы вам.
-                    </p>
-                </div>
-                <div className="flex gap-2 text-xs font-bold">
-                    <span className="rounded-full bg-blue-100 px-3 py-1.5 text-blue-700">
-                        В работе: {activeTasks.length}
-                    </span>
-                    <span className="rounded-full bg-violet-100 px-3 py-1.5 text-violet-700">
-                        Скоро: {upcomingTasks.length}
-                    </span>
-                </div>
-            </section>
-
-            <p className="sr-only" role="status" aria-live="polite">
-                {notification}
-            </p>
-
-            <section aria-labelledby="active-tasks-title">
-                <div className="mb-4 flex items-center justify-between gap-3">
-                    <div>
-                        <h2 id="active-tasks-title" className="text-lg font-bold text-slate-900">
-                            Назначенные задачи
-                        </h2>
-                        <p className="text-sm text-slate-500">
-                            Выполните работу и передайте задачу дальше.
-                        </p>
-                    </div>
-                    <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-bold text-blue-700">
-                        {activeTasks.length}
-                    </span>
-                </div>
-
-                <div className="grid gap-4 lg:grid-cols-2">
-                    {activeTasks.map((task) => (
-                        <TaskCard
-                            key={task.id}
-                            task={task}
-                            variant="active"
-                            currentUserId={id}
-                            onOpen={setSelectedTaskId}
-                            onMoveNext={handleMoveNext}
-                        />
-                    ))}
-                </div>
-
-                {activeTasks.length === 0 && (
-                    <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-5 py-12 text-center">
-                        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100 text-xl text-emerald-700">
-                            ✓
-                        </div>
-                        <h3 className="mt-4 font-bold text-slate-900">Активных задач нет</h3>
-                        <p className="mt-1 text-sm text-slate-500">
-                            Все назначенные задачи уже переданы дальше.
-                        </p>
-                    </div>
-                )}
-            </section>
-
-            <section aria-labelledby="upcoming-tasks-title">
-                <div className="mb-4 flex items-center justify-between gap-3">
-                    <div>
-                        <h2 id="upcoming-tasks-title" className="text-lg font-bold text-slate-900">
-                            Скоро будут переданы вам
-                        </h2>
-                        <p className="text-sm text-slate-500">
-                            Можно заранее ознакомиться с деталями и подготовиться к работе.
-                        </p>
-                    </div>
-                    <span className="rounded-full bg-violet-100 px-3 py-1 text-xs font-bold text-violet-700">
-                        {upcomingTasks.length}
-                    </span>
-                </div>
-
-                <div className="grid gap-4 lg:grid-cols-2">
-                    {upcomingTasks.map((task) => (
-                        <TaskCard
-                            key={task.id}
-                            task={task}
-                            variant="upcoming"
-                            currentUserId={id}
-                            onOpen={setSelectedTaskId}
-                            onMoveNext={handleMoveNext}
-                        />
-                    ))}
-                </div>
-
-                {upcomingTasks.length === 0 && (
-                    <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-5 py-8 text-center text-sm text-slate-500">
-                        Пока нет задач, ожидающих передачи вам.
-                    </div>
-                )}
-            </section>
-
-            {completedTasks.length > 0 && (
-                <details className="rounded-2xl border border-slate-200 bg-white shadow-sm">
-                    <summary className="cursor-pointer px-5 py-4 text-sm font-bold text-slate-700">
-                        Завершённые задачи ({completedTasks.length})
-                    </summary>
-                    <div className="grid gap-4 border-t border-slate-100 p-4 lg:grid-cols-2">
-                        {completedTasks.map((task) => (
-                            <TaskCard
-                                key={task.id}
-                                task={task}
-                                variant="completed"
-                                currentUserId={id}
-                                onOpen={setSelectedTaskId}
-                                onMoveNext={handleMoveNext}
-                            />
-                        ))}
-                    </div>
-                </details>
-            )}
-
-            <TaskDetailsSidebar
-                task={selectedSidebarTask}
-                onClose={() => setSelectedTaskId(null)}
-                onAddComment={handleAddComment}
-                onAddAttachments={handleAddAttachments}
-                onAddImages={handleAddImages}
-            />
+            <EmployeeTasksKanban />
         </div>
     );
 }
