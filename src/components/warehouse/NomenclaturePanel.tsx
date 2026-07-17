@@ -61,10 +61,10 @@ export default function NomenclaturePanel() {
     const selectedFromList = listQuery.data?.find((item) => item.id === selectedId);
     const selectedItem = detailQuery.data ?? selectedFromList;
     const activeInventoryCheck = inventoryChecksQuery.data?.find(
-        (item) => item.status === 'DRAFT' || item.status === 'IN_PROGRESS'
+        (item) => item.statusCode === 'DRAFT' || item.statusCode === 'IN_PROGRESS'
     );
     const inventoryLockMessage = activeInventoryCheck
-        ? `Приход заблокирован: есть активная инвентаризация (${inventoryStatusLabels[activeInventoryCheck.status]}). Завершите или отмените её, затем повторите приход.`
+        ? `Приход заблокирован: есть активная инвентаризация (${inventoryStatusLabels[activeInventoryCheck.statusCode]}). Завершите или отмените её, затем повторите приход.`
         : '';
 
     const openItem = (id: string) => {

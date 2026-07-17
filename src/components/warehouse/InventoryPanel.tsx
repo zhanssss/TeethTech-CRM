@@ -77,7 +77,9 @@ export default function InventoryPanel() {
         () => itemsPage?.content ?? [],
         [itemsPage?.content]
     );
-    const activeCheck = checks.find((item) => item.status === 'DRAFT' || item.status === 'IN_PROGRESS');
+    const activeCheck = checks.find(
+        (item) => item.statusCode === 'DRAFT' || item.statusCode === 'IN_PROGRESS'
+    );
     const actionLoading = startState.isLoading || cancelState.isLoading || completeState.isLoading;
     const inventoryItemsFetching = itemsQuery.isFetching;
     const inventoryRowsLoading = inventoryItemsFetching && displayItems.length === 0;
@@ -219,8 +221,8 @@ export default function InventoryPanel() {
                             <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
                                 <div className="min-w-0">
                                     <div className="flex flex-wrap items-center gap-2">
-                                        <span className={`rounded-full border px-2.5 py-1 text-xs font-bold ${inventoryStatusClasses[check.status]}`}>
-                                            {inventoryStatusLabels[check.status]}
+                                        <span className={`rounded-full border px-2.5 py-1 text-xs font-bold ${inventoryStatusClasses[check.statusCode]}`}>
+                                            {inventoryStatusLabels[check.statusCode]}
                                         </span>
                                         <span className="font-mono text-xs font-bold text-slate-400">#{shortId(check.id)}</span>
                                     </div>
@@ -228,15 +230,15 @@ export default function InventoryPanel() {
                                         {check.comment || 'Инвентаризация без комментария'}
                                     </h2>
                                     <p className="mt-1 text-sm text-slate-500">
-                                        Создана {formatDateTime(check.startedAt)} · {displayItems.length} позиций
+                                        {check.startedAt ? `Начата ${formatDateTime(check.startedAt)}` : 'Ещё не начата'} · {displayItems.length} позиций
                                     </p>
-                                    {(check.status === 'COMPLETED' || check.status === 'CANCELLED') && check.completedAt && (
+                                    {(check.statusCode === 'COMPLETED' || check.statusCode === 'CANCELLED') && check.completedAt && (
                                         <p className="mt-1 text-xs text-slate-400">Закрыта {formatDateTime(check.completedAt)}</p>
                                     )}
                                 </div>
 
                                 <div className="flex flex-wrap gap-2">
-                                    {check.status === 'DRAFT' && (
+                                    {check.statusCode === 'DRAFT' && (
                                         <button
                                             type="button"
                                             onClick={runStart}
@@ -246,7 +248,7 @@ export default function InventoryPanel() {
                                             {startState.isLoading ? 'Запускаем…' : 'Начать пересчёт'}
                                         </button>
                                     )}
-                                    {(check.status === 'DRAFT' || check.status === 'IN_PROGRESS') && (
+                                    {(check.statusCode === 'DRAFT' || check.statusCode === 'IN_PROGRESS') && (
                                         <button
                                             type="button"
                                             onClick={() => setConfirmation('cancel')}
@@ -256,7 +258,7 @@ export default function InventoryPanel() {
                                             Отменить
                                         </button>
                                     )}
-                                    {check.status === 'IN_PROGRESS' && (
+                                    {check.statusCode === 'IN_PROGRESS' && (
                                         <button
                                             type="button"
                                             onClick={() => setConfirmation('complete')}
@@ -270,7 +272,7 @@ export default function InventoryPanel() {
                                 </div>
                             </div>
 
-                            {check.status === 'IN_PROGRESS' && (
+                            {check.statusCode === 'IN_PROGRESS' && (
                                 <div className="mt-5 rounded-xl bg-slate-50 p-4">
                                     <div className="flex items-center justify-between gap-3 text-xs font-bold text-slate-600">
                                         <span>Пересчитано {progress.counted} из {progress.total}</span>
@@ -299,7 +301,7 @@ export default function InventoryPanel() {
                             <div className="border-b border-slate-100 px-5 py-4">
                                 <h3 className="font-bold text-slate-900">Позиции для пересчёта</h3>
                                 <p className="mt-1 text-xs text-slate-500">
-                                    {check.status === 'IN_PROGRESS'
+                                    {check.statusCode === 'IN_PROGRESS'
                                         ? 'Введите фактическое количество: расхождение посчитается от системного остатка'
                                         : 'Зафиксированный снимок остатков на момент создания'}
                                 </p>
@@ -324,7 +326,7 @@ export default function InventoryPanel() {
                                     </thead>
                                     <tbody className="divide-y divide-slate-100">
                                         {displayItems.map((item) => {
-                                            const typedActualQuantity = check.status === 'IN_PROGRESS'
+                                            const typedActualQuantity = check.statusCode === 'IN_PROGRESS'
                                                 ? parseQuantityInput(counts[item.id])
                                                 : item.actualQuantity;
                                             const hasActualQuantity = typedActualQuantity !== null && typedActualQuantity !== undefined;
@@ -342,7 +344,7 @@ export default function InventoryPanel() {
                                                         {formatQuantity(item.expectedQuantity, item.unit)}
                                                     </td>
                                                     <td className="px-5 py-4">
-                                                        {check.status === 'IN_PROGRESS' ? (
+                                                        {check.statusCode === 'IN_PROGRESS' ? (
                                                             <div className="relative w-36">
                                                                 <input
                                                                     aria-label={`Фактическое количество: ${item.nomenclatureName}`}
@@ -368,7 +370,7 @@ export default function InventoryPanel() {
                                                         {hasActualQuantity ? `${discrepancy > 0 ? '+' : ''}${formatQuantity(discrepancy, item.unit)}` : '—'}
                                                     </td>
                                                     <td className="px-5 py-4 text-right">
-                                                        {check.status === 'IN_PROGRESS' ? (
+                                                        {check.statusCode === 'IN_PROGRESS' ? (
                                                             <div className="inline-flex items-center gap-2">
                                                                 {savedItemId === item.id && (
                                                                     <span className="text-xs font-bold text-emerald-600">Сохранено</span>
@@ -507,7 +509,7 @@ export default function InventoryPanel() {
                         <thead className="border-b border-slate-200 bg-slate-50 text-[11px] uppercase tracking-wider text-slate-400">
                             <tr>
                                 <th className="px-5 py-3 font-bold">Инвентаризация</th>
-                                <th className="px-5 py-3 font-bold">Создана</th>
+                                <th className="px-5 py-3 font-bold">Начата</th>
                                 <th className="px-5 py-3 font-bold">Позиций</th>
                                 <th className="px-5 py-3 font-bold">Статус</th>
                                 <th className="px-5 py-3 text-right font-bold">Действие</th>
@@ -520,11 +522,13 @@ export default function InventoryPanel() {
                                         <p className="text-sm font-bold text-slate-900">{item.comment || 'Без комментария'}</p>
                                         <p className="mt-0.5 font-mono text-[11px] text-slate-400">#{shortId(item.id)}</p>
                                     </td>
-                                    <td className="px-5 py-4 text-sm text-slate-600">{formatDateTime(item.startedAt)}</td>
+                                    <td className="px-5 py-4 text-sm text-slate-600">
+                                        {item.startedAt ? formatDateTime(item.startedAt) : 'Не начата'}
+                                    </td>
                                     <td className="px-5 py-4 text-sm font-bold text-slate-700">{item.items.length}</td>
                                     <td className="px-5 py-4">
-                                        <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-bold ${inventoryStatusClasses[item.status]}`}>
-                                            {inventoryStatusLabels[item.status]}
+                                        <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-bold ${inventoryStatusClasses[item.statusCode]}`}>
+                                            {inventoryStatusLabels[item.statusCode]}
                                         </span>
                                     </td>
                                     <td className="px-5 py-4 text-right">

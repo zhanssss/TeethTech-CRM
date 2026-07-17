@@ -75,8 +75,8 @@ export type InventoryCheckItemsPage = {
 
 export type InventoryCheck = {
     id: string;
-    status: InventoryCheckStatus;
-    startedAt: string;
+    statusCode: InventoryCheckStatus;
+    startedAt: string | null;
     completedAt: string | null;
     createdByUserId: string;
     comment: string;
