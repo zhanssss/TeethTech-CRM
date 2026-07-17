@@ -1,6 +1,7 @@
 'use client';
 
 import { type FormEvent, useMemo, useState } from 'react';
+import { usePathname } from 'next/navigation';
 
 import { useGetFinanceReportQuery } from '@/src/services/api/financeApi';
 import {
@@ -189,6 +190,8 @@ function UserSelect({
 }
 
 export default function AccountingPage() {
+    const pathname = usePathname();
+    const isPayrollPage = pathname === '/accounting/payroll';
     const [reportStart, setReportStart] = useState(getDefaultStartDate);
     const [reportEnd, setReportEnd] = useState(getDefaultEndDate);
     const [selectedConfigUserId, setSelectedConfigUserId] = useState('');
@@ -209,7 +212,7 @@ export default function AccountingPage() {
         data: salaryEmployees = [],
         isLoading: isUsersLoading,
         isError: isUsersError,
-    } = useGetSalaryEmployeesQuery();
+    } = useGetSalaryEmployeesQuery(undefined, { skip: !isPayrollPage });
     const users = useMemo<SalaryUserOption[]>(
         () => salaryEmployees.map((employee) => ({
             id: employee.id,
@@ -240,7 +243,7 @@ export default function AccountingPage() {
         isFetching: isReportFetching,
         isError: isReportError,
         refetch: refetchReport,
-    } = useGetFinanceReportQuery(reportRequest);
+    } = useGetFinanceReportQuery(reportRequest, { skip: isPayrollPage });
     const selectedConfigUser = useMemo(
         () => users.find((user) => user.id === configUserId),
         [configUserId, users]
@@ -249,7 +252,9 @@ export default function AccountingPage() {
         data: salaryConfig,
         isFetching: isConfigFetching,
         isError: isConfigLoadError,
-    } = useGetSalaryConfigQuery(configUserId, { skip: !configUserId });
+    } = useGetSalaryConfigQuery(configUserId, {
+        skip: !isPayrollPage || !configUserId,
+    });
     const [upsertSalaryConfig, { isLoading: isSavingConfig }] = useUpsertSalaryConfigMutation();
     const [createSalaryStatement, { isLoading: isCreatingStatement }] = useCreateSalaryStatementMutation();
     const [confirmSalaryStatement, { isLoading: isConfirmingStatement }] = useConfirmSalaryStatementMutation();
@@ -259,13 +264,15 @@ export default function AccountingPage() {
         isFetching: isStatementTasksFetching,
         isError: isStatementTasksError,
     } = useGetSalaryStatementTasksQuery(statement?.statementId ?? '', {
-        skip: !statement?.statementId,
+        skip: !isPayrollPage || !statement?.statementId,
     });
     const {
         data: salaryStatementsHistory = [],
         isFetching: isHistoryFetching,
         isError: isHistoryError,
-    } = useGetSalaryStatementsHistoryQuery(historyRequest);
+    } = useGetSalaryStatementsHistoryQuery(historyRequest, {
+        skip: !isPayrollPage,
+    });
 
     const report = reportData ?? emptyReport;
     const paymentType = paymentTypeDraft ?? salaryConfig?.paymentType ?? getInitialPaymentType(selectedConfigUser);
@@ -395,11 +402,13 @@ export default function AccountingPage() {
 
     return (
         <div className="space-y-6">
+            {!isPayrollPage && (
+                <>
             <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
                 <div>
-                    <h1 className="text-2xl font-bold text-slate-900">Бухгалтерия</h1>
+                    <h1 className="text-2xl font-bold text-slate-900">Финансовый отчёт</h1>
                     <p className="mt-1 text-sm text-slate-500">
-                        Финансовый отчет, схемы оплаты и зарплатные ведомости
+                        Выручка, скидки, фонд оплаты труда и прибыль за выбранный период
                     </p>
                 </div>
 
@@ -465,6 +474,20 @@ export default function AccountingPage() {
                     <SummaryCard key={card.title} {...card} />
                 ))}
             </section>
+                </>
+            )}
+
+            {isPayrollPage && (
+                <>
+            <header>
+                <p className="text-xs font-bold uppercase tracking-[0.18em] text-blue-600">
+                    Финансы
+                </p>
+                <h1 className="mt-1 text-2xl font-bold text-slate-900">Зарплаты</h1>
+                <p className="mt-1 text-sm text-slate-500">
+                    Схемы оплаты сотрудников, расчёт и история зарплатных ведомостей
+                </p>
+            </header>
 
             <section className="grid grid-cols-1 gap-6 xl:grid-cols-[0.95fr_1.05fr]">
                 <form
@@ -850,6 +873,8 @@ export default function AccountingPage() {
                     </table>
                 </div>
             </section>
+                </>
+            )}
         </div>
     );
 }

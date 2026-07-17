@@ -50,8 +50,6 @@ const paymentMethodLabels: Record<string, string> = {
     CARD: 'Карта',
 };
 
-type Section = 'pending' | 'invoices';
-
 type ApiErrorShape = {
     status?: number | string;
     data?: {
@@ -218,7 +216,6 @@ function Notice({
 }
 
 export default function InvoicesPage() {
-    const [section, setSection] = useState<Section>('pending');
     const [pendingPage, setPendingPage] = useState(0);
     const [invoicesPage, setInvoicesPage] = useState(0);
     const [pageMessage, setPageMessage] = useState('');
@@ -547,8 +544,8 @@ export default function InvoicesPage() {
                     type="button"
                     onClick={() => {
                         setPageMessage('');
-                        if (section === 'pending') pendingQuery.refetch();
-                        else invoicesQuery.refetch();
+                        pendingQuery.refetch();
+                        invoicesQuery.refetch();
                     }}
                     disabled={pendingQuery.isFetching || invoicesQuery.isFetching}
                     className="inline-flex min-h-11 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 shadow-sm transition hover:border-blue-300 hover:text-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
@@ -591,33 +588,13 @@ export default function InvoicesPage() {
             {pageMessage && <Notice tone="error">{pageMessage}</Notice>}
 
             <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-                <div className="flex border-b border-slate-200 bg-slate-50 p-1.5">
-                    <button
-                        type="button"
-                        onClick={() => setSection('pending')}
-                        className={`flex-1 rounded-lg px-4 py-2.5 text-sm font-bold transition sm:flex-none ${
-                            section === 'pending'
-                                ? 'bg-white text-blue-700 shadow-sm'
-                                : 'text-slate-500 hover:text-slate-800'
-                        }`}
-                    >
-                        Заказы к выставлению
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => setSection('invoices')}
-                        className={`flex-1 rounded-lg px-4 py-2.5 text-sm font-bold transition sm:flex-none ${
-                            section === 'invoices'
-                                ? 'bg-white text-blue-700 shadow-sm'
-                                : 'text-slate-500 hover:text-slate-800'
-                        }`}
-                    >
-                        Все счета
-                    </button>
+                <div className="border-b border-slate-200 bg-slate-50 px-4 py-4 sm:px-5">
+                    <h2 className="font-bold text-slate-900">Заказы к выставлению</h2>
+                    <p className="mt-1 text-sm text-slate-500">
+                        Заказы, по которым ещё можно создать счёт
+                    </p>
                 </div>
 
-                {section === 'pending' ? (
-                    <>
                         {pendingQuery.isLoading ? (
                             <div className="p-10 text-center text-sm text-slate-500">Загрузка заказов...</div>
                         ) : pendingQuery.isError ? (
@@ -688,9 +665,16 @@ export default function InvoicesPage() {
                             totalPages={pendingQuery.data?.totalPages ?? 0}
                             onChange={setPendingPage}
                         />
-                    </>
-                ) : (
-                    <>
+            </section>
+
+            <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+                <div className="border-b border-slate-200 bg-slate-50 px-4 py-4 sm:px-5">
+                    <h2 className="font-bold text-slate-900">Все счета</h2>
+                    <p className="mt-1 text-sm text-slate-500">
+                        Черновики, выставленные и оплаченные счета
+                    </p>
+                </div>
+
                         {invoicesQuery.isLoading ? (
                             <div className="p-10 text-center text-sm text-slate-500">Загрузка счетов...</div>
                         ) : invoicesQuery.isError ? (
@@ -747,8 +731,6 @@ export default function InvoicesPage() {
                             totalPages={invoicesQuery.data?.totalPages ?? 0}
                             onChange={setInvoicesPage}
                         />
-                    </>
-                )}
             </section>
 
             {selectedSummary && (

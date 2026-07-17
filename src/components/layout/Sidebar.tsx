@@ -10,6 +10,7 @@ import { teethTechApi } from '@/src/services/teethTechApi';
 type MenuItem = {
     name: string;
     href: string;
+    exact?: boolean;
     children?: {
         name: string;
         href: string;
@@ -31,7 +32,7 @@ export default function Sidebar({ onClose }: SidebarProps) {
     const menuItems: MenuItem[] = (() => {
         if (role === 'TECHNICIAN') {
             return [
-                { name: 'Мой профиль', href: '/employee' },
+                { name: 'Мой профиль', href: '/employee', exact: true },
                 { name: 'Календарь', href: '/employee/calendar' },
                 { name: 'Аналитика', href: '/employee/analytics' },
             ];
@@ -39,14 +40,9 @@ export default function Sidebar({ onClose }: SidebarProps) {
 
         if (role === 'FINANCIER') {
             return [
-                {
-                    name: 'Финансы',
-                    href: '/accounting',
-                    children: [
-                        { name: 'Отчёт и зарплаты', href: '/accounting' },
-                        { name: 'Счета', href: '/accounting/invoices' },
-                    ],
-                },
+                { name: 'Финансовый отчёт', href: '/accounting', exact: true },
+                { name: 'Зарплаты', href: '/accounting/payroll', exact: true },
+                { name: 'Счета', href: '/accounting/invoices' },
             ];
         }
 
@@ -118,7 +114,7 @@ export default function Sidebar({ onClose }: SidebarProps) {
                 {menuItems.map((item) => {
                     const isParentActive =
                         pathname === item.href ||
-                        (item.href !== '/employee' && pathname.startsWith(`${item.href}/`));
+                        (!item.exact && pathname.startsWith(`${item.href}/`));
 
                     return (
                         <div key={item.href}>
