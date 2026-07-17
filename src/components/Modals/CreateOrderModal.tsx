@@ -247,33 +247,39 @@ type AssignmentStage = {
     requiredRole: string;
 };
 
-function getIntermediateAssignmentStages(steps: WorkflowStep[]): AssignmentStage[] {
-    const sourceStatusIds = new Set(steps.map((step) => step.fromStatusId));
+function getAssignmentStages(steps: WorkflowStep[]): AssignmentStage[] {
+    const sortedSteps = [...steps].sort((left, right) => left.sortOrder - right.sortOrder);
+    const destinationStatusIds = new Set(sortedSteps.map((step) => step.toStatusId));
+    const initialStatusId = sortedSteps.find(
+        (step) => !destinationStatusIds.has(step.fromStatusId)
+    )?.fromStatusId ?? sortedSteps[0]?.fromStatusId;
     const seenStatusIds = new Set<string>();
 
-    return [...steps]
-        .sort((left, right) => left.sortOrder - right.sortOrder)
+    return sortedSteps
         .filter((step) => {
-            const isIntermediate = sourceStatusIds.has(step.toStatusId);
-
-            if (!isIntermediate || seenStatusIds.has(step.toStatusId)) {
+            if (step.fromStatusId === initialStatusId || seenStatusIds.has(step.fromStatusId)) {
                 return false;
             }
 
-            seenStatusIds.add(step.toStatusId);
+            seenStatusIds.add(step.fromStatusId);
             return true;
         })
         .map((step) => ({
-            statusId: step.toStatusId,
-            statusName: step.toStatusName,
+            statusId: step.fromStatusId,
+            statusName: step.fromStatusName,
             requiredRole: step.requiredRole,
         }));
 }
 
 function getEligibleAssignmentUsers(users: User[], requiredRole: string) {
     const activeUsers = users.filter((user) => user.status !== 'FIRED');
+    const normalizedRequiredRole = normalizeRoleValue(requiredRole);
 
-    if (!requiredRole.trim()) return activeUsers;
+    if (!normalizedRequiredRole) return activeUsers;
+
+    if (normalizedRequiredRole.includes('admin') || normalizedRequiredRole.includes('dispatcher')) {
+        return filterUsersByRole(activeUsers, ['ROLE_ADMIN', 'ROLE_DISPATCHER']);
+    }
 
     return filterUsersByRole(activeUsers, [requiredRole]);
 }
@@ -297,7 +303,7 @@ function TaskAssignmentFields({
         { skip: !task.workTypeId || !isPreassigned }
     );
     const stages = useMemo(
-        () => getIntermediateAssignmentStages(workflowSteps),
+        () => getAssignmentStages(workflowSteps),
         [workflowSteps]
     );
     const assigneeByStatus = new Map(
@@ -345,7 +351,7 @@ function TaskAssignmentFields({
 
                 <div className="rounded-xl border border-violet-100 bg-white/80 px-3 py-2 text-xs text-slate-500">
                     {isPreassigned
-                        ? 'Выберите ответственного для каждого промежуточного этапа workflow.'
+                        ? 'Выберите ответственного для каждого производственного этапа workflow.'
                         : 'Система сама назначит исполнителей. Ручной план ответственных не отправляется.'}
                 </div>
             </div>
@@ -370,6 +376,11 @@ function TaskAssignmentFields({
                         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                             {stages.map((stage) => {
                                 const eligibleUsers = getEligibleAssignmentUsers(users, stage.requiredRole);
+                                const normalizedRequiredRole = normalizeRoleValue(stage.requiredRole);
+                                const roleLabel = normalizedRequiredRole.includes('admin')
+                                    || normalizedRequiredRole.includes('dispatcher')
+                                    ? 'ROLE_ADMIN / ROLE_DISPATCHER'
+                                    : stage.requiredRole || 'Любая роль';
 
                                 return (
                                     <label key={stage.statusId} className="block rounded-xl border border-violet-100 bg-white p-3">
@@ -377,7 +388,7 @@ function TaskAssignmentFields({
                                             {stage.statusName}
                                         </span>
                                         <span className="mt-0.5 block text-[10px] font-bold uppercase text-slate-400">
-                                            {stage.requiredRole || 'Любая роль'}
+                                            {roleLabel}
                                         </span>
                                         <select
                                             required
@@ -480,6 +491,8 @@ export default function CreateOrderModal({
     const handleSubmit = async (e: FormEvent) => {
         e.preventDefault();
         setSubmitError('');
+
+        console.log(formData)
 
         try {
             await onSubmit({

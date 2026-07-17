@@ -65,6 +65,15 @@ function getEligibleUsers(users: User[], requiredRole: string) {
 
     if (!normalizedRequiredRole) return activeUsers;
 
+    if (normalizedRequiredRole.includes('admin') || normalizedRequiredRole.includes('dispatcher')) {
+        return activeUsers.filter((user) =>
+            getUserRoleValues(user).some((role) => {
+                const normalizedUserRole = normalizeRoleValue(role);
+                return normalizedUserRole === 'admin' || normalizedUserRole === 'dispatcher';
+            })
+        );
+    }
+
     return activeUsers.filter((user) =>
         getUserRoleValues(user).some((role) => {
             const normalizedUserRole = normalizeRoleValue(role);
@@ -75,34 +84,43 @@ function getEligibleUsers(users: User[], requiredRole: string) {
     );
 }
 
-function getIntermediateWorkflowStages(steps: WorkflowStep[]): AssignmentStage[] {
-    const sourceStatusIds = new Set(steps.map((step) => step.fromStatusId));
+function getWorkflowAssignmentStages(steps: WorkflowStep[]): AssignmentStage[] {
+    const sortedSteps = [...steps].sort((left, right) => left.sortOrder - right.sortOrder);
+    const destinationStatusIds = new Set(sortedSteps.map((step) => step.toStatusId));
+    const initialStatusId = sortedSteps.find(
+        (step) => !destinationStatusIds.has(step.fromStatusId)
+    )?.fromStatusId ?? sortedSteps[0]?.fromStatusId;
     const seenStatusIds = new Set<string>();
 
-    return [...steps]
-        .sort((left, right) => left.sortOrder - right.sortOrder)
+    return sortedSteps
         .filter((step) => {
-            const isIntermediate = sourceStatusIds.has(step.toStatusId);
-
-            if (!isIntermediate || seenStatusIds.has(step.toStatusId)) {
+            if (step.fromStatusId === initialStatusId || seenStatusIds.has(step.fromStatusId)) {
                 return false;
             }
 
-            seenStatusIds.add(step.toStatusId);
+            seenStatusIds.add(step.fromStatusId);
             return true;
         })
         .map((step) => ({
-            statusId: step.toStatusId,
-            statusName: step.toStatusName,
+            statusId: step.fromStatusId,
+            statusName: step.fromStatusName,
             requiredRole: step.requiredRole,
         }));
 }
 
 function getAssignmentStages(steps: WorkflowStep[], assignment?: TaskAssignment) {
-    const stages = getIntermediateWorkflowStages(steps);
+    const stages = getWorkflowAssignmentStages(steps);
     const knownStatusIds = new Set(stages.map((stage) => stage.statusId));
+    const destinationStatusIds = new Set(steps.map((step) => step.toStatusId));
+    const initialStatusId = steps.find(
+        (step) => !destinationStatusIds.has(step.fromStatusId)
+    )?.fromStatusId;
 
     for (const assignee of assignment?.statusAssignees ?? []) {
+        if (assignee.statusId === initialStatusId || assignee.statusCode?.toUpperCase() === 'TODO') {
+            continue;
+        }
+
         if (!knownStatusIds.has(assignee.statusId)) {
             stages.push({
                 statusId: assignee.statusId,
@@ -287,7 +305,7 @@ function TaskAssignmentEditor({
                 <div className="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-xs font-semibold text-blue-700">
                     {assignmentMode === 'AUTO'
                         ? 'При сохранении ручной план будет очищен, исполнителей назначит система.'
-                        : 'Для PREASSIGNED необходимо выбрать сотрудника для каждого промежуточного этапа.'}
+                        : 'Для PREASSIGNED необходимо выбрать сотрудника для каждого этапа workflow.'}
                 </div>
             </div>
 
@@ -324,6 +342,11 @@ function TaskAssignmentEditor({
                         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                             {stages.map((stage) => {
                                 const eligibleUsers = getEligibleUsers(users, stage.requiredRole);
+                                const normalizedRequiredRole = normalizeRoleValue(stage.requiredRole);
+                                const roleLabel = normalizedRequiredRole.includes('admin')
+                                    || normalizedRequiredRole.includes('dispatcher')
+                                    ? 'ROLE_ADMIN / ROLE_DISPATCHER'
+                                    : stage.requiredRole || 'Роль не указана';
 
                                 return (
                                     <label key={stage.statusId} className="rounded-xl border border-slate-200 bg-slate-50 p-3">
@@ -331,7 +354,7 @@ function TaskAssignmentEditor({
                                             {stage.statusName || stage.statusCode || stage.statusId}
                                         </span>
                                         <span className="mt-0.5 block text-[10px] font-bold uppercase text-slate-400">
-                                            {stage.requiredRole || 'Роль не указана'}
+                                            {roleLabel}
                                         </span>
                                         <select
                                             required
