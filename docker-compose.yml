@@ -1,0 +1,13 @@
+services:
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: teeth-tech-crm-frontend:local
+    ports:
+      - "3000:3000"
+    environment:
+      BACKEND_API_BASE_URL: ${BACKEND_API_BASE_URL:-http://host.docker.internal:8081/api/v1}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped

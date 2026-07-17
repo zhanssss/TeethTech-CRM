@@ -194,7 +194,20 @@ function TaskAssignmentEditor({
     const assigneeByStatus = new Map(
         statusAssignees.map((assignee) => [assignee.statusId, assignee.userId])
     );
+    const persistedMode = assignment?.assignmentMode ?? 'AUTO';
+    const persistedAssigneeByStatus = new Map(
+        assignment?.statusAssignees.map((assignee) => [assignee.statusId, assignee.userId]) ?? []
+    );
+    const changedStatusAssignees = stages.flatMap((stage) => {
+        const userId = assigneeByStatus.get(stage.statusId) ?? '';
+
+        return persistedAssigneeByStatus.get(stage.statusId) === userId
+            ? []
+            : [{ statusId: stage.statusId, userId }];
+    });
     const isPreassigned = assignmentMode === 'PREASSIGNED';
+    const hasChanges = assignmentMode !== persistedMode
+        || (isPreassigned && changedStatusAssignees.length > 0);
     const hasCompletePlan = stages.length > 0 && stages.every((stage) => {
         const selectedUserId = assigneeByStatus.get(stage.statusId);
         return getEligibleUsers(users, stage.requiredRole).some(
@@ -205,6 +218,7 @@ function TaskAssignmentEditor({
         && !isAssignmentFetching
         && !isSaving
         && !isUsersLoading
+        && hasChanges
         && (!isPreassigned || hasCompletePlan);
 
     const clearMessages = () => {
@@ -241,11 +255,10 @@ function TaskAssignmentEditor({
             assignmentMode,
             statusAssignees: assignmentMode === 'AUTO'
                 ? []
-                : stages.map((stage) => ({
-                    statusId: stage.statusId,
-                    userId: assigneeByStatus.get(stage.statusId) ?? '',
-                })),
+                : changedStatusAssignees,
         };
+
+        console.log({body})
 
         try {
             const savedAssignment = await updateTaskAssignment({
@@ -404,7 +417,11 @@ function TaskAssignmentEditor({
                         disabled={!canSave}
                         className="w-full rounded-xl bg-blue-600 px-6 py-3 text-sm font-black text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300 sm:w-auto"
                     >
-                        {isSaving ? 'Сохраняем...' : 'Сохранить ответственных'}
+                        {isSaving
+                            ? 'Сохраняем...'
+                            : hasChanges
+                                ? 'Сохранить ответственных'
+                                : 'Нет изменений'}
                     </button>
                 </div>
             )}
