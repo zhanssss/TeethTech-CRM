@@ -1,8 +1,12 @@
 'use client';
 
 import { useState } from 'react';
+import { useSelector } from 'react-redux';
+import ReturnTaskForReworkModal from '@/src/components/Modals/ReturnTaskForReworkModal';
+import QualityIncidentsPanel from '@/src/components/tasks/QualityIncidentsPanel';
 import TaskFilesPanel from '@/src/components/tasks/TaskFilesPanel';
 import TaskHistoryTimeline from '@/src/components/tasks/TaskHistoryTimeline';
+import { RootState } from '@/src/lib/store';
 import type { Task, TaskAttachment, TaskImage } from '@/src/types/task.types';
 
 type TaskDetailsSidebarProps = {
@@ -18,11 +22,16 @@ export default function TaskDetailsSidebar({
                                                onClose,
                                                onAddComment,
                                                onAddAttachments,
-                                               onAddImages,
+                                           onAddImages,
                                            }: TaskDetailsSidebarProps) {
     const [commentText, setCommentText] = useState('');
+    const [reworkModalTaskId, setReworkModalTaskId] = useState('');
+    const [reworkSuccess, setReworkSuccess] = useState<{ taskId: string; message: string } | null>(null);
+    const { isAuthenticated } = useSelector((state: RootState) => state.auth);
 
     if (!task) return null;
+
+    const canReturnForRework = isAuthenticated && isTaskEligibleForRework(task);
 
     const handleAddComment = () => {
         const trimmed = commentText.trim();
@@ -52,6 +61,18 @@ export default function TaskDetailsSidebar({
                         <p className="mt-1 text-xs font-semibold text-slate-500">
                             Статус: {task.status}
                         </p>
+                        {canReturnForRework ? (
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setReworkSuccess(null);
+                                    setReworkModalTaskId(task.id);
+                                }}
+                                className="mt-3 rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-black text-amber-800 transition hover:border-amber-400 hover:bg-amber-100"
+                            >
+                                Вернуть на переделку
+                            </button>
+                        ) : null}
                     </div>
 
                     <button
@@ -64,6 +85,15 @@ export default function TaskDetailsSidebar({
                 </div>
 
                 <div className="flex-1 space-y-5 overflow-y-auto p-4 sm:space-y-6 sm:p-5">
+                    {reworkSuccess?.taskId === task.id ? (
+                        <div
+                            className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-800"
+                            role="status"
+                        >
+                            {reworkSuccess.message}
+                        </div>
+                    ) : null}
+
                     <section className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                         <h3 className="text-xs font-black uppercase tracking-widest text-slate-500">
                             Основная информация
@@ -81,6 +111,13 @@ export default function TaskDetailsSidebar({
                             {task.discount ? <InfoItem label="Скидка" value={task.discount.toLocaleString('ru-RU')} /> : null}
                         </div>
                     </section>
+
+                    {UUID_PATTERN.test(task.id) ? (
+                        <QualityIncidentsPanel
+                            taskId={task.id}
+                            className="rounded-2xl border border-slate-200 bg-white p-4"
+                        />
+                    ) : null}
 
                     <TaskHistoryTimeline
                         taskId={task.id}
@@ -150,8 +187,55 @@ export default function TaskDetailsSidebar({
                     </section>
                 </div>
             </aside>
+
+            {reworkModalTaskId === task.id ? (
+                <ReturnTaskForReworkModal
+                    taskId={task.id}
+                    onClose={() => setReworkModalTaskId('')}
+                    onSuccess={(statusName) => {
+                        setReworkModalTaskId('');
+                        setReworkSuccess({
+                            taskId: task.id,
+                            message: `Задача возвращена на этап «${statusName}»`,
+                        });
+                    }}
+                />
+            ) : null}
         </>
     );
+}
+
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+const NON_PRODUCTION_STATUSES = new Set([
+    'TODO',
+    'NEW',
+    'CREATED',
+    'DONE',
+    'COMPLETED',
+    'CANCELLED',
+    'CANCELED',
+    'CLOSED',
+    'RESOLVED',
+    'FINISHED',
+    'DELIVERED',
+]);
+
+function isTaskEligibleForRework(task: Task) {
+    if (!UUID_PATTERN.test(task.id) || task.hasAccess === false || task.isCompleted === true) {
+        return false;
+    }
+
+    const normalizedStatus = (task.currentStatusCode || task.status || '')
+        .trim()
+        .toUpperCase()
+        .replace(/[\s/-]+/gu, '_');
+
+    if (!normalizedStatus || NON_PRODUCTION_STATUSES.has(normalizedStatus)) return false;
+
+    return !normalizedStatus.includes('НОВАЯ_ЗАДАЧА')
+        && !normalizedStatus.includes('ЗАВЕРШ')
+        && normalizedStatus !== 'ГОТОВО';
 }
 
 function InfoItem({ label, value }: { label: string; value?: string | number | null }) {

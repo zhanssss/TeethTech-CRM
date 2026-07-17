@@ -250,6 +250,10 @@ function mapOrderKanbanTaskToDetailsTask(task: OrderKanbanTask, order?: ServerOr
         orderId: task.orderId,
         title: task.workTypeName || task.taskNumber || task.workTypeCode || task.id,
         status: task.currentStatusFormName || task.currentStatusCode || '-',
+        currentStatusId: task.currentStatusId,
+        currentStatusCode: task.currentStatusCode,
+        isCompleted: task.isCompleted,
+        hasAccess: task.hasAccess,
         patient: getStringValue(order, ['patientFullName', 'patientName', 'patient']),
         deadline: getStringValue(order, ['deadline']),
         type: task.workTypeName || task.workTypeCode,
@@ -351,7 +355,12 @@ function ServerKanbanBoard({
     const totalPrice = getNumberValue(order, ['totalPrice', 'totalAmount']) || allTasks.reduce((sum, task) => sum + Number(task.totalAmount ?? task.totalPrice ?? 0), 0);
     const colors = collectUnique(allTasks.map(getTaskColor));
     const isActive = isRecord(order) && typeof order.isActive === 'boolean' ? order.isActive : true;
-    const selectedDetailsTask = selectedTask ? mapOrderKanbanTaskToDetailsTask(selectedTask, order) : null;
+    const refreshedSelectedTask = selectedTask
+        ? allTasks.find((task) => task.id === selectedTask.id) ?? selectedTask
+        : null;
+    const selectedDetailsTask = refreshedSelectedTask
+        ? mapOrderKanbanTaskToDetailsTask(refreshedSelectedTask, order)
+        : null;
     const openAssignmentModal = (taskId = '') => {
         setAssignmentModalTaskId(taskId);
         setIsAssignmentModalOpen(true);

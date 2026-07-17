@@ -226,6 +226,10 @@ export interface Task {
     id: string;
     title?: string;
     status: string;
+    currentStatusId?: string;
+    currentStatusCode?: string;
+    isCompleted?: boolean;
+    hasAccess?: boolean;
     patient?: string;
     orderId?: string;
     deadline?: string;
@@ -305,8 +309,11 @@ export type EmployeeKanbanTask = {
     colorCode: string;
     quantity: number;
     totalAmount: number;
+    currentStatusId?: string;
     currentStatusFormName: string;
     currentStatusCode: string;
+    isCompleted?: boolean;
+    hasAccess?: boolean;
     dentalTechnicianFullName: string;
     toothNumbers: number[];
     allowedNextStatusIds: string[];
@@ -359,4 +366,78 @@ export type EmployeeCalendarResponse = {
     year: number;
     month: number;
     days: EmployeeCalendarDay[];
+};
+
+export type ReworkEligibleAssignee = {
+    userId: string;
+    fullName: string;
+    activeTaskCount: number;
+    isCurrent: boolean;
+};
+
+export type TaskReworkOption = {
+    statusId: string;
+    statusCode: string;
+    statusName: string;
+    sortOrder: number;
+    requiredRole: string;
+    eligibleAssignees: ReworkEligibleAssignee[];
+};
+
+export type QualityIncidentType = 'REWORK' | 'DEFECT';
+
+export type QualityIncidentStatus = 'OPEN' | 'RESOLVED' | string;
+
+export type QualityIncident = {
+    id: string;
+    taskId: string;
+    incidentType: QualityIncidentType;
+    status: QualityIncidentStatus;
+    reasonCode: string;
+    description: string;
+    reportedBy: string;
+    assignedTo: string;
+    materialLossAmount?: number | null;
+    salaryDeductionAmount?: number | null;
+    createdAt: string;
+    resolvedAt?: string | null;
+    resolutionComment?: string | null;
+};
+
+export type ReturnTaskForReworkRequest = {
+    targetStatusId: string;
+    assignedTo: string;
+    incidentType: QualityIncidentType;
+    reasonCode: string;
+    description: string;
+    materialLossAmount?: number;
+    salaryDeductionAmount?: number;
+};
+
+export type ReturnTaskForReworkArgs = {
+    taskId: string;
+    body: ReturnTaskForReworkRequest;
+};
+
+export type GetQualityIncidentsArgs = {
+    taskId: string;
+    page?: number;
+    size?: number;
+};
+
+export type QualityIncidentsResponse = {
+    content: QualityIncident[];
+    page?: number;
+    number?: number;
+    size: number;
+    hasNext?: boolean;
+    last?: boolean;
+    totalElements?: number;
+    totalPages?: number;
+};
+
+export type ResolveQualityIncidentArgs = {
+    taskId: string;
+    incidentId: string;
+    resolutionComment: string;
 };

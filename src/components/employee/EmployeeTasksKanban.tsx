@@ -55,6 +55,10 @@ function mapTaskToDetails(task: EmployeeKanbanTask): Task {
         id: task.id,
         title: getTaskLabel(task),
         status: task.currentStatusFormName || task.currentStatusCode || 'Не указан',
+        currentStatusId: task.currentStatusId,
+        currentStatusCode: task.currentStatusCode,
+        isCompleted: task.isCompleted,
+        hasAccess: task.hasAccess,
         orderId: task.orderId,
         type: task.workTypeName,
         material: task.materialName,
@@ -266,7 +270,14 @@ export default function EmployeeTasksKanban() {
         isLoading,
         refetch,
     } = useGetMyTasksKanbanQuery();
-    const selectedDetailsTask = selectedTask ? mapTaskToDetails(selectedTask) : null;
+    const refreshedSelectedTask = selectedTask && data
+        ? [
+            ...data.previousColumn.tasks,
+            ...data.currentColumn.tasks,
+            ...data.nextColumn.tasks,
+        ].find((task) => task.id === selectedTask.id) ?? selectedTask
+        : selectedTask;
+    const selectedDetailsTask = refreshedSelectedTask ? mapTaskToDetails(refreshedSelectedTask) : null;
 
     if (isLoading) {
         return (

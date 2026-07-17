@@ -259,8 +259,11 @@ export interface OrderKanbanTask {
     colorCode: string;
     quantity: number;
     totalAmount: number;
+    currentStatusId?: string;
     currentStatusFormName: string;
     currentStatusCode: string;
+    isCompleted?: boolean;
+    hasAccess?: boolean;
     dentalTechnicianFullName: string;
     toothNumbers: number[];
     allowedNextStatusIds: string[];
@@ -285,7 +288,8 @@ export interface OrderKanbanColumn {
 
 export interface UpdateTaskStatusDto {
     nextStatusId: string;
-    comment: string;
+    comment?: string;
+    assignedUserId?: string;
 }
 
 export interface UpdateTaskStatusArgs {

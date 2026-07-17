@@ -43,6 +43,8 @@ export const teethTechApi = createApi({
         "OrderKanban",
         "Tasks",
         "TaskHistory",
+        "TaskReworkOptions",
+        "QualityIncidents",
         "TaskFiles",
         "TaskAssignment",
         "Nomenclature",
