@@ -404,14 +404,20 @@ export type QualityIncident = {
     resolutionComment?: string | null;
 };
 
+export type ReworkStockWriteOff = {
+    nomenclatureId: string;
+    quantity: number;
+};
+
 export type ReturnTaskForReworkRequest = {
     targetStatusId: string;
     assignedTo: string;
     incidentType: QualityIncidentType;
     reasonCode: string;
     description: string;
-    materialLossAmount?: number;
-    salaryDeductionAmount?: number;
+    materialLossAmount?: number | null;
+    salaryDeductionAmount?: number | null;
+    stockWriteOffs?: ReworkStockWriteOff[];
 };
 
 export type ReturnTaskForReworkArgs = {

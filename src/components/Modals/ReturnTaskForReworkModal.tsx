@@ -1,12 +1,13 @@
 'use client';
 
-import { FormEvent, useId, useMemo, useState } from 'react';
+import { FormEvent, useId, useMemo, useRef, useState } from 'react';
 
 import Modal from '@/src/components/ui/Modal';
 import {
     useGetTaskReworkOptionsQuery,
     useReturnTaskForReworkMutation,
 } from '@/src/services/api/tasksReworkApi';
+import { useGetStockOverviewQuery } from '@/src/services/api/warehouseApi';
 import type { QualityIncidentType } from '@/src/types/task.types';
 
 const INCIDENT_TYPES: Array<{ value: QualityIncidentType; label: string }> = [
@@ -29,6 +30,12 @@ type ReturnTaskForReworkModalProps = {
     onSuccess: (statusName: string) => void;
 };
 
+type StockWriteOffDraft = {
+    id: number;
+    nomenclatureId: string;
+    quantity: string;
+};
+
 export default function ReturnTaskForReworkModal({
     taskId,
     onClose,
@@ -42,7 +49,9 @@ export default function ReturnTaskForReworkModal({
     const [description, setDescription] = useState('');
     const [materialLossAmount, setMaterialLossAmount] = useState('');
     const [salaryDeductionAmount, setSalaryDeductionAmount] = useState('');
+    const [stockWriteOffs, setStockWriteOffs] = useState<StockWriteOffDraft[]>([]);
     const [formError, setFormError] = useState('');
+    const nextStockWriteOffId = useRef(1);
     const {
         data: reworkOptions = [],
         error: optionsError,
@@ -53,18 +62,35 @@ export default function ReturnTaskForReworkModal({
     } = useGetTaskReworkOptionsQuery(taskId, {
         refetchOnMountOrArgChange: true,
     });
+    const stockOverviewQuery = useGetStockOverviewQuery(undefined, {
+        refetchOnMountOrArgChange: true,
+    });
     const [returnTaskForRework, { isLoading: isSubmitting }] = useReturnTaskForReworkMutation();
     const selectedOption = useMemo(
         () => reworkOptions.find((option) => option.statusId === selectedStatusId),
         [reworkOptions, selectedStatusId]
     );
     const employees = selectedOption?.eligibleAssignees ?? [];
+    const stockItems = useMemo(
+        () => stockOverviewQuery.data?.items ?? [],
+        [stockOverviewQuery.data?.items]
+    );
+    const stockItemsById = useMemo(
+        () => new Map(stockItems.map((item) => [item.nomenclatureId, item])),
+        [stockItems]
+    );
+    const selectedNomenclatureIds = useMemo(
+        () => new Set(stockWriteOffs.map((item) => item.nomenclatureId).filter(Boolean)),
+        [stockWriteOffs]
+    );
+    const stockWriteOffValidationError = getStockWriteOffValidationError(stockWriteOffs);
     const isFormValid = Boolean(
         selectedStatusId
         && assignedTo
         && incidentType
         && reasonCode
         && description.trim()
+        && !stockWriteOffValidationError
     );
 
     const handleStatusChange = (statusId: string) => {
@@ -73,12 +99,54 @@ export default function ReturnTaskForReworkModal({
         setFormError('');
     };
 
+    const handleAddStockWriteOff = () => {
+        setStockWriteOffs((current) => [
+            ...current,
+            {
+                id: nextStockWriteOffId.current++,
+                nomenclatureId: '',
+                quantity: '',
+            },
+        ]);
+        setFormError('');
+    };
+
+    const handleNomenclatureChange = (id: number, nomenclatureId: string) => {
+        if (
+            nomenclatureId
+            && stockWriteOffs.some((item) => item.id !== id && item.nomenclatureId === nomenclatureId)
+        ) {
+            setFormError('Эта номенклатура уже добавлена в дополнительные материалы.');
+            return;
+        }
+
+        setStockWriteOffs((current) => current.map((item) => (
+            item.id === id ? { ...item, nomenclatureId } : item
+        )));
+        setFormError('');
+    };
+
+    const handleQuantityChange = (id: number, quantity: string) => {
+        setStockWriteOffs((current) => current.map((item) => (
+            item.id === id ? { ...item, quantity } : item
+        )));
+        setFormError('');
+    };
+
+    const handleRemoveStockWriteOff = (id: number) => {
+        setStockWriteOffs((current) => current.filter((item) => item.id !== id));
+        setFormError('');
+    };
+
     const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault();
         setFormError('');
 
         if (!isFormValid || !selectedOption || !incidentType) {
-            setFormError('Заполните этап, ответственного, тип, причину и описание.');
+            setFormError(
+                stockWriteOffValidationError
+                || 'Заполните этап, ответственного, тип, причину и описание.'
+            );
             return;
         }
 
@@ -100,6 +168,14 @@ export default function ReturnTaskForReworkModal({
                     description: description.trim(),
                     ...toOptionalAmount('materialLossAmount', materialLossAmount),
                     ...toOptionalAmount('salaryDeductionAmount', salaryDeductionAmount),
+                    ...(stockWriteOffs.length > 0
+                        ? {
+                            stockWriteOffs: stockWriteOffs.map((item) => ({
+                                nomenclatureId: item.nomenclatureId,
+                                quantity: Number(item.quantity),
+                            })),
+                        }
+                        : {}),
                 },
             }).unwrap();
 
@@ -115,7 +191,7 @@ export default function ReturnTaskForReworkModal({
     };
 
     return (
-        <Modal contentClassName="max-w-2xl p-0">
+        <Modal contentClassName="max-w-3xl p-0">
             <div
                 role="dialog"
                 aria-modal="true"
@@ -299,6 +375,172 @@ export default function ReturnTaskForReworkModal({
                                 </Field>
                             </div>
 
+                            <section
+                                aria-labelledby={`${titleId}-materials`}
+                                className="rounded-2xl border border-slate-200 bg-slate-50 p-4"
+                            >
+                                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                                    <div>
+                                        <h3 id={`${titleId}-materials`} className="text-sm font-black text-slate-900">
+                                            Дополнительные материалы
+                                        </h3>
+                                        <p className="mt-1 text-xs text-slate-500">
+                                            Необязательно. Укажите материалы, которые нужно списать при переделке.
+                                        </p>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={handleAddStockWriteOff}
+                                        disabled={
+                                            isSubmitting
+                                            || stockOverviewQuery.isLoading
+                                            || stockOverviewQuery.isError
+                                            || stockItems.length === 0
+                                            || selectedNomenclatureIds.size >= stockItems.length
+                                        }
+                                        className="shrink-0 rounded-xl border border-amber-200 bg-white px-3.5 py-2 text-xs font-black text-amber-700 transition hover:bg-amber-50 disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-400"
+                                    >
+                                        + Добавить позицию
+                                    </button>
+                                </div>
+
+                                {stockOverviewQuery.isLoading ? (
+                                    <p className="mt-4 text-xs font-semibold text-slate-500" aria-live="polite">
+                                        Загружаем складские остатки…
+                                    </p>
+                                ) : null}
+
+                                {stockOverviewQuery.isError ? (
+                                    <div className="mt-4 flex flex-col gap-2 rounded-xl border border-red-200 bg-red-50 p-3 sm:flex-row sm:items-center sm:justify-between">
+                                        <p className="text-xs font-bold text-red-700">
+                                            Не удалось загрузить номенклатуру. Задачу можно вернуть без материалов.
+                                        </p>
+                                        <button
+                                            type="button"
+                                            onClick={() => void stockOverviewQuery.refetch()}
+                                            disabled={stockOverviewQuery.isFetching}
+                                            className="shrink-0 text-xs font-black text-red-700 underline underline-offset-2 disabled:cursor-wait disabled:opacity-60"
+                                        >
+                                            {stockOverviewQuery.isFetching ? 'Обновляем…' : 'Повторить'}
+                                        </button>
+                                    </div>
+                                ) : null}
+
+                                {!stockOverviewQuery.isLoading
+                                    && !stockOverviewQuery.isError
+                                    && stockItems.length === 0 ? (
+                                        <p className="mt-4 text-xs font-semibold text-slate-500">
+                                            На складе пока нет доступных позиций.
+                                        </p>
+                                    ) : null}
+
+                                {stockWriteOffs.length > 0 ? (
+                                    <div className="mt-4 space-y-3">
+                                        {stockWriteOffs.map((item, index) => {
+                                            const stockItem = stockItemsById.get(item.nomenclatureId);
+                                            const quantity = Number(item.quantity);
+                                            const hasInvalidQuantity = Boolean(
+                                                item.quantity && !isPositiveQuantity(item.quantity)
+                                            );
+                                            const exceedsCurrentStock = Boolean(
+                                                stockItem
+                                                && isPositiveQuantity(item.quantity)
+                                                && quantity > stockItem.currentQuantity
+                                            );
+
+                                            return (
+                                                <div key={item.id} className="rounded-xl border border-slate-200 bg-white p-3">
+                                                    <div className="flex items-center justify-between gap-3">
+                                                        <p className="text-xs font-black text-slate-700">
+                                                            Позиция {index + 1}
+                                                        </p>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleRemoveStockWriteOff(item.id)}
+                                                            disabled={isSubmitting}
+                                                            aria-label={`Удалить материал ${index + 1}`}
+                                                            className="text-xs font-bold text-slate-400 transition hover:text-red-600 disabled:cursor-wait"
+                                                        >
+                                                            Удалить
+                                                        </button>
+                                                    </div>
+
+                                                    <div className="mt-3 grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(150px,.38fr)]">
+                                                        <label className="block">
+                                                            <span className="mb-1.5 block text-[11px] font-black uppercase tracking-wide text-slate-500">
+                                                                Номенклатура <span className="text-red-500">*</span>
+                                                            </span>
+                                                            <select
+                                                                value={item.nomenclatureId}
+                                                                onChange={(event) => handleNomenclatureChange(item.id, event.target.value)}
+                                                                className={inputClassName}
+                                                                required
+                                                            >
+                                                                <option value="">Выберите позицию</option>
+                                                                {stockItems.map((option) => (
+                                                                    <option
+                                                                        key={option.nomenclatureId}
+                                                                        value={option.nomenclatureId}
+                                                                        disabled={
+                                                                            option.nomenclatureId !== item.nomenclatureId
+                                                                            && selectedNomenclatureIds.has(option.nomenclatureId)
+                                                                        }
+                                                                    >
+                                                                        {option.name} — {formatStockQuantity(option.currentQuantity, option.unit)}
+                                                                    </option>
+                                                                ))}
+                                                            </select>
+                                                            {stockItem ? (
+                                                                <p className="mt-1.5 text-[11px] text-slate-500">
+                                                                    Текущий остаток: {formatStockQuantity(stockItem.currentQuantity, stockItem.unit)}
+                                                                </p>
+                                                            ) : null}
+                                                        </label>
+
+                                                        <label className="block">
+                                                            <span className="mb-1.5 block text-[11px] font-black uppercase tracking-wide text-slate-500">
+                                                                Количество <span className="text-red-500">*</span>
+                                                            </span>
+                                                            <input
+                                                                type="number"
+                                                                min="0.000001"
+                                                                step="any"
+                                                                value={item.quantity}
+                                                                onChange={(event) => handleQuantityChange(item.id, event.target.value)}
+                                                                placeholder="0"
+                                                                className={inputClassName}
+                                                                required
+                                                            />
+                                                            {stockItem ? (
+                                                                <p className="mt-1.5 text-[11px] text-slate-500">
+                                                                    Единица: {stockItem.unit}
+                                                                </p>
+                                                            ) : null}
+                                                        </label>
+                                                    </div>
+
+                                                    {hasInvalidQuantity ? (
+                                                        <p className="mt-2 text-xs font-bold text-red-600" role="alert">
+                                                            Количество должно быть больше нуля.
+                                                        </p>
+                                                    ) : null}
+
+                                                    {exceedsCurrentStock ? (
+                                                        <p className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-800" role="status">
+                                                            Количество превышает текущий остаток на складе.
+                                                        </p>
+                                                    ) : null}
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                ) : (
+                                    <p className="mt-4 rounded-xl border border-dashed border-slate-300 bg-white px-3 py-4 text-center text-xs text-slate-500">
+                                        Материалы не добавлены
+                                    </p>
+                                )}
+                            </section>
+
                             {formError ? (
                                 <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-700" role="alert">
                                     {formError}
@@ -360,6 +602,36 @@ function toOptionalAmount<Key extends 'materialLossAmount' | 'salaryDeductionAmo
     const amount = Number(value);
 
     return Number.isFinite(amount) && amount >= 0 ? { [key]: amount } as Record<Key, number> : {};
+}
+
+function isPositiveQuantity(value: string) {
+    if (!value.trim()) return false;
+
+    const quantity = Number(value);
+
+    return Number.isFinite(quantity) && quantity > 0;
+}
+
+function getStockWriteOffValidationError(items: StockWriteOffDraft[]) {
+    if (items.some((item) => !item.nomenclatureId)) {
+        return 'Выберите номенклатуру для каждой позиции дополнительных материалов.';
+    }
+
+    if (items.some((item) => !isPositiveQuantity(item.quantity))) {
+        return 'Количество дополнительных материалов должно быть больше нуля.';
+    }
+
+    const nomenclatureIds = items.map((item) => item.nomenclatureId);
+
+    if (new Set(nomenclatureIds).size !== nomenclatureIds.length) {
+        return 'Одну номенклатуру нельзя добавить дважды.';
+    }
+
+    return '';
+}
+
+function formatStockQuantity(value: number, unit: string) {
+    return `${value.toLocaleString('ru-RU', { maximumFractionDigits: 3 })} ${unit}`;
 }
 
 function getErrorStatus(error: unknown) {

@@ -26,13 +26,24 @@ export const tasksReworkApi = teethTechApi.injectEndpoints({
                 method: 'POST',
                 body,
             }),
-            invalidatesTags: (_result, _error, { taskId }) => [
+            invalidatesTags: (_result, error, { taskId, body }) => [
                 'Orders',
                 'OrderKanban',
                 'Tasks',
                 { type: 'TaskReworkOptions', id: taskId },
                 { type: 'QualityIncidents', id: taskId },
                 { type: 'TaskHistory', id: taskId },
+                ...(!error && body.stockWriteOffs?.length
+                    ? [
+                        { type: 'Stock' as const, id: 'OVERVIEW' },
+                        { type: 'Stock' as const, id: 'MOVEMENTS' },
+                        { type: 'Nomenclature' as const, id: 'LIST' },
+                        ...body.stockWriteOffs.flatMap(({ nomenclatureId }) => [
+                            { type: 'Stock' as const, id: nomenclatureId },
+                            { type: 'Nomenclature' as const, id: nomenclatureId },
+                        ]),
+                    ]
+                    : []),
             ],
         }),
         getTaskQualityIncidents: builder.query<QualityIncidentsResponse, GetQualityIncidentsArgs>({

@@ -28,18 +28,32 @@ export default function Sidebar({ onClose }: SidebarProps) {
     const router = useRouter();
     const { role } = useSelector((state: RootState) => state.auth);
 
-    const menuItems: MenuItem[] =
-        role === 'TECHNICIAN'
-            ? [
+    const menuItems: MenuItem[] = (() => {
+        if (role === 'TECHNICIAN') {
+            return [
                 { name: 'Мой профиль', href: '/employee' },
                 { name: 'Календарь', href: '/employee/calendar' },
                 { name: 'Аналитика', href: '/employee/analytics' },
-            ]
-            : [
+            ];
+        }
+
+        if (role === 'FINANCIER') {
+            return [
+                {
+                    name: 'Финансы',
+                    href: '/accounting',
+                    children: [
+                        { name: 'Отчёт и зарплаты', href: '/accounting' },
+                        { name: 'Счета', href: '/accounting/invoices' },
+                    ],
+                },
+            ];
+        }
+
+        return [
                 { name: 'Дэшборд', href: '/' },
                 { name: 'Заказы', href: '/orders' },
                 { name: 'Аналитика', href: '/analytics' },
-                { name: 'Бухгалтерия', href: '/accounting' },
                 { name: 'Склад', href: '/warehouse' },
                 {
                     name: 'Клиники',
@@ -60,6 +74,7 @@ export default function Sidebar({ onClose }: SidebarProps) {
                     ],
                 },
             ];
+    })();
 
     const handleLogout = async () => {
         try {

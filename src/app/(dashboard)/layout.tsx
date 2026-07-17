@@ -1,11 +1,12 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useSelector } from 'react-redux';
 
 import Sidebar from '@/src/components/layout/Sidebar';
 import Header from '@/src/components/layout/Header';
+import { getAuthRedirectPath } from '@/src/features/auth/authUtils';
 import { RootState } from '@/src/lib/store';
 
 export default function DashboardLayout({
@@ -14,7 +15,8 @@ export default function DashboardLayout({
     children: React.ReactNode;
 }) {
     const router = useRouter();
-    const { isAuthenticated, isInitialized } = useSelector((state: RootState) => state.auth);
+    const pathname = usePathname();
+    const { isAuthenticated, isInitialized, role } = useSelector((state: RootState) => state.auth);
 
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
@@ -30,11 +32,29 @@ export default function DashboardLayout({
 
     useEffect(() => {
         if (isInitialized && !isAuthenticated) {
-            router.push('/auth/login');
+            router.replace('/auth/login');
         }
     }, [isAuthenticated, isInitialized, router]);
 
-    if (!isInitialized || !isAuthenticated) return null;
+    useEffect(() => {
+        if (
+            isInitialized &&
+            isAuthenticated &&
+            role &&
+            role !== 'FINANCIER' &&
+            pathname.startsWith('/accounting')
+        ) {
+            router.replace(getAuthRedirectPath(role));
+        }
+    }, [isAuthenticated, isInitialized, pathname, role, router]);
+
+    const isAccountingAccessDenied =
+        isAuthenticated &&
+        role !== null &&
+        role !== 'FINANCIER' &&
+        pathname.startsWith('/accounting');
+
+    if (!isInitialized || !isAuthenticated || isAccountingAccessDenied) return null;
 
     return (
         <div className="relative flex h-dvh w-full overflow-hidden bg-slate-50">
