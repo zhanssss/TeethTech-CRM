@@ -20,6 +20,8 @@ import {
     useUpdateTaskStatusMutation,
 } from '@/src/services/api/ordersApi';
 import {useGetUsersQuery} from '@/src/services/api/usersApi';
+import {useNotifications} from '@/src/features/notifications/useNotifications';
+import {getApiErrorMessage} from '@/src/services/apiNotifications';
 
 const ORDER_LOOKUP_PARAMS = {
     page: 0,
@@ -27,9 +29,17 @@ const ORDER_LOOKUP_PARAMS = {
     sort: 'deadline,ASC',
 };
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const COMPOSITE_NOTIFICATION = { error: false, success: false } as const;
 
 function isUuid(value: string | null | undefined) {
     return Boolean(value && UUID_PATTERN.test(value));
+}
+
+function hasErrorStatus(error: unknown, status: number) {
+    return typeof error === 'object'
+        && error !== null
+        && 'status' in error
+        && error.status === status;
 }
 
 type ServerOrderInfo = OrderApiListItem | OrderDetails;
@@ -131,6 +141,8 @@ function StartTaskButton({
     nextColumnStatusName?: string;
     onConfigureAssignments: () => void;
 }) {
+    const {notifyError, notifySuccess} = useNotifications();
+    const [hasAssignedForStart, setHasAssignedForStart] = useState(false);
     const {
         data: assignment,
         isFetching: isAssignmentFetching,
@@ -158,12 +170,19 @@ function StartTaskButton({
     const handleStart = async () => {
         if (!nextStatusId || !nextAssignee?.userId) return;
 
+        let isAssigned = hasAssignedForStart;
+
         try {
-            await assignTask({
-                taskId: task.id,
-                userId: nextAssignee.userId,
-                orderId,
-            }).unwrap();
+            if (!isAssigned) {
+                await assignTask({
+                    taskId: task.id,
+                    userId: nextAssignee.userId,
+                    orderId,
+                    notification: COMPOSITE_NOTIFICATION,
+                }).unwrap();
+                isAssigned = true;
+                setHasAssignedForStart(true);
+            }
 
             await updateTaskStatus({
                 taskId: task.id,
@@ -171,9 +190,18 @@ function StartTaskButton({
                     nextStatusId,
                     comment: 'Задача запущена',
                 },
+                notification: COMPOSITE_NOTIFICATION,
             }).unwrap();
+            setHasAssignedForStart(false);
+            notifySuccess('Задача запущена');
         } catch (error) {
             console.error('Task start failed:', error);
+            notifyError(
+                isAssigned
+                    ? 'Исполнитель назначен, но статус задачи не изменился. Повторный запуск продолжит с этого шага.'
+                    : getApiErrorMessage(error, 'assignTask'),
+                {duration: isAssigned ? 9000 : undefined}
+            );
         }
     };
 
@@ -268,12 +296,31 @@ export default function OrderBoardPage() {
     const canAssignTasks = role === 'ADMIN'
         || role === 'DISPATCHER'
         || roles.some((userRole) => ['ROLE_ADMIN', 'ROLE_DISPATCHER'].includes(userRole));
-    const {data: serverOrders, isLoading: isServerOrdersLoading} = useGetOrdersQuery(ORDER_LOOKUP_PARAMS);
-    const {data: serverOrderDetails, isLoading: isServerOrderLoading} = useGetOrderQuery(
+    const {
+        data: serverOrders,
+        isLoading: isServerOrdersLoading,
+        isFetching: isServerOrdersFetching,
+        isError: isServerOrdersError,
+        refetch: refetchServerOrders,
+    } = useGetOrdersQuery(ORDER_LOOKUP_PARAMS);
+    const {
+        data: serverOrderDetails,
+        isLoading: isServerOrderLoading,
+        isFetching: isServerOrderFetching,
+        isError: isServerOrderError,
+        error: serverOrderError,
+        refetch: refetchServerOrder,
+    } = useGetOrderQuery(
         id,
         {skip: !isUuid(id)}
     );
-    const {data: users = [], isLoading: isUsersLoading} = useGetUsersQuery(undefined, {skip: !isUuid(id)});
+    const {
+        data: users = [],
+        isLoading: isUsersLoading,
+        isFetching: isUsersFetching,
+        isError: isUsersError,
+        refetch: refetchUsers,
+    } = useGetUsersQuery(undefined, {skip: !isUuid(id)});
     const kanbanUserId = useMemo(
         () => isUuid(currentUserId)
             ? currentUserId ?? undefined
@@ -281,15 +328,56 @@ export default function OrderBoardPage() {
         [currentUserId, users]
     );
     const canLoadServerKanban = isUuid(id) && Boolean(kanbanUserId);
-    const {data: serverKanbanColumns, isLoading: isKanbanLoading} = useGetOrderKanbanQuery(
+    const {
+        data: serverKanbanColumns,
+        isLoading: isKanbanLoading,
+        isFetching: isKanbanFetching,
+        isError: isKanbanError,
+        refetch: refetchKanban,
+    } = useGetOrderKanbanQuery(
         {id, userId: kanbanUserId ?? ''},
         {skip: !canLoadServerKanban}
     );
     const serverOrder = serverOrderDetails ?? serverOrders?.content.find((item) => item.id === id);
     const isPageLoading = isServerOrdersLoading || isServerOrderLoading || isUsersLoading || isKanbanLoading;
+    const hasOrderLoadError = !serverOrder && (
+        isUuid(id)
+            ? (isServerOrderError && !hasErrorStatus(serverOrderError, 404)) || isServerOrdersError
+            : isServerOrdersError
+    );
+    const hasPageError = hasOrderLoadError || isUsersError || isKanbanError;
+    const isPageRefetching = isServerOrdersFetching
+        || isServerOrderFetching
+        || isUsersFetching
+        || isKanbanFetching;
+
+    const handleRetryPage = () => {
+        void refetchServerOrders();
+
+        if (isUuid(id)) {
+            void refetchServerOrder();
+            void refetchUsers();
+        }
+
+        if (canLoadServerKanban) {
+            void refetchKanban();
+        }
+    };
 
     if (isPageLoading) {
         return <div className="text-sm text-slate-500">Загрузка заказа...</div>;
+    }
+
+    if (hasPageError) {
+        return (
+            <ErrorState
+                title="Не удалось загрузить заказ"
+                onRetry={handleRetryPage}
+                isRetrying={isPageRefetching}
+            >
+                Данные заказа или его доски временно недоступны. Проверьте подключение и повторите попытку.
+            </ErrorState>
+        );
     }
 
     if (serverOrder || serverKanbanColumns) {

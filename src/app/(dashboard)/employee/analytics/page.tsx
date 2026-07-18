@@ -62,7 +62,13 @@ function getStatusBadge(status: string) {
 
 export default function EmployeeAnalyticsPage() {
     const { id, name } = useSelector((state: RootState) => state.auth);
-    const { data: users = [], isLoading: isUsersLoading, isError: isUsersError } = useGetUsersQuery();
+    const {
+        data: users = [],
+        isLoading: isUsersLoading,
+        isFetching: isUsersFetching,
+        isError: isUsersError,
+        refetch: refetchUsers,
+    } = useGetUsersQuery();
 
     const currentEmployee = useMemo(() => {
         const user = users.find((employee) => employee.id === id);
@@ -112,10 +118,22 @@ export default function EmployeeAnalyticsPage() {
         return <div className="text-sm text-slate-500">Загрузка аналитики...</div>;
     }
 
-    if (isUsersError || !currentEmployee) {
+    if (isUsersError) {
         return (
-            <ErrorState title="Аналитика недоступна">
-                Не удалось найти текущего сотрудника.
+            <ErrorState
+                title="Аналитика недоступна"
+                onRetry={() => void refetchUsers()}
+                isRetrying={isUsersFetching}
+            >
+                Не удалось загрузить данные текущего сотрудника.
+            </ErrorState>
+        );
+    }
+
+    if (!currentEmployee) {
+        return (
+            <ErrorState title="Сотрудник не найден">
+                Проверьте, что учётная запись сотрудника активна.
             </ErrorState>
         );
     }

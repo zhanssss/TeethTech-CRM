@@ -57,7 +57,7 @@ export default function TaskFilesPanel({
                                            onAddAttachments,
                                        className = '',
                                    }: TaskFilesPanelProps) {
-    const { notifyError } = useNotifications();
+    const { notifyError, notifySuccess } = useNotifications();
     const activeTaskId = taskId ?? '';
     const canUseServerFiles = UUID_PATTERN.test(activeTaskId);
     const [uploadState, setUploadState] = useState<UploadState | null>(null);
@@ -211,7 +211,9 @@ export default function TaskFilesPanel({
                 await abortMultipartUpload({
                     taskId: activeTaskId,
                     fileId: multipartFileId,
-                }).unwrap().catch(() => undefined);
+                }).unwrap().catch((abortError) => {
+                    console.warn('Multipart upload cleanup failed:', abortError);
+                });
             }
 
             throw error;
@@ -221,6 +223,7 @@ export default function TaskFilesPanel({
     const handleOpenFile = async (file: DisplayFile) => {
         if (file.source === 'local') {
             window.open(file.url, '_blank', 'noopener,noreferrer');
+            notifySuccess('Файл открыт');
             return;
         }
 
@@ -237,6 +240,7 @@ export default function TaskFilesPanel({
             }
 
             window.open(response.url, '_blank', 'noopener,noreferrer');
+            notifySuccess('Файл открыт');
         } catch (error) {
             if (error instanceof Error) notifyError(error.message);
         } finally {
@@ -264,6 +268,7 @@ export default function TaskFilesPanel({
     const handleDownloadFile = async (file: DisplayFile) => {
         if (file.source === 'local' && file.url) {
             downloadUrl(file.url, file.name);
+            notifySuccess('Скачивание началось');
             return;
         }
 
@@ -278,6 +283,7 @@ export default function TaskFilesPanel({
 
             downloadUrl(objectUrl, file.name);
             window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+            notifySuccess('Скачивание началось');
         } catch (error) {
             if (error instanceof Error) notifyError(error.message);
         } finally {

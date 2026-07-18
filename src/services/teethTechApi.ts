@@ -15,33 +15,61 @@ import {
 
 const API_BASE_URL = "/api/backend";
 
+export type ApiCallNotificationOptions = {
+    error?: boolean;
+    success?: boolean;
+};
+
+type ApiFetchArgs = FetchArgs & {
+    notification?: ApiCallNotificationOptions;
+};
+
+function getFetchArgs(args: ApiFetchArgs): FetchArgs {
+    const fetchArgs = { ...args };
+    delete fetchArgs.notification;
+
+    return fetchArgs;
+}
+
 const rawBaseQuery = fetchBaseQuery({
     baseUrl: API_BASE_URL,
     credentials: "same-origin",
 });
 
 const baseQueryWithAuth: BaseQueryFn<
-    string | FetchArgs,
+    string | ApiFetchArgs,
     unknown,
     FetchBaseQueryError
 > = async (args, api, extraOptions) => {
-    const result = await rawBaseQuery(args, api, extraOptions);
+    const notification = typeof args === 'string' ? undefined : args.notification;
+    const requestArgs = typeof args === 'string'
+        ? args
+        : getFetchArgs(args);
+    const result = await rawBaseQuery(requestArgs, api, extraOptions);
     const method = (
-        typeof args === 'string' ? 'GET' : args.method ?? 'GET'
+        typeof requestArgs === 'string' ? 'GET' : requestArgs.method ?? 'GET'
     ).toUpperCase();
 
     if (result.error?.status === 401) {
         api.dispatch(logout());
     }
 
-    if (result.error && shouldNotifyApiError(api.endpoint)) {
+    if (
+        result.error &&
+        notification?.error !== false &&
+        shouldNotifyApiError(api.endpoint)
+    ) {
         api.dispatch(
             enqueueNotification({
                 tone: 'error',
                 message: getApiErrorMessage(result.error, api.endpoint),
             })
         );
-    } else if (!result.error && api.type === 'mutation') {
+    } else if (
+        !result.error &&
+        notification?.success !== false &&
+        api.type === 'mutation'
+    ) {
         const message = getApiSuccessMessage(api.endpoint, method);
 
         if (message) {

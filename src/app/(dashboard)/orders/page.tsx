@@ -22,12 +22,16 @@ import {
     useUploadMultipartTaskFilePartMutation,
     useUploadTaskFileMutation,
 } from '@/src/services/api/taskFilesApi';
+import { useNotifications } from '@/src/features/notifications/useNotifications';
+import { getApiErrorMessage } from '@/src/services/apiNotifications';
+import QueryErrorNotice from '@/src/components/ui/QueryErrorNotice';
 
 const DEFAULT_ORDER_SORT = 'deadline,ASC';
 const DEFAULT_PAGE_SIZE = 10;
 const PAGE_SIZE_OPTIONS = [10, 20, 50];
 const SIMPLE_UPLOAD_LIMIT = 10 * 1024 * 1024;
 const MULTIPART_CHUNK_SIZE = SIMPLE_UPLOAD_LIMIT;
+const COMPOSITE_NOTIFICATION = { error: false, success: false } as const;
 
 type UploadTaskFileTrigger = ReturnType<typeof useUploadTaskFileMutation>[0];
 type InitMultipartUploadTrigger = ReturnType<typeof useInitMultipartTaskFileUploadMutation>[0];
@@ -177,6 +181,7 @@ async function uploadOrderTaskFile({
             taskId,
             file,
             type,
+            notification: COMPOSITE_NOTIFICATION,
         }).unwrap();
         return;
     }
@@ -190,6 +195,7 @@ async function uploadOrderTaskFile({
             fileName: file.name,
             contentType: file.type || 'application/octet-stream',
             totalParts,
+            notification: COMPOSITE_NOTIFICATION,
         }).unwrap();
 
         multipartFileId = multipartUpload.fileId;
@@ -205,19 +211,23 @@ async function uploadOrderTaskFile({
                 partNumber,
                 file: chunk,
                 fileName: file.name,
+                notification: COMPOSITE_NOTIFICATION,
             }).unwrap();
         }
 
         await completeMultipartUpload({
             taskId,
             fileId: multipartUpload.fileId,
+            notification: COMPOSITE_NOTIFICATION,
         }).unwrap();
     } catch (error) {
         if (multipartFileId) {
             await abortMultipartUpload({
                 taskId,
                 fileId: multipartFileId,
-            }).unwrap().catch(() => undefined);
+            }).unwrap().catch((abortError) => {
+                console.warn('Multipart upload cleanup failed:', abortError);
+            });
         }
 
         throw error;
@@ -225,6 +235,7 @@ async function uploadOrderTaskFile({
 }
 
 export default function OrdersPage() {
+    const { notifyError, notifySuccess } = useNotifications();
     const [createOrder, { isLoading: isCreatingOrder }] = useCreateOrderMutation();
     const [deleteOrder, { isLoading: isDeletingOrder }] = useDeleteOrderMutation();
     const [uploadTaskFile] = useUploadTaskFileMutation();
@@ -244,6 +255,7 @@ export default function OrdersPage() {
         data: ordersPage,
         isFetching: isOrdersLoading,
         isError: isOrdersError,
+        refetch: refetchOrders,
     } = useGetOrdersQuery({
         page,
         size,
@@ -292,7 +304,22 @@ export default function OrdersPage() {
     };
 
     const handleCreateOrder = async (payload: CreateOrderDto) => {
-        const createdOrder = await createOrder(stripOrderFiles(payload)).unwrap();
+        let createdOrder: CreateOrderResponse;
+
+        try {
+            createdOrder = await createOrder({
+                ...stripOrderFiles(payload),
+                notification: COMPOSITE_NOTIFICATION,
+            }).unwrap();
+        } catch (error) {
+            notifyError(getApiErrorMessage(error, 'createOrder'));
+            throw error;
+        }
+
+        const fileCount = payload.tasks.reduce(
+            (count, task) => count + (task.images?.length ?? 0) + (task.attachments?.length ?? 0),
+            0
+        );
 
         setIsUploadingOrderFiles(true);
 
@@ -306,8 +333,17 @@ export default function OrdersPage() {
                 completeMultipartUpload,
                 abortMultipartUpload,
             });
+            notifySuccess(
+                fileCount > 0
+                    ? 'Заказ создан, все файлы загружены'
+                    : 'Заказ создан'
+            );
         } catch (error) {
             console.error('Order file upload failed:', error);
+            notifyError(
+                'Заказ создан, но часть файлов не загрузилась. Откройте заказ и повторите загрузку.',
+                { duration: 9000 }
+            );
         } finally {
             setIsUploadingOrderFiles(false);
         }
@@ -340,9 +376,11 @@ export default function OrdersPage() {
             </div>
 
             {isOrdersError && (
-                <div className="rounded-xl border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm font-semibold text-yellow-800">
-                    Не удалось загрузить заказы с сервера.
-                </div>
+                <QueryErrorNotice
+                    message="Не удалось загрузить заказы с сервера."
+                    onRetry={() => void refetchOrders()}
+                    isRetrying={isOrdersLoading}
+                />
             )}
 
             <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-4">

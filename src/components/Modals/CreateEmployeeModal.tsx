@@ -1,5 +1,6 @@
 import { FormEvent, useState } from 'react';
 import Modal from '@/src/components/ui/Modal';
+import QueryErrorNotice from '@/src/components/ui/QueryErrorNotice';
 import { useRegisterUserMutation } from '@/src/services/api/authApi';
 import { useGetRolesQuery } from '@/src/services/api/rolesApi';
 import type { Register, SalaryType } from '@/src/types/auth.types';
@@ -16,7 +17,13 @@ export default function CreateEmployeeModal({ onClose }: CreateEmployeeModalProp
     const [salaryType, setSalaryType] = useState<SalaryType>('FIXED');
     const [salary, setSalary] = useState('');
     const [tempPassword, setTempPassword] = useState('');
-    const { data: roles = [], isLoading: isRolesLoading } = useGetRolesQuery();
+    const {
+        data: roles = [],
+        isLoading: isRolesLoading,
+        isFetching: isRolesFetching,
+        isError: isRolesError,
+        refetch: refetchRoles,
+    } = useGetRolesQuery();
     const [registerUser, { isLoading }] = useRegisterUserMutation();
 
     const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
@@ -54,6 +61,14 @@ export default function CreateEmployeeModal({ onClose }: CreateEmployeeModalProp
                     </button>
                 </div>
 
+                {isRolesError && (
+                    <QueryErrorNotice
+                        message="Не удалось загрузить роли сотрудников."
+                        onRetry={() => void refetchRoles()}
+                        isRetrying={isRolesFetching}
+                    />
+                )}
+
                 <input
                     type="text"
                     value={name}
@@ -88,7 +103,11 @@ export default function CreateEmployeeModal({ onClose }: CreateEmployeeModalProp
                     className="w-full rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm outline-none transition focus:border-blue-500 focus:bg-white"
                 >
                     <option value="">
-                        {isRolesLoading ? 'Загрузка ролей...' : 'Выберите роль'}
+                        {isRolesLoading
+                            ? 'Загрузка ролей...'
+                            : isRolesError
+                                ? 'Роли недоступны'
+                                : 'Выберите роль'}
                     </option>
                     {roles.map((option) => (
                         <option key={option.id} value={option.code}>
@@ -131,7 +150,7 @@ export default function CreateEmployeeModal({ onClose }: CreateEmployeeModalProp
 
                 <button
                     type="submit"
-                    disabled={isLoading}
+                    disabled={isLoading || isRolesError}
                     className="cursor-pointer rounded-xl bg-blue-600 py-3 text-sm font-bold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300"
                 >
                     {isLoading ? 'Создание...' : 'Добавить'}

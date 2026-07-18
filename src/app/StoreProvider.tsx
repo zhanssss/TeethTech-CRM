@@ -3,6 +3,7 @@
 import {ReactNode, useEffect, useState} from "react";
 import {Provider} from "react-redux";
 import {finishAuthHydration, setUser} from '@/src/features/auth/authSlice';
+import {enqueueNotification} from '@/src/features/notifications/notificationsSlice';
 import {normalizeAuthRole} from '@/src/features/auth/authUtils';
 import type {AuthSession} from '@/src/types/auth.types';
 import NotificationViewport from '@/src/components/ui/NotificationViewport';
@@ -24,6 +25,14 @@ export default function StoreProvider({children}: {children: ReactNode}){
                 if (!isMounted) return;
 
                 if (!response.ok) {
+                    if (response.status !== 401) {
+                        store.dispatch(
+                            enqueueNotification({
+                                tone: 'error',
+                                message: 'Не удалось проверить текущую сессию. Попробуйте обновить страницу.',
+                            })
+                        );
+                    }
                     store.dispatch(finishAuthHydration());
                     return;
                 }
@@ -40,8 +49,15 @@ export default function StoreProvider({children}: {children: ReactNode}){
                         roles: session.roles,
                     })
                 );
-            } catch {
+            } catch (error) {
                 if (isMounted) {
+                    console.error('Auth session hydration failed:', error);
+                    store.dispatch(
+                        enqueueNotification({
+                            tone: 'error',
+                            message: 'Нет связи с сервером авторизации. Проверьте подключение и повторите попытку.',
+                        })
+                    );
                     store.dispatch(finishAuthHydration());
                 }
             }

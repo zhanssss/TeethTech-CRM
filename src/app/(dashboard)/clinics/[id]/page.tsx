@@ -13,6 +13,7 @@ import {
 import InfoItem from '@/src/components/ui/InfoItem'
 import DeleteClinicApproval from "@/src/components/Modals/DeleteClinicApproval";
 import ErrorState from '@/src/components/ui/ErrorState';
+import QueryErrorNotice from '@/src/components/ui/QueryErrorNotice';
 
 const DEFAULT_RELATED_PAGE_SIZE = 10;
 const DOCTORS_SORT = 'fullName,ASC';
@@ -87,13 +88,15 @@ export default function ClinicDetailsPage() {
     const {
         data: clinic,
         isLoading,
+        isFetching,
         isError,
-
+        refetch: refetchClinic,
     } = useGetClinicsByIdQuery(id);
     const {
         data: doctorsData,
         isFetching: isDoctorsLoading,
         isError: isDoctorsError,
+        refetch: refetchDoctors,
     } = useGetClinicDoctorsQuery({
         id,
         page: doctorsPage,
@@ -104,6 +107,7 @@ export default function ClinicDetailsPage() {
         data: ordersData,
         isFetching: isOrdersLoading,
         isError: isOrdersError,
+        refetch: refetchOrders,
     } = useGetClinicOrdersQuery({
         id,
         page: ordersPage,
@@ -114,6 +118,7 @@ export default function ClinicDetailsPage() {
         data: patientsData,
         isFetching: isPatientsLoading,
         isError: isPatientsError,
+        refetch: refetchPatients,
     } = useGetClinicPatientsQuery({
         id,
         page: patientsPage,
@@ -124,7 +129,10 @@ export default function ClinicDetailsPage() {
     if (isLoading) return <p>Загрузка клиники...</p>;
     if (isError) {
         return (
-            <ErrorState>
+            <ErrorState
+                onRetry={() => void refetchClinic()}
+                isRetrying={isFetching}
+            >
                 Ошибка загрузки клиники
             </ErrorState>
         );
@@ -266,9 +274,12 @@ export default function ClinicDetailsPage() {
 
                 <div className="grid grid-cols-1 gap-4 p-4 sm:p-5 md:grid-cols-2">
                     {isDoctorsError && (
-                        <div className="rounded-2xl border border-red-100 bg-red-50 p-4 text-sm font-semibold text-red-700 md:col-span-2">
-                            Не удалось загрузить врачей клиники
-                        </div>
+                        <QueryErrorNotice
+                            className="md:col-span-2"
+                            message="Не удалось загрузить врачей клиники."
+                            onRetry={() => void refetchDoctors()}
+                            isRetrying={isDoctorsLoading}
+                        />
                     )}
 
                     {isDoctorsLoading && !doctorsData && (
@@ -317,9 +328,12 @@ export default function ClinicDetailsPage() {
 
                 <div className="grid grid-cols-1 gap-4 p-4 sm:p-5 md:grid-cols-2">
                     {isPatientsError && (
-                        <div className="rounded-2xl border border-red-100 bg-red-50 p-4 text-sm font-semibold text-red-700 md:col-span-2">
-                            Не удалось загрузить пациентов клиники
-                        </div>
+                        <QueryErrorNotice
+                            className="md:col-span-2"
+                            message="Не удалось загрузить пациентов клиники."
+                            onRetry={() => void refetchPatients()}
+                            isRetrying={isPatientsLoading}
+                        />
                     )}
 
                     {isPatientsLoading && !patientsData && (
@@ -384,8 +398,12 @@ export default function ClinicDetailsPage() {
                         <tbody className="divide-y divide-slate-100">
                         {isOrdersError && (
                             <tr>
-                                <td colSpan={7} className="p-8 text-center text-sm font-semibold text-red-600">
-                                    Не удалось загрузить заказы клиники
+                                <td colSpan={7} className="p-4">
+                                    <QueryErrorNotice
+                                        message="Не удалось загрузить заказы клиники."
+                                        onRetry={() => void refetchOrders()}
+                                        isRetrying={isOrdersLoading}
+                                    />
                                 </td>
                             </tr>
                         )}

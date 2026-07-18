@@ -192,7 +192,13 @@ function ChangePasswordCard({ userId }: { userId: string | null }) {
 
 export default function EmployeePage() {
     const { id, name, role } = useSelector((state: RootState) => state.auth);
-    const { data: users = [] } = useGetUsersQuery();
+    const {
+        data: users = [],
+        isLoading: isUsersLoading,
+        isFetching: isUsersFetching,
+        isError: isUsersError,
+        refetch: refetchUsers,
+    } = useGetUsersQuery();
     const currentEmployee = useMemo(
         () => {
             const user = users.find((employee) => employee.id === id);
@@ -207,6 +213,30 @@ export default function EmployeePage() {
         return (
             <ErrorState title="Раздел сотрудника">
                 Эта страница доступна только сотрудникам, которым назначаются задачи.
+            </ErrorState>
+        );
+    }
+
+    if (isUsersLoading) {
+        return <div className="text-sm text-slate-500">Загрузка профиля...</div>;
+    }
+
+    if (isUsersError) {
+        return (
+            <ErrorState
+                title="Не удалось загрузить профиль"
+                onRetry={() => void refetchUsers()}
+                isRetrying={isUsersFetching}
+            >
+                Данные сотрудника временно недоступны.
+            </ErrorState>
+        );
+    }
+
+    if (!currentEmployee) {
+        return (
+            <ErrorState title="Профиль сотрудника не найден">
+                Обратитесь к администратору, чтобы проверить учётную запись.
             </ErrorState>
         );
     }

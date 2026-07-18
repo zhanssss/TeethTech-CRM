@@ -18,6 +18,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { type CSSProperties, type FormEvent, useEffect, useState } from 'react';
 
 import { useGetWorkTypesQuery } from '@/src/services/api/laboratory/workTypesApi';
+import QueryErrorNotice from '@/src/components/ui/QueryErrorNotice';
 import {
     useCreateAdminWorkflowStepMutation,
     useCreateOrderStatusMutation,
@@ -133,13 +134,26 @@ export default function LaboratoryWorkflowsPage() {
     const [statusSortOrder, setStatusSortOrder] = useState('0');
     const [statusColorHex, setStatusColorHex] = useState('#2563eb');
 
-    const { data: workTypes = [], isLoading: isWorkTypesLoading } = useGetWorkTypesQuery();
+    const {
+        data: workTypes = [],
+        isLoading: isWorkTypesLoading,
+        isFetching: isWorkTypesFetching,
+        isError: isWorkTypesError,
+        refetch: refetchWorkTypes,
+    } = useGetWorkTypesQuery();
     const serverWorkTypeId = selectedWorkTypeId || workTypes[0]?.id || '';
-    const { data: workflowStatuses = [], isLoading: isWorkflowStatusesLoading } = useGetWorkflowStatusesQuery();
+    const {
+        data: workflowStatuses = [],
+        isLoading: isWorkflowStatusesLoading,
+        isFetching: isWorkflowStatusesFetching,
+        isError: isWorkflowStatusesError,
+        refetch: refetchWorkflowStatuses,
+    } = useGetWorkflowStatusesQuery();
     const {
         data: serverWorkflowSteps = [],
         isFetching: isServerWorkflowStepsFetching,
         isError: isServerWorkflowStepsError,
+        refetch: refetchServerWorkflowSteps,
     } = useGetAdminWorkflowStepsQuery(
         { workTypeId: serverWorkTypeId },
         { skip: !serverWorkTypeId }
@@ -148,6 +162,7 @@ export default function LaboratoryWorkflowsPage() {
         data: orderStatuses = [],
         isFetching: isOrderStatusesFetching,
         isError: isOrderStatusesError,
+        refetch: refetchOrderStatuses,
     } = useGetOrderStatusesQuery();
     const [createAdminWorkflowStep, { isLoading: isCreatingServerStep }] = useCreateAdminWorkflowStepMutation();
     const [deleteAdminWorkflowStep, { isLoading: isDeletingServerStep }] = useDeleteAdminWorkflowStepMutation();
@@ -361,6 +376,20 @@ export default function LaboratoryWorkflowsPage() {
                 </p>
             </header>
 
+            {(isWorkTypesError || isWorkflowStatusesError) && (
+                <QueryErrorNotice
+                    message={`Не удалось загрузить ${[
+                        isWorkTypesError ? 'типы работ' : '',
+                        isWorkflowStatusesError ? 'статусы workflow' : '',
+                    ].filter(Boolean).join(' и ')}.`}
+                    onRetry={() => {
+                        if (isWorkTypesError) void refetchWorkTypes();
+                        if (isWorkflowStatusesError) void refetchWorkflowStatuses();
+                    }}
+                    isRetrying={isWorkTypesFetching || isWorkflowStatusesFetching}
+                />
+            )}
+
             <section className="grid gap-6 xl:grid-cols-[minmax(22rem,1.05fr)_minmax(22rem,0.95fr)]">
                 <form
                     onSubmit={handleServerStepSubmit}
@@ -469,9 +498,11 @@ export default function LaboratoryWorkflowsPage() {
 
                     <div className="mt-5 space-y-3">
                         {isServerWorkflowStepsError && (
-                            <p className="rounded-xl bg-red-50 px-4 py-3 text-sm font-semibold text-red-600">
-                                Не удалось загрузить шаги workflow.
-                            </p>
+                            <QueryErrorNotice
+                                message="Не удалось загрузить шаги workflow."
+                                onRetry={() => void refetchServerWorkflowSteps()}
+                                isRetrying={isServerWorkflowStepsFetching}
+                            />
                         )}
 
                         {serverWorkflowSteps.map((step) => (
@@ -498,7 +529,7 @@ export default function LaboratoryWorkflowsPage() {
                             </div>
                         ))}
 
-                        {!isServerWorkflowStepsFetching && serverWorkflowSteps.length === 0 && (
+                        {!isServerWorkflowStepsFetching && !isServerWorkflowStepsError && serverWorkflowSteps.length === 0 && (
                             <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-8 text-center text-sm text-slate-400">
                                 Для выбранного типа работы серверных шагов пока нет.
                             </div>
@@ -617,10 +648,18 @@ export default function LaboratoryWorkflowsPage() {
                 </form>
             </section>
 
-            {(serverWorkflowError || isOrderStatusesError) && (
+            {serverWorkflowError && (
                 <section className="rounded-xl bg-red-50 px-4 py-3 text-sm font-semibold text-red-600">
-                    {serverWorkflowError || 'Не удалось загрузить статусы заказа.'}
+                    {serverWorkflowError}
                 </section>
+            )}
+
+            {isOrderStatusesError && (
+                <QueryErrorNotice
+                    message="Не удалось загрузить статусы заказа."
+                    onRetry={() => void refetchOrderStatuses()}
+                    isRetrying={isOrderStatusesFetching}
+                />
             )}
 
             <form

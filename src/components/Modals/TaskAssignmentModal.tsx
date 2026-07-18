@@ -2,6 +2,7 @@
 
 import { type FormEvent, useMemo, useState } from 'react';
 import Modal from '@/src/components/ui/Modal';
+import QueryErrorNotice from '@/src/components/ui/QueryErrorNotice';
 import {
     useGetTaskAssignmentQuery,
     useUpdateTaskAssignmentMutation,
@@ -163,7 +164,9 @@ function TaskAssignmentEditor({
     const {
         data: workTypes = [],
         isFetching: isWorkTypesFetching,
-    } = useGetWorkTypesQuery();
+        isError: isWorkTypesError,
+        refetch: refetchWorkTypes,
+    } = useGetWorkTypesQuery(undefined, { skip: Boolean(task.workTypeId) });
     const workTypeId = task.workTypeId
         || workTypes.find((workType) =>
             normalizeName(workType.name) === normalizeName(task.workTypeName)
@@ -173,6 +176,7 @@ function TaskAssignmentEditor({
         data: workflowSteps = [],
         isFetching: isWorkflowFetching,
         isError: isWorkflowError,
+        refetch: refetchWorkflow,
     } = useGetAdminWorkflowStepsQuery(
         { workTypeId },
         { skip: !workTypeId }
@@ -320,16 +324,26 @@ function TaskAssignmentEditor({
                         )}
                     </div>
 
-                    {!isWorkTypesFetching && !workTypeId && stages.length === 0 && (
+                    {isWorkTypesError && !task.workTypeId && (
+                        <QueryErrorNotice
+                            message="Не удалось определить вид работы для загрузки workflow."
+                            onRetry={() => void refetchWorkTypes()}
+                            isRetrying={isWorkTypesFetching}
+                        />
+                    )}
+
+                    {!isWorkTypesFetching && !isWorkTypesError && !workTypeId && stages.length === 0 && (
                         <p className="rounded-xl border border-yellow-200 bg-yellow-50 px-4 py-3 text-xs font-semibold text-yellow-700">
                             Backend не вернул workTypeId задачи, поэтому список этапов получить невозможно.
                         </p>
                     )}
 
                     {isWorkflowError && stages.length === 0 && (
-                        <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-xs font-semibold text-red-600">
-                            Не удалось загрузить этапы workflow.
-                        </p>
+                        <QueryErrorNotice
+                            message="Не удалось загрузить этапы workflow."
+                            onRetry={() => void refetchWorkflow()}
+                            isRetrying={isWorkflowFetching}
+                        />
                     )}
 
                     {!isWorkflowFetching && !isWorkTypesFetching && stages.length === 0 && workTypeId && !isWorkflowError && (

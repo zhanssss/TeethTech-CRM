@@ -3,6 +3,7 @@
 import { type FormEvent, useMemo, useState } from 'react';
 
 import Modal from '@/src/components/ui/Modal';
+import QueryErrorNotice from '@/src/components/ui/QueryErrorNotice';
 import { useGetMaterialsQuery } from '@/src/services/api/laboratory/materialApi';
 import { useGetWorkTypesQuery } from '@/src/services/api/laboratory/workTypesApi';
 import {
@@ -42,8 +43,20 @@ export default function NomenclaturePanel() {
     const inventoryStatusRulesQuery = useGetInventoryStatusRulesQuery();
     const detailQuery = useGetNomenclatureItemQuery(selectedId ?? '', { skip: !selectedId });
     const balanceQuery = useGetStockBalanceQuery(selectedId ?? '', { skip: !selectedId });
-    const { data: workTypes = [], isLoading: isWorkTypesLoading } = useGetWorkTypesQuery();
-    const { data: materials = [], isLoading: isMaterialsLoading } = useGetMaterialsQuery();
+    const {
+        data: workTypes = [],
+        isLoading: isWorkTypesLoading,
+        isFetching: isWorkTypesFetching,
+        isError: isWorkTypesError,
+        refetch: refetchWorkTypes,
+    } = useGetWorkTypesQuery();
+    const {
+        data: materials = [],
+        isLoading: isMaterialsLoading,
+        isFetching: isMaterialsFetching,
+        isError: isMaterialsError,
+        refetch: refetchMaterials,
+    } = useGetMaterialsQuery();
     const [receiveStock, receiveState] = useReceiveStockMutation();
     const [createWarehouseMaterial, createMaterialState] = useCreateWarehouseMaterialMutation();
     const [upsertNomenclatureNorm, upsertNormState] = useUpsertNomenclatureNormMutation();
@@ -67,6 +80,8 @@ export default function NomenclaturePanel() {
         (item) => inventoryStatusRulesByCode.get(item.statusCode)?.locksWarehouse
             ?? (item.statusCode === 'IN_PROGRESS' || (Boolean(item.startedAt) && !item.completedAt))
     );
+    const hasInventoryControlError = inventoryChecksQuery.isError
+        || inventoryStatusRulesQuery.isError;
     const inventoryLockMessage = lockingInventoryCheck
         ? `Приход заблокирован: есть активная инвентаризация (${getInventoryStatusLabel(lockingInventoryCheck.statusCode, inventoryStatusRulesByCode.get(lockingInventoryCheck.statusCode))}). Завершите или отмените её, затем повторите приход.`
         : '';
@@ -262,9 +277,12 @@ export default function NomenclaturePanel() {
                 </div>
 
                 {listQuery.isError && (
-                    <div className="m-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                        {getApiErrorMessage(listQuery.error, 'Не удалось загрузить номенклатуру')}
-                    </div>
+                    <QueryErrorNotice
+                        className="m-4"
+                        message={getApiErrorMessage(listQuery.error, 'Не удалось загрузить номенклатуру')}
+                        onRetry={() => void listQuery.refetch()}
+                        isRetrying={listQuery.isFetching}
+                    />
                 )}
 
                 <div className="overflow-x-auto">
@@ -448,9 +466,30 @@ export default function NomenclaturePanel() {
 
                     <div className="space-y-5 p-5 sm:p-6">
                         {detailQuery.isError && (
-                            <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                                {getApiErrorMessage(detailQuery.error, 'Номенклатура не найдена')}
-                            </div>
+                            <QueryErrorNotice
+                                message={getApiErrorMessage(detailQuery.error, 'Номенклатура не найдена')}
+                                onRetry={() => void detailQuery.refetch()}
+                                isRetrying={detailQuery.isFetching}
+                            />
+                        )}
+
+                        {balanceQuery.isError && (
+                            <QueryErrorNotice
+                                message="Не удалось загрузить актуальный остаток."
+                                onRetry={() => void balanceQuery.refetch()}
+                                isRetrying={balanceQuery.isFetching}
+                            />
+                        )}
+
+                        {hasInventoryControlError && (
+                            <QueryErrorNotice
+                                message="Не удалось проверить состояние инвентаризации. Приход временно заблокирован."
+                                onRetry={() => {
+                                    if (inventoryChecksQuery.isError) void inventoryChecksQuery.refetch();
+                                    if (inventoryStatusRulesQuery.isError) void inventoryStatusRulesQuery.refetch();
+                                }}
+                                isRetrying={inventoryChecksQuery.isFetching || inventoryStatusRulesQuery.isFetching}
+                            />
                         )}
 
                         <div className="grid gap-3 sm:grid-cols-3">
@@ -501,7 +540,7 @@ export default function NomenclaturePanel() {
                                             step="0.001"
                                             value={quantity}
                                             onChange={(event) => setQuantity(event.target.value)}
-                                            disabled={Boolean(inventoryLockMessage)}
+                                            disabled={Boolean(inventoryLockMessage) || hasInventoryControlError}
                                             className="w-full rounded-xl border border-slate-200 bg-white px-3 py-3 pr-10 text-sm outline-none focus:border-blue-500 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
                                         />
                                         <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">
@@ -516,7 +555,7 @@ export default function NomenclaturePanel() {
                                         value={reason}
                                         onChange={(event) => setReason(event.target.value)}
                                         placeholder="Например: накладная №348 от поставщика"
-                                        disabled={Boolean(inventoryLockMessage)}
+                                        disabled={Boolean(inventoryLockMessage) || hasInventoryControlError}
                                         className="w-full rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm outline-none focus:border-blue-500 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
                                     />
                                 </label>
@@ -529,7 +568,7 @@ export default function NomenclaturePanel() {
                             <div className="flex justify-end">
                                 <button
                                     type="submit"
-                                    disabled={receiveState.isLoading || !selectedItem?.active || Boolean(inventoryLockMessage)}
+                                    disabled={receiveState.isLoading || !selectedItem?.active || Boolean(inventoryLockMessage) || hasInventoryControlError}
                                     className="rounded-xl bg-blue-600 px-5 py-3 text-sm font-bold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-300"
                                 >
                                     {receiveState.isLoading ? 'Проводим…' : 'Провести приход'}
@@ -545,6 +584,17 @@ export default function NomenclaturePanel() {
                                 </p>
                             </div>
 
+                            {(isWorkTypesError || isMaterialsError) && (
+                                <QueryErrorNotice
+                                    message="Не удалось загрузить справочники для нормы расхода."
+                                    onRetry={() => {
+                                        if (isWorkTypesError) void refetchWorkTypes();
+                                        if (isMaterialsError) void refetchMaterials();
+                                    }}
+                                    isRetrying={isWorkTypesFetching || isMaterialsFetching}
+                                />
+                            )}
+
                             <div className="grid gap-3 sm:grid-cols-2">
                                 <label>
                                     <span className="mb-1.5 block text-sm font-semibold text-slate-700">Тип работы</span>
@@ -552,7 +602,7 @@ export default function NomenclaturePanel() {
                                         required
                                         value={normWorkTypeId}
                                         onChange={(event) => setNormWorkTypeId(event.target.value)}
-                                        disabled={isWorkTypesLoading}
+                                        disabled={isWorkTypesLoading || isWorkTypesError}
                                         className="w-full rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm outline-none focus:border-emerald-500 disabled:cursor-not-allowed disabled:bg-slate-100"
                                     >
                                         <option value="">Выберите тип работы</option>
@@ -570,7 +620,7 @@ export default function NomenclaturePanel() {
                                         required
                                         value={normMaterialId}
                                         onChange={(event) => setNormMaterialId(event.target.value)}
-                                        disabled={isMaterialsLoading}
+                                        disabled={isMaterialsLoading || isMaterialsError}
                                         className="w-full rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm outline-none focus:border-emerald-500 disabled:cursor-not-allowed disabled:bg-slate-100"
                                     >
                                         <option value="">Выберите материал</option>
@@ -628,7 +678,7 @@ export default function NomenclaturePanel() {
                             <div className="flex justify-end">
                                 <button
                                     type="submit"
-                                    disabled={upsertNormState.isLoading}
+                                    disabled={upsertNormState.isLoading || isWorkTypesError || isMaterialsError}
                                     className="rounded-xl bg-emerald-600 px-5 py-3 text-sm font-bold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-emerald-300"
                                 >
                                     {upsertNormState.isLoading ? 'Сохраняем...' : 'Сохранить норму'}

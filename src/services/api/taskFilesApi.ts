@@ -1,4 +1,7 @@
-import { teethTechApi } from '@/src/services/teethTechApi';
+import {
+    teethTechApi,
+    type ApiCallNotificationOptions,
+} from '@/src/services/teethTechApi';
 
 import type {
     DeleteTaskFileArgs,
@@ -13,6 +16,10 @@ import type {
     UploadMultipartTaskFilePartArgs,
     UploadTaskFileArgs,
 } from '@/src/types/task.types';
+
+type WithNotificationOptions = {
+    notification?: ApiCallNotificationOptions;
+};
 
 function buildFileFormData(file: Blob, fileName?: string) {
     const formData = new FormData();
@@ -41,12 +48,13 @@ export const taskFilesApi = teethTechApi.injectEndpoints({
             ],
         }),
 
-        uploadTaskFile: builder.mutation<TaskFile, UploadTaskFileArgs>({
-            query: ({ taskId, file, type = 'FILE' }) => ({
+        uploadTaskFile: builder.mutation<TaskFile, UploadTaskFileArgs & WithNotificationOptions>({
+            query: ({ taskId, file, type = 'FILE', notification }) => ({
                 url: `/tasks/${taskId}/files/upload`,
                 method: 'POST',
                 params: { type },
                 body: buildFileFormData(file, file.name),
+                notification,
             }),
             invalidatesTags: (_result, _error, { taskId }) => [
                 { type: 'TaskFiles', id: taskId },
@@ -82,9 +90,9 @@ export const taskFilesApi = teethTechApi.injectEndpoints({
 
         initMultipartTaskFileUpload: builder.mutation<
             InitMultipartTaskFileUploadResponse,
-            InitMultipartTaskFileUploadArgs
+            InitMultipartTaskFileUploadArgs & WithNotificationOptions
         >({
-            query: ({ taskId, fileName, contentType, totalParts }) => ({
+            query: ({ taskId, fileName, contentType, totalParts, notification }) => ({
                 url: `/tasks/${taskId}/files/multipart/init`,
                 method: 'POST',
                 params: {
@@ -92,22 +100,31 @@ export const taskFilesApi = teethTechApi.injectEndpoints({
                     contentType,
                     totalParts,
                 },
+                notification,
             }),
         }),
 
-        uploadMultipartTaskFilePart: builder.mutation<void, UploadMultipartTaskFilePartArgs>({
-            query: ({ taskId, fileId, partNumber, file, fileName }) => ({
+        uploadMultipartTaskFilePart: builder.mutation<
+            void,
+            UploadMultipartTaskFilePartArgs & WithNotificationOptions
+        >({
+            query: ({ taskId, fileId, partNumber, file, fileName, notification }) => ({
                 url: `/tasks/${taskId}/files/multipart/${fileId}/part`,
                 method: 'POST',
                 params: { partNumber },
                 body: buildFileFormData(file, fileName),
+                notification,
             }),
         }),
 
-        completeMultipartTaskFileUpload: builder.mutation<TaskFile, MultipartTaskFileArgs>({
-            query: ({ taskId, fileId }) => ({
+        completeMultipartTaskFileUpload: builder.mutation<
+            TaskFile,
+            MultipartTaskFileArgs & WithNotificationOptions
+        >({
+            query: ({ taskId, fileId, notification }) => ({
                 url: `/tasks/${taskId}/files/multipart/${fileId}/complete`,
                 method: 'POST',
+                notification,
             }),
             invalidatesTags: (_result, _error, { taskId }) => [
                 { type: 'TaskFiles', id: taskId },

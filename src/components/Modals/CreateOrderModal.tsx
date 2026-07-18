@@ -5,6 +5,7 @@ import type { CreateOrderDto, CreateOrderTaskDto } from '@/src/types/order.types
 import type { TaskAttachment, TaskImage } from '@/src/types/task.types';
 import type { WorkflowStep } from '@/src/types/workflow.types';
 import Modal from '@/src/components/ui/Modal';
+import QueryErrorNotice from '@/src/components/ui/QueryErrorNotice';
 import { useGetClinicDoctorsQuery, useGetClinicPatientsQuery, useSearchClinicsQuery } from '@/src/services/api/clinicsApi';
 import { useGetUsersQuery } from '@/src/services/api/usersApi';
 import { useGetWorkTypesQuery } from '@/src/services/api/laboratory/workTypesApi';
@@ -424,12 +425,42 @@ export default function CreateOrderModal({
     onClose,
     onSubmit,
 }: CreateOrderModalProps) {
-    const { data: clinicsPage, isLoading: isClinicsLoading } = useSearchClinicsQuery(CLINICS_LOOKUP_PARAMS);
+    const {
+        data: clinicsPage,
+        isLoading: isClinicsLoading,
+        isFetching: isClinicsFetching,
+        isError: isClinicsError,
+        refetch: refetchClinics,
+    } = useSearchClinicsQuery(CLINICS_LOOKUP_PARAMS, { skip: !isOpen });
     const clinics = clinicsPage?.content ?? [];
-    const { data: users = [], isLoading: isUsersLoading } = useGetUsersQuery();
-    const { data: workTypes = [], isLoading: isWorkTypesLoading } = useGetWorkTypesQuery();
-    const { data: materials = [], isLoading: isMaterialsLoading } = useGetMaterialsQuery();
-    const { data: colors = [], isLoading: isColorsLoading } = useGetColorsQuery(true);
+    const {
+        data: users = [],
+        isLoading: isUsersLoading,
+        isFetching: isUsersFetching,
+        isError: isUsersError,
+        refetch: refetchUsers,
+    } = useGetUsersQuery(undefined, { skip: !isOpen });
+    const {
+        data: workTypes = [],
+        isLoading: isWorkTypesLoading,
+        isFetching: isWorkTypesFetching,
+        isError: isWorkTypesError,
+        refetch: refetchWorkTypes,
+    } = useGetWorkTypesQuery(undefined, { skip: !isOpen });
+    const {
+        data: materials = [],
+        isLoading: isMaterialsLoading,
+        isFetching: isMaterialsFetching,
+        isError: isMaterialsError,
+        refetch: refetchMaterials,
+    } = useGetMaterialsQuery(undefined, { skip: !isOpen });
+    const {
+        data: colors = [],
+        isLoading: isColorsLoading,
+        isFetching: isColorsFetching,
+        isError: isColorsError,
+        refetch: refetchColors,
+    } = useGetColorsQuery(true, { skip: !isOpen });
 
     const [formData, setFormData] = useState<CreateOrderDto>({
         clinicId: '',
@@ -442,25 +473,31 @@ export default function CreateOrderModal({
     const {
         data: doctorsPage,
         isLoading: isDoctorsLoading,
+        isFetching: isDoctorsFetching,
+        isError: isDoctorsError,
+        refetch: refetchDoctors,
     } = useGetClinicDoctorsQuery(
         {
             id: formData.clinicId,
             ...DOCTORS_LOOKUP_PARAMS,
         },
         {
-            skip: !formData.clinicId,
+            skip: !isOpen || !formData.clinicId,
         }
     );
     const {
         data: patientsPage,
         isLoading: isPatientsLoading,
+        isFetching: isPatientsFetching,
+        isError: isPatientsError,
+        refetch: refetchPatients,
     } = useGetClinicPatientsQuery(
         {
             id: formData.clinicId,
             ...PATIENTS_LOOKUP_PARAMS,
         },
         {
-            skip: !formData.clinicId,
+            skip: !isOpen || !formData.clinicId,
         }
     );
     const doctorOptions = useMemo(
@@ -679,6 +716,32 @@ export default function CreateOrderModal({
         isWorkTypesLoading ||
         isMaterialsLoading ||
         isColorsLoading;
+    const failedDictionaries = [
+        isClinicsError ? 'клиники' : '',
+        isDoctorsError ? 'врачи' : '',
+        isPatientsError ? 'пациенты' : '',
+        isUsersError ? 'сотрудники' : '',
+        isWorkTypesError ? 'виды работ' : '',
+        isMaterialsError ? 'материалы' : '',
+        isColorsError ? 'цвета' : '',
+    ].filter(Boolean);
+    const isRetryingDictionaries = isClinicsFetching
+        || isDoctorsFetching
+        || isPatientsFetching
+        || isUsersFetching
+        || isWorkTypesFetching
+        || isMaterialsFetching
+        || isColorsFetching;
+
+    const handleRetryDictionaries = () => {
+        if (isClinicsError) void refetchClinics();
+        if (isDoctorsError) void refetchDoctors();
+        if (isPatientsError) void refetchPatients();
+        if (isUsersError) void refetchUsers();
+        if (isWorkTypesError) void refetchWorkTypes();
+        if (isMaterialsError) void refetchMaterials();
+        if (isColorsError) void refetchColors();
+    };
 
     return (
         <Modal contentClassName="max-w-6xl p-0">
@@ -695,6 +758,14 @@ export default function CreateOrderModal({
                     <div className="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm font-semibold text-blue-700">
                         Загрузка справочников...
                     </div>
+                )}
+
+                {failedDictionaries.length > 0 && (
+                    <QueryErrorNotice
+                        message={`Не удалось загрузить справочники: ${failedDictionaries.join(', ')}.`}
+                        onRetry={handleRetryDictionaries}
+                        isRetrying={isRetryingDictionaries}
+                    />
                 )}
 
                 <section>

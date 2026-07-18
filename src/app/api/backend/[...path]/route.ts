@@ -193,7 +193,12 @@ async function proxyRequest(request: NextRequest, context: RouteContext) {
         }
 
         return response;
-    } catch {
+    } catch (error) {
+        console.error('Backend proxy request failed:', {
+            method: request.method,
+            pathname: targetUrl.pathname,
+            error,
+        });
         return NextResponse.json(
             { message: 'Не удалось подключиться к серверу API' },
             { status: 502 }

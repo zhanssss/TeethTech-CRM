@@ -1,11 +1,13 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useDispatch, useSelector } from 'react-redux';
 import { logout } from '@/src/features/auth/authSlice';
 import { AppDispatch, RootState } from '@/src/lib/store';
 import { teethTechApi } from '@/src/services/teethTechApi';
+import { useNotifications } from '@/src/features/notifications/useNotifications';
 
 type MenuItem = {
     name: string;
@@ -28,6 +30,8 @@ export default function Sidebar({ onClose }: SidebarProps) {
     const dispatch = useDispatch<AppDispatch>();
     const router = useRouter();
     const { role } = useSelector((state: RootState) => state.auth);
+    const { notifyError, notifySuccess } = useNotifications();
+    const [isLoggingOut, setIsLoggingOut] = useState(false);
 
     const menuItems: MenuItem[] = (() => {
         if (role === 'TECHNICIAN') {
@@ -73,15 +77,29 @@ export default function Sidebar({ onClose }: SidebarProps) {
     })();
 
     const handleLogout = async () => {
+        if (isLoggingOut) return;
+
+        setIsLoggingOut(true);
+
         try {
-            await fetch('/api/auth/logout', {
+            const response = await fetch('/api/auth/logout', {
                 method: 'POST',
                 credentials: 'same-origin',
             });
-        } finally {
+
+            if (!response.ok) {
+                throw new Error(`Logout failed with status ${response.status}`);
+            }
+
             dispatch(logout());
             dispatch(teethTechApi.util.resetApiState());
+            notifySuccess('Вы вышли из системы');
             router.push('/auth/login');
+        } catch (error) {
+            console.error('Logout failed:', error);
+            notifyError('Не удалось завершить сеанс. Проверьте подключение и повторите попытку.');
+        } finally {
+            setIsLoggingOut(false);
         }
     };
 
@@ -161,7 +179,8 @@ export default function Sidebar({ onClose }: SidebarProps) {
             <div className="border-t border-slate-800 p-4">
                 <button
                     onClick={handleLogout}
-                    className="group flex w-full items-center gap-3 rounded-lg p-3 text-slate-400 transition-all hover:bg-red-600/20 hover:text-white"
+                    disabled={isLoggingOut}
+                    className="group flex w-full items-center gap-3 rounded-lg p-3 text-slate-400 transition-all hover:bg-red-600/20 hover:text-white disabled:cursor-wait disabled:opacity-60"
                 >
                     <svg
                         xmlns="http://www.w3.org/2000/svg"
@@ -179,7 +198,7 @@ export default function Sidebar({ onClose }: SidebarProps) {
                     </svg>
 
                     <span className="text-sm font-bold tracking-wide">
-                        Выйти из CRM
+                        {isLoggingOut ? 'Выходим...' : 'Выйти из CRM'}
                     </span>
                 </button>
             </div>

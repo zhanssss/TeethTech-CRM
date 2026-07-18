@@ -1,4 +1,7 @@
-import { teethTechApi } from '@/src/services/teethTechApi';
+import {
+    teethTechApi,
+    type ApiCallNotificationOptions,
+} from '@/src/services/teethTechApi';
 
 import {
     AddTaskDto,
@@ -27,6 +30,14 @@ import type {
     TaskHistoryResponse,
     UpdateTaskAssignmentArgs,
 } from '@/src/types/task.types';
+
+type WithNotificationOptions = {
+    notification?: ApiCallNotificationOptions;
+};
+
+type CreateOrderMutationArgs = CreateOrderDto & WithNotificationOptions;
+type UpdateTaskStatusMutationArgs = UpdateTaskStatusArgs & WithNotificationOptions;
+type AssignTaskMutationArgs = AssignTaskArgs & WithNotificationOptions;
 
 function buildCreateOrderBody(body: CreateOrderDto): CreateOrderRequest {
     return {
@@ -86,11 +97,12 @@ export const ordersApi = teethTechApi.injectEndpoints({
             ],
         }),
 
-        createOrder: builder.mutation<CreateOrderResponse, CreateOrderDto>({
-            query: (body) => ({
+        createOrder: builder.mutation<CreateOrderResponse, CreateOrderMutationArgs>({
+            query: ({ notification, ...body }) => ({
                 url: '/orders',
                 method: 'POST',
                 body: buildCreateOrderBody(body),
+                notification,
             }),
             invalidatesTags: ['Orders', 'OrderKanban'],
         }),
@@ -140,11 +152,12 @@ export const ordersApi = teethTechApi.injectEndpoints({
             ],
         }),
 
-        updateTaskStatus: builder.mutation<void, UpdateTaskStatusArgs>({
-            query: ({ taskId, body }) => ({
+        updateTaskStatus: builder.mutation<void, UpdateTaskStatusMutationArgs>({
+            query: ({ taskId, body, notification }) => ({
                 url: `/tasks/${taskId}/status`,
                 method: 'PATCH',
                 body,
+                notification,
             }),
             invalidatesTags: (_result, _error, { taskId }) => [
                 'OrderKanban',
@@ -153,10 +166,11 @@ export const ordersApi = teethTechApi.injectEndpoints({
             ],
         }),
 
-        assignTask: builder.mutation<void, AssignTaskArgs>({
-            query: ({ taskId, userId }) => ({
+        assignTask: builder.mutation<void, AssignTaskMutationArgs>({
+            query: ({ taskId, userId, notification }) => ({
                 url: `/tasks/${taskId}/assign/${userId}`,
                 method: 'PATCH',
+                notification,
             }),
             invalidatesTags: (_result, _error, { taskId, orderId }) => [
                 'Tasks',
