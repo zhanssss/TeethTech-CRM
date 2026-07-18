@@ -5,10 +5,10 @@ import { type FormEvent, useMemo, useState } from 'react';
 import { useSelector } from 'react-redux';
 
 import EmployeeTasksKanban from '@/src/components/employee/EmployeeTasksKanban';
-import ErrorModal from '@/src/components/ui/ErrorModal';
+import ErrorState from '@/src/components/ui/ErrorState';
 import { RootState } from '@/src/lib/store';
-import { mockEmployees } from '@/src/mock/employees';
-import { useChangeUserPasswordMutation } from '@/src/services/api/usersApi';
+import { useChangeUserPasswordMutation, useGetUsersQuery } from '@/src/services/api/usersApi';
+import { mapUserToEmployee } from '@/src/utils/employeesUtils';
 
 const EMPLOYEE_STATUS = {
     ACTIVE: {
@@ -95,13 +95,11 @@ function ChangePasswordCard({ userId }: { userId: string | null }) {
     const [newPassword, setNewPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [formError, setFormError] = useState('');
-    const [successMessage, setSuccessMessage] = useState('');
     const [changeUserPassword, { isLoading }] = useChangeUserPasswordMutation();
 
     const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault();
         setFormError('');
-        setSuccessMessage('');
 
         if (!userId) {
             setFormError('Не удалось определить пользователя.');
@@ -125,10 +123,8 @@ function ChangePasswordCard({ userId }: { userId: string | null }) {
             }).unwrap();
             setNewPassword('');
             setConfirmPassword('');
-            setSuccessMessage('Пароль обновлен.');
         } catch (error) {
             console.error('Password change failed:', error);
-            setFormError('Не удалось сменить пароль. Попробуйте еще раз.');
         }
     };
 
@@ -184,13 +180,9 @@ function ChangePasswordCard({ userId }: { userId: string | null }) {
                     {isLoading ? 'Сохранение...' : 'Сменить пароль'}
                 </button>
 
-                {(formError || successMessage) && (
-                    <p
-                        className={`text-sm font-semibold lg:col-span-3 ${
-                            formError ? 'text-red-600' : 'text-emerald-600'
-                        }`}
-                    >
-                        {formError || successMessage}
+                {formError && (
+                    <p className="text-sm font-semibold text-red-600 lg:col-span-3">
+                        {formError}
                     </p>
                 )}
             </form>
@@ -200,18 +192,22 @@ function ChangePasswordCard({ userId }: { userId: string | null }) {
 
 export default function EmployeePage() {
     const { id, name, role } = useSelector((state: RootState) => state.auth);
+    const { data: users = [] } = useGetUsersQuery();
     const currentEmployee = useMemo(
-        () => mockEmployees.find((employee) => employee.id === id),
-        [id]
+        () => {
+            const user = users.find((employee) => employee.id === id);
+            return user ? mapUserToEmployee(user) : undefined;
+        },
+        [id, users]
     );
     const displayName = currentEmployee?.name ?? name ?? 'Сотрудник';
     const employeeStatus = EMPLOYEE_STATUS[currentEmployee?.status ?? 'ACTIVE'];
 
     if (role === 'ADMIN' || role === 'DISPATCHER') {
         return (
-            <ErrorModal title="Раздел сотрудника" isDismissible={false}>
+            <ErrorState title="Раздел сотрудника">
                 Эта страница доступна только сотрудникам, которым назначаются задачи.
-            </ErrorModal>
+            </ErrorState>
         );
     }
 

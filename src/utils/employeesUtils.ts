@@ -1,3 +1,30 @@
+import type { Employee } from '@/src/types/employee.types';
+import type { User } from '@/src/types/user.types';
+
+export function mapUserToEmployee(user: User): Employee {
+    return {
+        id: user.id,
+        name: user.fullName || user.name || 'Сотрудник',
+        fullName: user.fullName,
+        role: (user.role ?? user.roles?.[0] ?? 'TECHNICIAN') as Employee['role'],
+        specialization: user.specialization ?? undefined,
+        phone: user.phone,
+        email: user.email,
+        status: user.status as Employee['status'],
+        stats: {
+            completed: user.stats.completed,
+            inProgress: user.stats.inProgress,
+            overdue: user.stats.overdue,
+            totalTasks: user.stats.totalTasks,
+            totalAssigned: user.stats.totalTasks,
+            timelyPercent: user.stats.timelyPercent,
+            onTimeRate: user.stats.timelyPercent,
+            avgDays: user.stats.avgDays,
+            averageDays: user.stats.avgDays,
+        },
+    };
+}
+
 export function getKpiColor(rate: number) {
     if (rate >= 95) return 'bg-green-100 text-green-700';
     if (rate >= 85) return 'bg-yellow-100 text-yellow-700';

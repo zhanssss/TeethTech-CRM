@@ -12,7 +12,7 @@ import {
 } from '@/src/services/api/clinicsApi';
 import InfoItem from '@/src/components/ui/InfoItem'
 import DeleteClinicApproval from "@/src/components/Modals/DeleteClinicApproval";
-import ErrorModal from '@/src/components/ui/ErrorModal';
+import ErrorState from '@/src/components/ui/ErrorState';
 
 const DEFAULT_RELATED_PAGE_SIZE = 10;
 const DOCTORS_SORT = 'fullName,ASC';
@@ -124,18 +124,18 @@ export default function ClinicDetailsPage() {
     if (isLoading) return <p>Загрузка клиники...</p>;
     if (isError) {
         return (
-            <ErrorModal isDismissible={false}>
+            <ErrorState>
                 Ошибка загрузки клиники
-            </ErrorModal>
+            </ErrorState>
         );
     }
 
 
     if (!clinic) {
         return (
-            <ErrorModal title="Клиника не найдена" isDismissible={false}>
+            <ErrorState title="Клиника не найдена">
                 <div className="space-y-4">
-                    <p>Проверь ID клиники или данные в mockClinics.</p>
+                    <p>Проверь ID клиники или повтори попытку позже.</p>
                     <Link
                         href="/clinics"
                         className="text-sm font-bold text-blue-600 hover:underline"
@@ -143,7 +143,7 @@ export default function ClinicDetailsPage() {
                         ← Назад к клиникам
                     </Link>
                 </div>
-            </ErrorModal>
+            </ErrorState>
         );
     }
 

@@ -10,7 +10,7 @@ import {RootState} from '@/src/lib/store';
 import type {Task} from '@/src/types/task.types';
 import type {OrderApiListItem, OrderDetails, OrderKanbanColumn, OrderKanbanTask} from '@/src/types/order.types';
 import type {User} from '@/src/types/user.types';
-import ErrorModal from '@/src/components/ui/ErrorModal';
+import ErrorState from '@/src/components/ui/ErrorState';
 import {
     useAssignTaskMutation,
     useGetOrderQuery,
@@ -139,7 +139,6 @@ function StartTaskButton({
     } = useGetTaskAssignmentQuery(task.id);
     const [assignTask, { isLoading: isAssigning }] = useAssignTaskMutation();
     const [updateTaskStatus, { isLoading: isUpdatingStatus }] = useUpdateTaskStatusMutation();
-    const [startError, setStartError] = useState('');
     const nextColumnAssignee = assignment?.statusAssignees.find((assignee) => {
         const expectedName = normalizeStageValue(nextColumnStatusName);
         return Boolean(expectedName) && [assignee.statusName, assignee.statusCode]
@@ -159,8 +158,6 @@ function StartTaskButton({
     const handleStart = async () => {
         if (!nextStatusId || !nextAssignee?.userId) return;
 
-        setStartError('');
-
         try {
             await assignTask({
                 taskId: task.id,
@@ -177,7 +174,6 @@ function StartTaskButton({
             }).unwrap();
         } catch (error) {
             console.error('Task start failed:', error);
-            setStartError('Не удалось запустить задачу.');
         }
     };
 
@@ -234,9 +230,6 @@ function StartTaskButton({
             <p className="truncate text-center text-[10px] font-semibold text-slate-500">
                 Следующий ответственный: {nextAssignee.userFullName || nextAssignee.userId}
             </p>
-            {startError && (
-                <p className="text-center text-[10px] font-semibold text-red-600">{startError}</p>
-            )}
         </div>
     );
 }
@@ -313,7 +306,7 @@ export default function OrderBoardPage() {
     }
 
     return (
-        <ErrorModal title="Заказ не найден" isDismissible={false}>
+        <ErrorState title="Заказ не найден">
             <div className="space-y-4">
                 <p>Проверь ID заказа или вернись в реестр.</p>
                 <Link
@@ -323,7 +316,7 @@ export default function OrderBoardPage() {
                     ← Реестр заказов
                 </Link>
             </div>
-        </ErrorModal>
+        </ErrorState>
     );
 }
 

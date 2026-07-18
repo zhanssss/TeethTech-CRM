@@ -1,18 +1,30 @@
-import type { InventoryCheckStatus, StockLevelStatus } from '@/src/types/warehouse.types';
+import type { InventoryStatusRule, StockLevelStatus } from '@/src/types/warehouse.types';
 
-export const inventoryStatusLabels: Record<InventoryCheckStatus, string> = {
+const inventoryStatusLabels: Record<string, string> = {
     DRAFT: 'Черновик',
     IN_PROGRESS: 'Идёт пересчёт',
     COMPLETED: 'Завершена',
     CANCELLED: 'Отменена',
 };
 
-export const inventoryStatusClasses: Record<InventoryCheckStatus, string> = {
+const inventoryStatusClasses: Record<string, string> = {
     DRAFT: 'border-slate-200 bg-slate-100 text-slate-700',
     IN_PROGRESS: 'border-blue-200 bg-blue-50 text-blue-700',
     COMPLETED: 'border-emerald-200 bg-emerald-50 text-emerald-700',
     CANCELLED: 'border-red-200 bg-red-50 text-red-700',
 };
+
+export function getInventoryStatusLabel(statusCode: string, rule?: InventoryStatusRule) {
+    return rule?.name || inventoryStatusLabels[statusCode] || statusCode;
+}
+
+export function getInventoryStatusClasses(statusCode: string, rule?: InventoryStatusRule) {
+    if (rule?.marksCancelled) return inventoryStatusClasses.CANCELLED;
+    if (rule?.marksCompleted) return inventoryStatusClasses.COMPLETED;
+    if (rule?.allowsCounting || rule?.locksWarehouse) return inventoryStatusClasses.IN_PROGRESS;
+    if (rule?.initial) return inventoryStatusClasses.DRAFT;
+    return inventoryStatusClasses[statusCode] || inventoryStatusClasses.DRAFT;
+}
 
 export const stockStatusLabels: Record<StockLevelStatus, string> = {
     SUFFICIENT: 'Достаточно',

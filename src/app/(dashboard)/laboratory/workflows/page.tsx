@@ -125,7 +125,6 @@ export default function LaboratoryWorkflowsPage() {
     const [toStatusId, setToStatusId] = useState('');
     const [requiredRole, setRequiredRole] = useState('');
     const [stepSortOrder, setStepSortOrder] = useState('0');
-    const [serverWorkflowMessage, setServerWorkflowMessage] = useState('');
     const [serverWorkflowError, setServerWorkflowError] = useState('');
     const [statusDraftId, setStatusDraftId] = useState('');
     const [statusCode, setStatusCode] = useState('');
@@ -180,7 +179,6 @@ export default function LaboratoryWorkflowsPage() {
     }, [isStorageReady, workflows]);
 
     const clearServerMessages = () => {
-        setServerWorkflowMessage('');
         setServerWorkflowError('');
     };
 
@@ -208,10 +206,8 @@ export default function LaboratoryWorkflowsPage() {
             }).unwrap();
             setRequiredRole('');
             setStepSortOrder('0');
-            setServerWorkflowMessage('Шаг workflow сохранен.');
         } catch (error) {
             console.error('Workflow step create failed:', error);
-            setServerWorkflowError('Не удалось сохранить шаг workflow.');
         }
     };
 
@@ -220,10 +216,8 @@ export default function LaboratoryWorkflowsPage() {
 
         try {
             await deleteAdminWorkflowStep(id).unwrap();
-            setServerWorkflowMessage('Шаг workflow удален.');
         } catch (error) {
             console.error('Workflow step delete failed:', error);
-            setServerWorkflowError('Не удалось удалить шаг workflow.');
         }
     };
 
@@ -275,14 +269,11 @@ export default function LaboratoryWorkflowsPage() {
                         ...body,
                     },
                 }).unwrap();
-                setServerWorkflowMessage('Статус заказа обновлен.');
             } else {
                 await createOrderStatus(body).unwrap();
-                setServerWorkflowMessage('Статус заказа создан.');
             }
         } catch (error) {
             console.error('Order status save failed:', error);
-            setServerWorkflowError('Не удалось сохранить статус заказа.');
         }
     };
 
@@ -297,10 +288,8 @@ export default function LaboratoryWorkflowsPage() {
         try {
             await deleteOrderStatus(statusDraftId).unwrap();
             selectStatusDraft('');
-            setServerWorkflowMessage('Статус заказа удален.');
         } catch (error) {
             console.error('Order status delete failed:', error);
-            setServerWorkflowError('Не удалось удалить статус заказа.');
         }
     };
 
@@ -628,13 +617,9 @@ export default function LaboratoryWorkflowsPage() {
                 </form>
             </section>
 
-            {(serverWorkflowError || serverWorkflowMessage || isOrderStatusesError) && (
-                <section className={`rounded-xl px-4 py-3 text-sm font-semibold ${
-                    serverWorkflowError || isOrderStatusesError
-                        ? 'bg-red-50 text-red-600'
-                        : 'bg-emerald-50 text-emerald-700'
-                }`}>
-                    {serverWorkflowError || (isOrderStatusesError ? 'Не удалось загрузить статусы заказа.' : serverWorkflowMessage)}
+            {(serverWorkflowError || isOrderStatusesError) && (
+                <section className="rounded-xl bg-red-50 px-4 py-3 text-sm font-semibold text-red-600">
+                    {serverWorkflowError || 'Не удалось загрузить статусы заказа.'}
                 </section>
             )}
 

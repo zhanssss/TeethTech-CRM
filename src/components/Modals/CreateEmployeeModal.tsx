@@ -3,7 +3,6 @@ import Modal from '@/src/components/ui/Modal';
 import { useRegisterUserMutation } from '@/src/services/api/authApi';
 import { useGetRolesQuery } from '@/src/services/api/rolesApi';
 import type { Register, SalaryType } from '@/src/types/auth.types';
-import ErrorModal from '@/src/components/ui/ErrorModal';
 
 type CreateEmployeeModalProps = {
     onClose: () => void;
@@ -17,15 +16,11 @@ export default function CreateEmployeeModal({ onClose }: CreateEmployeeModalProp
     const [salaryType, setSalaryType] = useState<SalaryType>('FIXED');
     const [salary, setSalary] = useState('');
     const [tempPassword, setTempPassword] = useState('');
-    const [errorMessage, setErrorMessage] = useState('');
-
     const { data: roles = [], isLoading: isRolesLoading } = useGetRolesQuery();
     const [registerUser, { isLoading }] = useRegisterUserMutation();
 
     const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
         e.preventDefault();
-        setErrorMessage('');
-
         const body: Register = {
             fullName: name,
             email,
@@ -41,18 +36,11 @@ export default function CreateEmployeeModal({ onClose }: CreateEmployeeModalProp
             onClose();
         } catch (error) {
             console.error('Ошибка создания сотрудника:', error);
-            setErrorMessage('Не удалось создать сотрудника');
         }
     };
 
     return (
         <Modal>
-            {errorMessage && (
-                <ErrorModal onClose={() => setErrorMessage('')}>
-                    {errorMessage}
-                </ErrorModal>
-            )}
-
             <form onSubmit={handleSubmit} className="flex flex-col gap-y-4 p-4 sm:p-6">
                 <div className="flex items-start justify-between gap-4 border-b border-slate-100 pb-4">
                     <h2>Добавить сотрудника</h2>

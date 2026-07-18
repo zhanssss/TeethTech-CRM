@@ -180,8 +180,6 @@ function TaskAssignmentEditor({
     const [updateTaskAssignment, { isLoading: isSaving }] = useUpdateTaskAssignmentMutation();
     const [draftMode, setDraftMode] = useState<TaskAssignmentMode | null>(null);
     const [draftAssignees, setDraftAssignees] = useState<TaskStatusAssigneeRequest[] | null>(null);
-    const [saveError, setSaveError] = useState('');
-    const [saveMessage, setSaveMessage] = useState('');
     const assignmentMode = draftMode ?? assignment?.assignmentMode ?? 'AUTO';
     const statusAssignees = draftAssignees ?? assignment?.statusAssignees.map((assignee) => ({
         statusId: assignee.statusId,
@@ -221,19 +219,12 @@ function TaskAssignmentEditor({
         && hasChanges
         && (!isPreassigned || hasCompletePlan);
 
-    const clearMessages = () => {
-        setSaveError('');
-        setSaveMessage('');
-    };
-
     const handleModeChange = (mode: TaskAssignmentMode) => {
-        clearMessages();
         setDraftMode(mode);
         setDraftAssignees(mode === 'AUTO' ? [] : statusAssignees);
     };
 
     const handleAssigneeChange = (statusId: string, userId: string) => {
-        clearMessages();
         const nextAssignees = statusAssignees.filter(
             (assignee) => assignee.statusId !== statusId
         );
@@ -248,8 +239,6 @@ function TaskAssignmentEditor({
     const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault();
         if (!canSave) return;
-
-        clearMessages();
 
         const body = {
             assignmentMode,
@@ -271,10 +260,8 @@ function TaskAssignmentEditor({
                 statusId: assignee.statusId,
                 userId: assignee.userId,
             })));
-            setSaveMessage('План ответственных сохранён.');
         } catch (error) {
             console.error('Task assignment update failed:', error);
-            setSaveError('Не удалось сохранить ответственных по этапам.');
         }
     };
 
@@ -399,14 +386,6 @@ function TaskAssignmentEditor({
             {!canEdit && (
                 <p className="rounded-xl bg-slate-100 px-4 py-3 text-xs font-semibold text-slate-600">
                     Изменять ответственных могут только администратор и диспетчер.
-                </p>
-            )}
-
-            {(saveError || saveMessage) && (
-                <p className={`rounded-xl px-4 py-3 text-sm font-semibold ${
-                    saveError ? 'bg-red-50 text-red-600' : 'bg-emerald-50 text-emerald-700'
-                }`}>
-                    {saveError || saveMessage}
                 </p>
             )}
 

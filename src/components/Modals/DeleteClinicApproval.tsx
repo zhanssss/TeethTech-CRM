@@ -1,8 +1,6 @@
 import Modal from "@/src/components/ui/Modal";
 import {useDeleteClinicMutation} from "@/src/services/api/clinicsApi";
 import {useRouter} from "next/navigation";
-import {useState} from 'react';
-import ErrorModal from '@/src/components/ui/ErrorModal';
 
 type props = {
     isOpen: boolean;
@@ -14,31 +12,20 @@ const DeleteClinicApproval = ({isOpen, onClose, clinicId}: props) => {
 
     const router = useRouter();
     const [deleteClinic, {isLoading}] = useDeleteClinicMutation();
-    const [errorMessage, setErrorMessage] = useState('');
-
     if (!isOpen) return null;
 
     const handleDelete = async () => {
-        setErrorMessage('');
-
         try {
             await deleteClinic(clinicId).unwrap();
             onClose()
             router.push('/clinics');
         } catch (e) {
             console.error(e);
-            setErrorMessage('Не удалось удалить клинику');
         }
     }
 
     return (
         <Modal>
-            {errorMessage && (
-                <ErrorModal onClose={() => setErrorMessage('')}>
-                    {errorMessage}
-                </ErrorModal>
-            )}
-
             <div>
                 <h1 className="text-xl font-bold text-slate-900">
                     Удалить клинику?

@@ -71,7 +71,6 @@ function mapTaskToDetails(task: EmployeeKanbanTask): Task {
 }
 
 function MoveTaskButton({ task }: { task: EmployeeKanbanTask }) {
-    const [statusError, setStatusError] = useState('');
     const [updateTaskStatus, { isLoading }] = useUpdateTaskStatusMutation();
     const nextStatusId = task.allowedNextStatusIds[0];
 
@@ -84,8 +83,6 @@ function MoveTaskButton({ task }: { task: EmployeeKanbanTask }) {
     }
 
     const handleMoveNext = async () => {
-        setStatusError('');
-
         try {
             await updateTaskStatus({
                 taskId: task.id,
@@ -96,7 +93,6 @@ function MoveTaskButton({ task }: { task: EmployeeKanbanTask }) {
             }).unwrap();
         } catch (error) {
             console.error('Task status update failed:', error);
-            setStatusError('Не удалось передать задачу дальше.');
         }
     };
 
@@ -112,11 +108,6 @@ function MoveTaskButton({ task }: { task: EmployeeKanbanTask }) {
                 {!isLoading && <span aria-hidden="true" className="ml-2">→</span>}
             </button>
 
-            {statusError && (
-                <p className="text-xs font-semibold text-red-600" role="alert">
-                    {statusError}
-                </p>
-            )}
         </div>
     );
 }

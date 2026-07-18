@@ -4,8 +4,9 @@ import { useMemo } from 'react';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/src/lib/store';
 import { mockTasks } from '@/src/mock/tasks';
-import { mockEmployees } from '@/src/mock/employees';
-import ErrorModal from '@/src/components/ui/ErrorModal';
+import ErrorState from '@/src/components/ui/ErrorState';
+import { useGetUsersQuery } from '@/src/services/api/usersApi';
+import { mapUserToEmployee } from '@/src/utils/employeesUtils';
 
 function StatCard({
                       title,
@@ -61,10 +62,12 @@ function getStatusBadge(status: string) {
 
 export default function EmployeeAnalyticsPage() {
     const { id, name } = useSelector((state: RootState) => state.auth);
+    const { data: users = [], isLoading: isUsersLoading, isError: isUsersError } = useGetUsersQuery();
 
     const currentEmployee = useMemo(() => {
-        return mockEmployees.find((employee) => employee.id === id);
-    }, [id]);
+        const user = users.find((employee) => employee.id === id);
+        return user ? mapUserToEmployee(user) : undefined;
+    }, [id, users]);
 
     const myTasks = useMemo(() => {
         return mockTasks.filter((task) => task.technicianId === id);
@@ -105,11 +108,15 @@ export default function EmployeeAnalyticsPage() {
             ? Math.round((completedTasks.length / myTasks.length) * 100)
             : 0;
 
-    if (!currentEmployee) {
+    if (isUsersLoading) {
+        return <div className="text-sm text-slate-500">Загрузка аналитики...</div>;
+    }
+
+    if (isUsersError || !currentEmployee) {
         return (
-            <ErrorModal title="Аналитика недоступна" isDismissible={false}>
+            <ErrorState title="Аналитика недоступна">
                 Не удалось найти текущего сотрудника.
-            </ErrorModal>
+            </ErrorState>
         );
     }
 

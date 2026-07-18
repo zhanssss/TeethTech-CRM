@@ -9,13 +9,14 @@ import {
     useCreateWarehouseMaterialMutation,
     useDeleteNomenclatureNormMutation,
     useGetInventoryChecksQuery,
+    useGetInventoryStatusRulesQuery,
     useGetNomenclatureItemQuery,
     useGetNomenclatureQuery,
     useGetStockBalanceQuery,
     useReceiveStockMutation,
     useUpsertNomenclatureNormMutation,
 } from '@/src/services/api/warehouseApi';
-import { formatQuantity, getApiErrorMessage, inventoryStatusLabels } from './warehouseUtils';
+import { formatQuantity, getApiErrorMessage, getInventoryStatusLabel } from './warehouseUtils';
 
 export default function NomenclaturePanel() {
     const [activeOnly, setActiveOnly] = useState(true);
@@ -24,23 +25,21 @@ export default function NomenclaturePanel() {
     const [quantity, setQuantity] = useState('');
     const [reason, setReason] = useState('');
     const [formError, setFormError] = useState('');
-    const [successMessage, setSuccessMessage] = useState('');
     const [createMaterialOpen, setCreateMaterialOpen] = useState(false);
     const [materialName, setMaterialName] = useState('');
     const [materialDescription, setMaterialDescription] = useState('');
     const [materialCode, setMaterialCode] = useState('');
     const [materialUnit, setMaterialUnit] = useState('');
     const [createMaterialError, setCreateMaterialError] = useState('');
-    const [createMaterialSuccess, setCreateMaterialSuccess] = useState('');
     const [normWorkTypeId, setNormWorkTypeId] = useState('');
     const [normMaterialId, setNormMaterialId] = useState('');
     const [normQuantity, setNormQuantity] = useState('');
     const [normIdToDelete, setNormIdToDelete] = useState('');
     const [normError, setNormError] = useState('');
-    const [normSuccess, setNormSuccess] = useState('');
 
     const listQuery = useGetNomenclatureQuery({ activeOnly });
     const inventoryChecksQuery = useGetInventoryChecksQuery();
+    const inventoryStatusRulesQuery = useGetInventoryStatusRulesQuery();
     const detailQuery = useGetNomenclatureItemQuery(selectedId ?? '', { skip: !selectedId });
     const balanceQuery = useGetStockBalanceQuery(selectedId ?? '', { skip: !selectedId });
     const { data: workTypes = [], isLoading: isWorkTypesLoading } = useGetWorkTypesQuery();
@@ -60,11 +59,16 @@ export default function NomenclaturePanel() {
 
     const selectedFromList = listQuery.data?.find((item) => item.id === selectedId);
     const selectedItem = detailQuery.data ?? selectedFromList;
-    const activeInventoryCheck = inventoryChecksQuery.data?.find(
-        (item) => item.statusCode === 'DRAFT' || item.statusCode === 'IN_PROGRESS'
+    const inventoryStatusRulesByCode = useMemo(
+        () => new Map((inventoryStatusRulesQuery.data ?? []).map((rule) => [rule.code, rule])),
+        [inventoryStatusRulesQuery.data]
     );
-    const inventoryLockMessage = activeInventoryCheck
-        ? `Приход заблокирован: есть активная инвентаризация (${inventoryStatusLabels[activeInventoryCheck.statusCode]}). Завершите или отмените её, затем повторите приход.`
+    const lockingInventoryCheck = inventoryChecksQuery.data?.find(
+        (item) => inventoryStatusRulesByCode.get(item.statusCode)?.locksWarehouse
+            ?? (item.statusCode === 'IN_PROGRESS' || (Boolean(item.startedAt) && !item.completedAt))
+    );
+    const inventoryLockMessage = lockingInventoryCheck
+        ? `Приход заблокирован: есть активная инвентаризация (${getInventoryStatusLabel(lockingInventoryCheck.statusCode, inventoryStatusRulesByCode.get(lockingInventoryCheck.statusCode))}). Завершите или отмените её, затем повторите приход.`
         : '';
 
     const openItem = (id: string) => {
@@ -72,13 +76,11 @@ export default function NomenclaturePanel() {
         setQuantity('');
         setReason('');
         setFormError('');
-        setSuccessMessage('');
         setNormWorkTypeId('');
         setNormMaterialId('');
         setNormQuantity('');
         setNormIdToDelete('');
         setNormError('');
-        setNormSuccess('');
     };
 
     const closeItem = () => {
@@ -103,7 +105,6 @@ export default function NomenclaturePanel() {
     const handleCreateMaterial = async (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault();
         setCreateMaterialError('');
-        setCreateMaterialSuccess('');
 
         const name = materialName.trim();
         const description = materialDescription.trim();
@@ -125,9 +126,8 @@ export default function NomenclaturePanel() {
             setCreateMaterialOpen(false);
             resetMaterialForm();
             setSearch('');
-            setCreateMaterialSuccess('Материал добавлен. Складская позиция создана с нулевым остатком.');
-        } catch (error) {
-            setCreateMaterialError(getApiErrorMessage(error, 'Не удалось создать материал'));
+        } catch {
+            // API errors are displayed by the global notification handler.
         }
     };
 
@@ -135,7 +135,6 @@ export default function NomenclaturePanel() {
         event.preventDefault();
         if (!selectedId) return;
         setFormError('');
-        setSuccessMessage('');
 
         if (inventoryLockMessage) {
             setFormError(inventoryLockMessage);
@@ -159,9 +158,8 @@ export default function NomenclaturePanel() {
             }).unwrap();
             setQuantity('');
             setReason('');
-            setSuccessMessage('Приход проведён. Остаток обновлён.');
-        } catch (error) {
-            setFormError(getApiErrorMessage(error, 'Не удалось провести приход'));
+        } catch {
+            // API errors are displayed by the global notification handler.
         }
     };
 
@@ -170,7 +168,6 @@ export default function NomenclaturePanel() {
         if (!selectedId) return;
 
         setNormError('');
-        setNormSuccess('');
 
         const parsedQuantity = Number(normQuantity);
 
@@ -192,9 +189,8 @@ export default function NomenclaturePanel() {
                 normQuantity: parsedQuantity,
             }).unwrap();
             setNormQuantity('');
-            setNormSuccess('Норма расхода сохранена.');
-        } catch (error) {
-            setNormError(getApiErrorMessage(error, 'Не удалось сохранить норму расхода'));
+        } catch {
+            // API errors are displayed by the global notification handler.
         }
     };
 
@@ -207,14 +203,12 @@ export default function NomenclaturePanel() {
         }
 
         setNormError('');
-        setNormSuccess('');
 
         try {
             await deleteNomenclatureNorm(normId).unwrap();
             setNormIdToDelete('');
-            setNormSuccess('Норма расхода удалена.');
-        } catch (error) {
-            setNormError(getApiErrorMessage(error, 'Не удалось удалить норму расхода'));
+        } catch {
+            // API errors are displayed by the global notification handler.
         }
     };
 
@@ -259,7 +253,6 @@ export default function NomenclaturePanel() {
                             onClick={() => {
                                 setCreateMaterialOpen(true);
                                 setCreateMaterialError('');
-                                setCreateMaterialSuccess('');
                             }}
                             className="rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-blue-700"
                         >
@@ -267,12 +260,6 @@ export default function NomenclaturePanel() {
                         </button>
                     </div>
                 </div>
-
-                {createMaterialSuccess && (
-                    <div className="m-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">
-                        {createMaterialSuccess}
-                    </div>
-                )}
 
                 {listQuery.isError && (
                     <div className="m-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
@@ -538,9 +525,6 @@ export default function NomenclaturePanel() {
                             {formError && (
                                 <p className="rounded-xl bg-red-50 px-3 py-2.5 text-sm font-semibold text-red-700">{formError}</p>
                             )}
-                            {successMessage && (
-                                <p className="rounded-xl bg-emerald-50 px-3 py-2.5 text-sm font-semibold text-emerald-700">{successMessage}</p>
-                            )}
 
                             <div className="flex justify-end">
                                 <button
@@ -639,9 +623,6 @@ export default function NomenclaturePanel() {
 
                             {normError && (
                                 <p className="rounded-xl bg-red-50 px-3 py-2.5 text-sm font-semibold text-red-700">{normError}</p>
-                            )}
-                            {normSuccess && (
-                                <p className="rounded-xl bg-emerald-100 px-3 py-2.5 text-sm font-semibold text-emerald-700">{normSuccess}</p>
                             )}
 
                             <div className="flex justify-end">

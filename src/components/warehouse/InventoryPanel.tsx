@@ -10,23 +10,26 @@ import {
     useGetInventoryCheckItemsQuery,
     useGetInventoryCheckQuery,
     useGetInventoryChecksQuery,
+    useGetInventoryStatusRulesQuery,
     useStartInventoryCheckMutation,
     useUpdateInventoryItemMutation,
 } from '@/src/services/api/warehouseApi';
 import type {
+    InventoryCheck,
     InventoryCheckItem,
     InventoryCheckStatus,
+    InventoryStatusRule,
 } from '@/src/types/warehouse.types';
 import {
     formatDateTime,
     formatQuantity,
     getApiErrorMessage,
-    inventoryStatusClasses,
-    inventoryStatusLabels,
+    getInventoryStatusClasses,
+    getInventoryStatusLabel,
     shortId,
 } from './warehouseUtils';
 
-const filters: Array<{ value: '' | InventoryCheckStatus; label: string }> = [
+const fallbackFilters: Array<{ value: '' | InventoryCheckStatus; label: string }> = [
     { value: '', label: 'Все статусы' },
     { value: 'DRAFT', label: 'Черновики' },
     { value: 'IN_PROGRESS', label: 'В работе' },
@@ -46,6 +49,21 @@ function parseQuantityInput(value: string | undefined) {
     return Number.isFinite(parsed) ? parsed : null;
 }
 
+function isInitialInventory(check: InventoryCheck, rule?: InventoryStatusRule) {
+    return rule?.initial
+        ?? (check.statusCode === 'DRAFT' || (!check.startedAt && !check.completedAt));
+}
+
+function allowsInventoryCounting(check: InventoryCheck, rule?: InventoryStatusRule) {
+    return rule?.allowsCounting
+        ?? (check.statusCode === 'IN_PROGRESS' || (Boolean(check.startedAt) && !check.completedAt));
+}
+
+function isTerminalInventory(check: InventoryCheck, rule?: InventoryStatusRule) {
+    return rule?.terminal
+        ?? (check.statusCode === 'COMPLETED' || check.statusCode === 'CANCELLED' || Boolean(check.completedAt));
+}
+
 export default function InventoryPanel() {
     const [filter, setFilter] = useState<'' | InventoryCheckStatus>('');
     const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -59,6 +77,7 @@ export default function InventoryPanel() {
     const [savedItemId, setSavedItemId] = useState<string | null>(null);
 
     const listQuery = useGetInventoryChecksQuery(filter || undefined);
+    const statusRulesQuery = useGetInventoryStatusRulesQuery();
     const detailQuery = useGetInventoryCheckQuery(selectedId ?? '', { skip: !selectedId });
     const itemsQuery = useGetInventoryCheckItemsQuery(
         { id: selectedId ?? '', page: 0, size: INVENTORY_ITEMS_PAGE_SIZE },
@@ -72,14 +91,33 @@ export default function InventoryPanel() {
     const [updateItem] = useUpdateInventoryItemMutation();
 
     const checks = listQuery.data ?? [];
+    const statusRules = statusRulesQuery.data;
+    const statusRulesByCode = useMemo(
+        () => new Map((statusRules ?? []).map((rule) => [rule.code, rule])),
+        [statusRules]
+    );
+    const filters = useMemo<Array<{ value: '' | InventoryCheckStatus; label: string }>>(
+        () => statusRules && statusRules.length > 0
+            ? [
+                { value: '', label: 'Все статусы' },
+                ...statusRules.map((rule) => ({ value: rule.code, label: rule.name || rule.code })),
+            ]
+            : fallbackFilters,
+        [statusRules]
+    );
     const itemsPage = itemsQuery.data;
     const displayItems = useMemo<InventoryDisplayItem[]>(
         () => itemsPage?.content ?? [],
         [itemsPage?.content]
     );
     const activeCheck = checks.find(
-        (item) => item.statusCode === 'DRAFT' || item.statusCode === 'IN_PROGRESS'
+        (item) => !isTerminalInventory(item, statusRulesByCode.get(item.statusCode))
     );
+    const checkStatusRule = check ? statusRulesByCode.get(check.statusCode) : undefined;
+    const checkIsInitial = check ? isInitialInventory(check, checkStatusRule) : false;
+    const checkAllowsCounting = check ? allowsInventoryCounting(check, checkStatusRule) : false;
+    const checkIsTerminal = check ? isTerminalInventory(check, checkStatusRule) : false;
+    const checkLocksWarehouse = checkStatusRule?.locksWarehouse ?? checkAllowsCounting;
     const actionLoading = startState.isLoading || cancelState.isLoading || completeState.isLoading;
     const inventoryItemsFetching = itemsQuery.isFetching;
     const inventoryRowsLoading = inventoryItemsFetching && displayItems.length === 0;
@@ -132,8 +170,8 @@ export default function InventoryPanel() {
             setCreateOpen(false);
             setComment('');
             setSelectedId(created.id);
-        } catch (error) {
-            setCreateError(getApiErrorMessage(error, 'Не удалось создать инвентаризацию'));
+        } catch {
+            // API errors are displayed by the global notification handler.
         }
     };
 
@@ -142,8 +180,8 @@ export default function InventoryPanel() {
         setActionError('');
         try {
             await startCheck(selectedId).unwrap();
-        } catch (error) {
-            setActionError(getApiErrorMessage(error, 'Не удалось начать инвентаризацию'));
+        } catch {
+            // API errors are displayed by the global notification handler.
         }
     };
 
@@ -157,14 +195,8 @@ export default function InventoryPanel() {
                 await completeCheck(selectedId).unwrap();
             }
             setConfirmation(null);
-        } catch (error) {
+        } catch {
             setConfirmation(null);
-            setActionError(getApiErrorMessage(
-                error,
-                confirmation === 'cancel'
-                    ? 'Не удалось отменить инвентаризацию'
-                    : 'Не удалось завершить инвентаризацию'
-            ));
         }
     };
 
@@ -182,8 +214,8 @@ export default function InventoryPanel() {
         try {
             const savedItem = await updateItem({ id: selectedId, itemId, body: { actualQuantity: value } }).unwrap();
             setSavedItemId(savedItem?.id || itemId);
-        } catch (error) {
-            setActionError(getApiErrorMessage(error, 'Не удалось сохранить фактическое количество'));
+        } catch {
+            // API errors are displayed by the global notification handler.
         } finally {
             setSavingItemId(null);
         }
@@ -221,8 +253,8 @@ export default function InventoryPanel() {
                             <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
                                 <div className="min-w-0">
                                     <div className="flex flex-wrap items-center gap-2">
-                                        <span className={`rounded-full border px-2.5 py-1 text-xs font-bold ${inventoryStatusClasses[check.statusCode]}`}>
-                                            {inventoryStatusLabels[check.statusCode]}
+                                        <span className={`rounded-full border px-2.5 py-1 text-xs font-bold ${getInventoryStatusClasses(check.statusCode, checkStatusRule)}`}>
+                                            {getInventoryStatusLabel(check.statusCode, checkStatusRule)}
                                         </span>
                                         <span className="font-mono text-xs font-bold text-slate-400">#{shortId(check.id)}</span>
                                     </div>
@@ -232,13 +264,13 @@ export default function InventoryPanel() {
                                     <p className="mt-1 text-sm text-slate-500">
                                         {check.startedAt ? `Начата ${formatDateTime(check.startedAt)}` : 'Ещё не начата'} · {displayItems.length} позиций
                                     </p>
-                                    {(check.statusCode === 'COMPLETED' || check.statusCode === 'CANCELLED') && check.completedAt && (
+                                    {checkIsTerminal && check.completedAt && (
                                         <p className="mt-1 text-xs text-slate-400">Закрыта {formatDateTime(check.completedAt)}</p>
                                     )}
                                 </div>
 
                                 <div className="flex flex-wrap gap-2">
-                                    {check.statusCode === 'DRAFT' && (
+                                    {checkIsInitial && !checkIsTerminal && (
                                         <button
                                             type="button"
                                             onClick={runStart}
@@ -248,7 +280,7 @@ export default function InventoryPanel() {
                                             {startState.isLoading ? 'Запускаем…' : 'Начать пересчёт'}
                                         </button>
                                     )}
-                                    {(check.statusCode === 'DRAFT' || check.statusCode === 'IN_PROGRESS') && (
+                                    {!checkIsTerminal && (
                                         <button
                                             type="button"
                                             onClick={() => setConfirmation('cancel')}
@@ -258,7 +290,7 @@ export default function InventoryPanel() {
                                             Отменить
                                         </button>
                                     )}
-                                    {check.statusCode === 'IN_PROGRESS' && (
+                                    {checkAllowsCounting && !checkIsTerminal && (
                                         <button
                                             type="button"
                                             onClick={() => setConfirmation('complete')}
@@ -272,7 +304,7 @@ export default function InventoryPanel() {
                                 </div>
                             </div>
 
-                            {check.statusCode === 'IN_PROGRESS' && (
+                            {checkAllowsCounting && !checkIsTerminal && (
                                 <div className="mt-5 rounded-xl bg-slate-50 p-4">
                                     <div className="flex items-center justify-between gap-3 text-xs font-bold text-slate-600">
                                         <span>Пересчитано {progress.counted} из {progress.total}</span>
@@ -284,9 +316,11 @@ export default function InventoryPanel() {
                                             style={{ width: `${progress.percent}%` }}
                                         />
                                     </div>
-                                    <p className="mt-2 text-xs text-slate-500">
-                                        Обычные операции списания и возврата заблокированы до завершения или отмены.
-                                    </p>
+                                    {checkLocksWarehouse && (
+                                        <p className="mt-2 text-xs text-slate-500">
+                                            Обычные операции списания и возврата заблокированы до завершения или отмены.
+                                        </p>
+                                    )}
                                 </div>
                             )}
 
@@ -301,7 +335,7 @@ export default function InventoryPanel() {
                             <div className="border-b border-slate-100 px-5 py-4">
                                 <h3 className="font-bold text-slate-900">Позиции для пересчёта</h3>
                                 <p className="mt-1 text-xs text-slate-500">
-                                    {check.statusCode === 'IN_PROGRESS'
+                                    {checkAllowsCounting && !checkIsTerminal
                                         ? 'Введите фактическое количество: расхождение посчитается от системного остатка'
                                         : 'Зафиксированный снимок остатков на момент создания'}
                                 </p>
@@ -326,7 +360,7 @@ export default function InventoryPanel() {
                                     </thead>
                                     <tbody className="divide-y divide-slate-100">
                                         {displayItems.map((item) => {
-                                            const typedActualQuantity = check.statusCode === 'IN_PROGRESS'
+                                            const typedActualQuantity = checkAllowsCounting && !checkIsTerminal
                                                 ? parseQuantityInput(counts[item.id])
                                                 : item.actualQuantity;
                                             const hasActualQuantity = typedActualQuantity !== null && typedActualQuantity !== undefined;
@@ -344,7 +378,7 @@ export default function InventoryPanel() {
                                                         {formatQuantity(item.expectedQuantity, item.unit)}
                                                     </td>
                                                     <td className="px-5 py-4">
-                                                        {check.statusCode === 'IN_PROGRESS' ? (
+                                                        {checkAllowsCounting && !checkIsTerminal ? (
                                                             <div className="relative w-36">
                                                                 <input
                                                                     aria-label={`Фактическое количество: ${item.nomenclatureName}`}
@@ -370,7 +404,7 @@ export default function InventoryPanel() {
                                                         {hasActualQuantity ? `${discrepancy > 0 ? '+' : ''}${formatQuantity(discrepancy, item.unit)}` : '—'}
                                                     </td>
                                                     <td className="px-5 py-4 text-right">
-                                                        {check.statusCode === 'IN_PROGRESS' ? (
+                                                        {checkAllowsCounting && !checkIsTerminal ? (
                                                             <div className="inline-flex items-center gap-2">
                                                                 {savedItemId === item.id && (
                                                                     <span className="text-xs font-bold text-emerald-600">Сохранено</span>
@@ -527,8 +561,8 @@ export default function InventoryPanel() {
                                     </td>
                                     <td className="px-5 py-4 text-sm font-bold text-slate-700">{item.items.length}</td>
                                     <td className="px-5 py-4">
-                                        <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-bold ${inventoryStatusClasses[item.statusCode]}`}>
-                                            {inventoryStatusLabels[item.statusCode]}
+                                        <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-bold ${getInventoryStatusClasses(item.statusCode, statusRulesByCode.get(item.statusCode))}`}>
+                                            {getInventoryStatusLabel(item.statusCode, statusRulesByCode.get(item.statusCode))}
                                         </span>
                                     </td>
                                     <td className="px-5 py-4 text-right">

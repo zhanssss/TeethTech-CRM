@@ -3,6 +3,7 @@
 import { type FormEvent, useState } from 'react';
 
 import Modal from '@/src/components/ui/Modal';
+import { useNotifications } from '@/src/features/notifications/useNotifications';
 import {
     useCreateInvoiceMutation,
     useGetInvoicePaymentsQuery,
@@ -216,13 +217,11 @@ function Notice({
 }
 
 export default function InvoicesPage() {
+    const { notifyError } = useNotifications();
     const [pendingPage, setPendingPage] = useState(0);
     const [invoicesPage, setInvoicesPage] = useState(0);
-    const [pageMessage, setPageMessage] = useState('');
 
     const [selectedSummary, setSelectedSummary] = useState<BillingSummary | null>(null);
-    const [summaryError, setSummaryError] = useState('');
-    const [summaryMessage, setSummaryMessage] = useState('');
     const [invoiceAmount, setInvoiceAmount] = useState('');
     const [invoiceDueAt, setInvoiceDueAt] = useState(getDefaultDueAt);
     const [invoiceComment, setInvoiceComment] = useState('');
@@ -230,8 +229,6 @@ export default function InvoicesPage() {
 
     const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
     const [invoiceContext, setInvoiceContext] = useState<BillingSummary | null>(null);
-    const [detailError, setDetailError] = useState('');
-    const [detailMessage, setDetailMessage] = useState('');
     const [paymentAmount, setPaymentAmount] = useState('');
     const [paymentMethod, setPaymentMethod] = useState('BANK_TRANSFER');
     const [paymentPaidAt, setPaymentPaidAt] = useState(() => toDatetimeLocalValue(new Date()));
@@ -307,9 +304,6 @@ export default function InvoicesPage() {
     };
 
     const openSummary = async (orderId: string) => {
-        setPageMessage('');
-        setSummaryError('');
-        setSummaryMessage('');
         setCreatedDraft(null);
 
         try {
@@ -318,15 +312,13 @@ export default function InvoicesPage() {
             setInvoiceAmount(String(summary.remainingToInvoice));
             setInvoiceDueAt(getDefaultDueAt());
             setInvoiceComment('');
-        } catch (error) {
-            setPageMessage(getApiErrorMessage(error, 'Не удалось получить актуальные данные заказа'));
+        } catch {
+            // API errors are displayed by the global notification handler.
         }
     };
 
     const closeSummary = () => {
         setSelectedSummary(null);
-        setSummaryError('');
-        setSummaryMessage('');
         setCreatedDraft(null);
     };
 
@@ -334,8 +326,6 @@ export default function InvoicesPage() {
         setSelectedSummary(null);
         setSelectedInvoice(invoice);
         setInvoiceContext(context ?? null);
-        setDetailError('');
-        setDetailMessage('');
         setPaymentAmount(String(getInvoiceBalance(invoice)));
         setPaymentMethod('BANK_TRANSFER');
         setPaymentPaidAt(toDatetimeLocalValue(new Date()));
@@ -359,8 +349,6 @@ export default function InvoicesPage() {
     const closeInvoice = () => {
         setSelectedInvoice(null);
         setInvoiceContext(null);
-        setDetailError('');
-        setDetailMessage('');
         setReversingPaymentId(null);
     };
 
@@ -368,16 +356,13 @@ export default function InvoicesPage() {
         event.preventDefault();
         if (!selectedSummary) return;
 
-        setSummaryError('');
-        setSummaryMessage('');
-
         const validationError = validateAmount(
             invoiceAmount,
             selectedSummary.remainingToInvoice,
             'счёта'
         );
         if (validationError) {
-            setSummaryError(validationError);
+            notifyError(validationError);
             return;
         }
 
@@ -391,14 +376,11 @@ export default function InvoicesPage() {
             }).unwrap();
 
             setCreatedDraft(draft);
-            setSummaryMessage(`Черновик счёта ${draft.number} создан`);
             await Promise.allSettled([
                 refreshSummary(selectedSummary.orderId),
                 refreshLists(),
             ]);
-        } catch (error) {
-            setSummaryError(getApiErrorMessage(error, 'Не удалось создать счёт'));
-
+        } catch {
             try {
                 const latest = await refreshSummary(selectedSummary.orderId);
                 setInvoiceAmount(String(latest.remainingToInvoice));
@@ -409,41 +391,24 @@ export default function InvoicesPage() {
     };
 
     const handleIssueInvoice = async (invoice: Invoice, source: 'summary' | 'detail') => {
-        if (source === 'summary') {
-            setSummaryError('');
-            setSummaryMessage('');
-        } else {
-            setDetailError('');
-            setDetailMessage('');
-        }
-
         try {
             const issued = await issueInvoice(invoice).unwrap();
 
             if (source === 'summary') {
                 setCreatedDraft(issued);
-                setSummaryMessage(`Счёт ${issued.number} выставлен клинике`);
                 if (issued.orderId) await refreshSummary(issued.orderId);
                 await refreshLists();
             } else {
                 setSelectedInvoice(issued);
                 setPaymentAmount(String(getInvoiceBalance(issued)));
-                setDetailMessage(`Счёт ${issued.number} выставлен клинике`);
                 await refreshSelectedInvoice(issued);
             }
-        } catch (error) {
-            const message = getApiErrorMessage(error, 'Не удалось выставить счёт');
+        } catch {
             if (source === 'summary') {
-                setSummaryError(
-                    createdDraft
-                        ? `Черновик ${createdDraft.number} создан, но выставить его не удалось. ${message}`
-                        : message
-                );
                 if (invoice.orderId) {
                     await Promise.allSettled([refreshSummary(invoice.orderId), refreshLists()]);
                 }
             } else {
-                setDetailError(message);
                 await refreshSelectedInvoice(invoice);
             }
         }
@@ -453,16 +418,13 @@ export default function InvoicesPage() {
         event.preventDefault();
         if (!selectedInvoice) return;
 
-        setDetailError('');
-        setDetailMessage('');
-
         const validationError = validateAmount(
             paymentAmount,
             selectedInvoiceBalance,
             'оплаты'
         );
         if (validationError) {
-            setDetailError(validationError);
+            notifyError(validationError);
             return;
         }
 
@@ -477,13 +439,11 @@ export default function InvoicesPage() {
                 },
             }).unwrap();
 
-            setDetailMessage('Оплата зарегистрирована');
             await Promise.allSettled([
                 paymentsQuery.refetch(),
                 refreshSelectedInvoice(selectedInvoice),
             ]);
-        } catch (error) {
-            setDetailError(getApiErrorMessage(error, 'Не удалось зарегистрировать оплату'));
+        } catch {
             await Promise.allSettled([
                 paymentsQuery.refetch(),
                 refreshSelectedInvoice(selectedInvoice),
@@ -497,12 +457,9 @@ export default function InvoicesPage() {
 
         const reason = reversalReason.trim();
         if (!reason) {
-            setDetailError('Укажите причину сторнирования');
+            notifyError('Укажите причину сторнирования');
             return;
         }
-
-        setDetailError('');
-        setDetailMessage('');
 
         try {
             await reversePayment({
@@ -514,13 +471,11 @@ export default function InvoicesPage() {
 
             setReversingPaymentId(null);
             setReversalReason('');
-            setDetailMessage('Оплата сторнирована');
             await Promise.allSettled([
                 paymentsQuery.refetch(),
                 refreshSelectedInvoice(selectedInvoice),
             ]);
-        } catch (error) {
-            setDetailError(getApiErrorMessage(error, 'Не удалось сторнировать оплату'));
+        } catch {
             await Promise.allSettled([
                 paymentsQuery.refetch(),
                 refreshSelectedInvoice(selectedInvoice),
@@ -543,7 +498,6 @@ export default function InvoicesPage() {
                 <button
                     type="button"
                     onClick={() => {
-                        setPageMessage('');
                         pendingQuery.refetch();
                         invoicesQuery.refetch();
                     }}
@@ -584,8 +538,6 @@ export default function InvoicesPage() {
                     <p className="mt-1 text-xs text-slate-500">во всех статусах</p>
                 </article>
             </section>
-
-            {pageMessage && <Notice tone="error">{pageMessage}</Notice>}
 
             <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
                 <div className="border-b border-slate-200 bg-slate-50 px-4 py-4 sm:px-5">
@@ -774,9 +726,6 @@ export default function InvoicesPage() {
                                 ))}
                             </div>
 
-                            {summaryError && <Notice tone="error">{summaryError}</Notice>}
-                            {summaryMessage && <Notice tone="success">{summaryMessage}</Notice>}
-
                             {createdDraft ? (
                                 <div className="rounded-xl border border-blue-200 bg-blue-50 p-4">
                                     <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -943,9 +892,6 @@ export default function InvoicesPage() {
                                 <div><span className="text-slate-500">Выставлен:</span> <strong>{formatDate(selectedInvoice.issuedAt, true)}</strong></div>
                                 <div><span className="text-slate-500">Комментарий:</span> <strong>{selectedInvoice.comment || 'Нет'}</strong></div>
                             </div>
-
-                            {detailError && <Notice tone="error">{detailError}</Notice>}
-                            {detailMessage && <Notice tone="success">{detailMessage}</Notice>}
 
                             {selectedInvoice.status === 'DRAFT' && (
                                 <div className="flex flex-col gap-3 rounded-xl border border-blue-200 bg-blue-50 p-4 sm:flex-row sm:items-center sm:justify-between">

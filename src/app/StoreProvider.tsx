@@ -5,6 +5,7 @@ import {Provider} from "react-redux";
 import {finishAuthHydration, setUser} from '@/src/features/auth/authSlice';
 import {normalizeAuthRole} from '@/src/features/auth/authUtils';
 import type {AuthSession} from '@/src/types/auth.types';
+import NotificationViewport from '@/src/components/ui/NotificationViewport';
 import {makeStore} from '../lib/store';
 
 export default function StoreProvider({children}: {children: ReactNode}){
@@ -53,5 +54,10 @@ export default function StoreProvider({children}: {children: ReactNode}){
         };
     }, [store]);
 
-    return <Provider store={store}>{children}</Provider>
+    return (
+        <Provider store={store}>
+            {children}
+            <NotificationViewport />
+        </Provider>
+    );
 }

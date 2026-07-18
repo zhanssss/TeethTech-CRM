@@ -1,6 +1,7 @@
 'use client';
 
 import { type ChangeEvent, useMemo, useState } from 'react';
+import { useNotifications } from '@/src/features/notifications/useNotifications';
 import {
     useAbortMultipartTaskFileUploadMutation,
     useCompleteMultipartTaskFileUploadMutation,
@@ -54,15 +55,15 @@ export default function TaskFilesPanel({
                                            fallbackAttachments = [],
                                            onAddImages,
                                            onAddAttachments,
-                                           className = '',
-                                       }: TaskFilesPanelProps) {
+                                       className = '',
+                                   }: TaskFilesPanelProps) {
+    const { notifyError } = useNotifications();
     const activeTaskId = taskId ?? '';
     const canUseServerFiles = UUID_PATTERN.test(activeTaskId);
     const [uploadState, setUploadState] = useState<UploadState | null>(null);
     const [deletingId, setDeletingId] = useState<string | null>(null);
     const [fileActionId, setFileActionId] = useState<string | null>(null);
     const [downloadActionId, setDownloadActionId] = useState<string | null>(null);
-    const [errorMessage, setErrorMessage] = useState('');
 
     const {
         data: serverFiles = [],
@@ -108,8 +109,6 @@ export default function TaskFilesPanel({
 
         if (!files.length) return;
 
-        setErrorMessage('');
-
         try {
             if (!canUseServerFiles) {
                 addLocalFiles(files, type);
@@ -122,7 +121,7 @@ export default function TaskFilesPanel({
 
             await refetch();
         } catch (error) {
-            setErrorMessage(getErrorMessage(error));
+            if (error instanceof Error) notifyError(error.message);
         } finally {
             setUploadState(null);
             input.value = '';
@@ -225,7 +224,6 @@ export default function TaskFilesPanel({
             return;
         }
 
-        setErrorMessage('');
         setFileActionId(file.id);
 
         try {
@@ -240,7 +238,7 @@ export default function TaskFilesPanel({
 
             window.open(response.url, '_blank', 'noopener,noreferrer');
         } catch (error) {
-            setErrorMessage(getErrorMessage(error));
+            if (error instanceof Error) notifyError(error.message);
         } finally {
             setFileActionId(null);
         }
@@ -249,7 +247,6 @@ export default function TaskFilesPanel({
     const handleDeleteFile = async (file: DisplayFile) => {
         if (file.source !== 'server') return;
 
-        setErrorMessage('');
         setDeletingId(file.id);
 
         try {
@@ -257,8 +254,8 @@ export default function TaskFilesPanel({
                 taskId: activeTaskId,
                 attachmentId: file.id,
             }).unwrap();
-        } catch (error) {
-            setErrorMessage(getErrorMessage(error));
+        } catch {
+            // API errors are displayed by the global notification handler.
         } finally {
             setDeletingId(null);
         }
@@ -270,7 +267,6 @@ export default function TaskFilesPanel({
             return;
         }
 
-        setErrorMessage('');
         setDownloadActionId(file.id);
 
         try {
@@ -283,7 +279,7 @@ export default function TaskFilesPanel({
             downloadUrl(objectUrl, file.name);
             window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
         } catch (error) {
-            setErrorMessage(getErrorMessage(error));
+            if (error instanceof Error) notifyError(error.message);
         } finally {
             setDownloadActionId(null);
         }
@@ -312,12 +308,6 @@ export default function TaskFilesPanel({
                     </button>
                 ) : null}
             </div>
-
-            {errorMessage ? (
-                <div className="mt-4 rounded-xl border border-red-100 bg-red-50 p-3 text-sm font-bold text-red-700">
-                    {errorMessage}
-                </div>
-            ) : null}
 
             {uploadState ? (
                 <UploadProgress uploadState={uploadState} />
@@ -647,38 +637,4 @@ function downloadUrl(url: string, fileName: string) {
     document.body.append(anchor);
     anchor.click();
     anchor.remove();
-}
-
-function getErrorMessage(error: unknown) {
-    if (error instanceof Error) {
-        return error.message;
-    }
-
-    if (typeof error === 'object' && error !== null && 'data' in error) {
-        const data = (error as { data?: unknown }).data;
-
-        if (typeof data === 'string') return data;
-
-        if (typeof data === 'object' && data !== null) {
-            const apiError = data as {
-                detail?: unknown;
-                error?: unknown;
-                message?: unknown;
-                title?: unknown;
-            };
-
-            for (const value of [
-                apiError.detail,
-                apiError.message,
-                apiError.error,
-                apiError.title,
-            ]) {
-                if (typeof value === 'string' && value.trim()) {
-                    return value;
-                }
-            }
-        }
-    }
-
-    return 'Не удалось выполнить действие с файлом.';
 }

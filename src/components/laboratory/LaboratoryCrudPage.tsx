@@ -1,7 +1,8 @@
 'use client';
 
 import React, { FormEvent, useState } from 'react';
-import ErrorModal from '@/src/components/ui/ErrorModal';
+import ErrorState from '@/src/components/ui/ErrorState';
+import { useNotifications } from '@/src/features/notifications/useNotifications';
 
 type FormValue = string | number | boolean;
 type FormState = Record<string, FormValue>;
@@ -118,7 +119,7 @@ export default function LaboratoryCrudPage<
 
     const [form, setForm] = useState<FormState>(initialFormState);
     const [editingId, setEditingId] = useState<string | null>(null);
-    const [errorMessage, setErrorMessage] = useState('');
+    const { notifyError } = useNotifications();
 
     const isSubmitting = isCreating || isUpdating;
 
@@ -131,8 +132,6 @@ export default function LaboratoryCrudPage<
 
     const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault();
-        setErrorMessage('');
-
         const hasEmptyRequiredField = fields.some((field) => {
             if (!field.required) return false;
 
@@ -145,7 +144,7 @@ export default function LaboratoryCrudPage<
         });
 
         if (hasEmptyRequiredField) {
-            setErrorMessage('Заполните обязательные поля');
+            notifyError('Заполните обязательные поля');
             return;
         }
 
@@ -162,25 +161,21 @@ export default function LaboratoryCrudPage<
             setForm(initialFormState);
             setEditingId(null);
         } catch {
-            setErrorMessage('Не удалось сохранить данные');
+            // API errors are displayed by the global notification handler.
         }
     };
 
     const handleEdit = (item: TItem) => {
         setEditingId(item.id);
         setForm(getEditForm(item));
-        setErrorMessage('');
     };
 
     const handleCancelEdit = () => {
         setEditingId(null);
         setForm(initialFormState);
-        setErrorMessage('');
     };
 
     const handleDelete = async (id: string) => {
-        setErrorMessage('');
-
         try {
             await deleteItem(id).unwrap();
 
@@ -188,18 +183,12 @@ export default function LaboratoryCrudPage<
                 handleCancelEdit();
             }
         } catch {
-            setErrorMessage('Не удалось удалить запись');
+            // API errors are displayed by the global notification handler.
         }
     };
 
     return (
         <>
-            {errorMessage && (
-                <ErrorModal onClose={() => setErrorMessage('')}>
-                    {errorMessage}
-                </ErrorModal>
-            )}
-
             <section className="min-h-full w-full bg-slate-50 p-0 sm:p-4 lg:p-6">
             <div className="mb-4 rounded-2xl bg-white px-4 py-4 shadow-sm sm:mb-6 sm:px-6 sm:py-5">
                 <h1 className="text-2xl font-semibold text-slate-900">
@@ -338,9 +327,9 @@ export default function LaboratoryCrudPage<
                     )}
 
                     {isError && (
-                        <ErrorModal>
+                        <ErrorState compact>
                             Не удалось загрузить данные
-                        </ErrorModal>
+                        </ErrorState>
                     )}
 
                     {!isLoading && !isError && items.length === 0 && (

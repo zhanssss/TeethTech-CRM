@@ -4,7 +4,7 @@ import {useMemo, useState} from 'react';
 import Section from '@/src/components/ui/Section';
 import CreateClinicModal from '@/src/components/Modals/CreateClinicModal';
 import Link from 'next/link';
-import ErrorModal from '@/src/components/ui/ErrorModal';
+import ErrorState from '@/src/components/ui/ErrorState';
 import {useGetClinicsQuery} from "@/src/services/api/clinicsApi";
 
 type ClinicTableRow = {
@@ -50,9 +50,9 @@ export default function ClinicsPage() {
     if (isLoading) return <p>Загрузка...</p>
     if (isError) {
         return (
-            <ErrorModal isDismissible={false}>
+            <ErrorState>
                 Ошибка в загрузке клиник...
-            </ErrorModal>
+            </ErrorState>
         );
     }
 

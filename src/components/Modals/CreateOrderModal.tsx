@@ -5,7 +5,6 @@ import type { CreateOrderDto, CreateOrderTaskDto } from '@/src/types/order.types
 import type { TaskAttachment, TaskImage } from '@/src/types/task.types';
 import type { WorkflowStep } from '@/src/types/workflow.types';
 import Modal from '@/src/components/ui/Modal';
-import ErrorModal from '@/src/components/ui/ErrorModal';
 import { useGetClinicDoctorsQuery, useGetClinicPatientsQuery, useSearchClinicsQuery } from '@/src/services/api/clinicsApi';
 import { useGetUsersQuery } from '@/src/services/api/usersApi';
 import { useGetWorkTypesQuery } from '@/src/services/api/laboratory/workTypesApi';
@@ -432,7 +431,6 @@ export default function CreateOrderModal({
     const { data: materials = [], isLoading: isMaterialsLoading } = useGetMaterialsQuery();
     const { data: colors = [], isLoading: isColorsLoading } = useGetColorsQuery(true);
 
-    const [submitError, setSubmitError] = useState('');
     const [formData, setFormData] = useState<CreateOrderDto>({
         clinicId: '',
         patientFullName: '',
@@ -490,8 +488,6 @@ export default function CreateOrderModal({
 
     const handleSubmit = async (e: FormEvent) => {
         e.preventDefault();
-        setSubmitError('');
-
         console.log(formData)
 
         try {
@@ -509,7 +505,6 @@ export default function CreateOrderModal({
             onClose();
         } catch (error) {
             console.error('Ошибка создания заказа:', error);
-            setSubmitError('Не удалось создать заказ');
         }
     };
 
@@ -687,12 +682,6 @@ export default function CreateOrderModal({
 
     return (
         <Modal contentClassName="max-w-6xl p-0">
-            {submitError && (
-                <ErrorModal onClose={() => setSubmitError('')}>
-                    {submitError}
-                </ErrorModal>
-            )}
-
             <div className="flex items-start justify-between gap-4 border-b border-slate-200 bg-slate-50 px-4 py-4 sm:px-6">
                 <div className="min-w-0">
                     <h2 className="text-xl font-bold text-slate-800">Регистрация наряда</h2>

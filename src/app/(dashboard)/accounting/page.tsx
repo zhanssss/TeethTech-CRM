@@ -198,7 +198,6 @@ export default function AccountingPage() {
     const [paymentTypeDraft, setPaymentTypeDraft] = useState<SalaryPaymentType | undefined>();
     const [baseSalaryDraft, setBaseSalaryDraft] = useState<string | undefined>();
     const [commissionPercentDraft, setCommissionPercentDraft] = useState<string | undefined>();
-    const [configMessage, setConfigMessage] = useState('');
     const [configError, setConfigError] = useState('');
     const [selectedStatementEmployeeId, setSelectedStatementEmployeeId] = useState('');
     const [statementStart, setStatementStart] = useState(getDefaultStartDate);
@@ -206,7 +205,6 @@ export default function AccountingPage() {
     const [statementComment, setStatementComment] = useState('');
     const [statement, setStatement] = useState<SalaryStatement | null>(null);
     const [statementError, setStatementError] = useState('');
-    const [statementMessage, setStatementMessage] = useState('');
 
     const {
         data: salaryEmployees = [],
@@ -314,14 +312,12 @@ export default function AccountingPage() {
         setPaymentTypeDraft(undefined);
         setBaseSalaryDraft(undefined);
         setCommissionPercentDraft(undefined);
-        setConfigMessage('');
         setConfigError('');
     };
 
     const handleConfigSubmit = async (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault();
         setConfigError('');
-        setConfigMessage('');
 
         if (!configUserId) {
             setConfigError('Выберите сотрудника.');
@@ -335,17 +331,14 @@ export default function AccountingPage() {
                 baseSalary: Number(baseSalary) || 0,
                 commissionPercent: Number(commissionPercent) || 0,
             }).unwrap();
-            setConfigMessage('Схема оплаты сохранена.');
         } catch (error) {
             console.error('Salary config save failed:', error);
-            setConfigError('Не удалось сохранить схему оплаты.');
         }
     };
 
     const handleStatementSubmit = async (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault();
         setStatementError('');
-        setStatementMessage('');
         setStatement(null);
 
         if (!statementEmployeeId) {
@@ -361,10 +354,8 @@ export default function AccountingPage() {
                 comment: statementComment.trim() || undefined,
             }).unwrap();
             setStatement(createdStatement);
-            setStatementMessage('Ведомость сформирована.');
         } catch (error) {
             console.error('Salary statement create failed:', error);
-            setStatementError('Не удалось сформировать ведомость.');
         }
     };
 
@@ -372,15 +363,12 @@ export default function AccountingPage() {
         if (!statement?.statementId) return;
 
         setStatementError('');
-        setStatementMessage('');
 
         try {
             await confirmSalaryStatement(statement.statementId).unwrap();
             setStatement((current) => current ? { ...current, status: 'PAID' } : current);
-            setStatementMessage('Выплата подтверждена.');
         } catch (error) {
             console.error('Salary statement confirm failed:', error);
-            setStatementError('Не удалось подтвердить выплату.');
         }
     };
 
@@ -388,15 +376,12 @@ export default function AccountingPage() {
         if (!statement?.statementId || statement.status !== 'DRAFT') return;
 
         setStatementError('');
-        setStatementMessage('');
 
         try {
             await deleteSalaryStatement(statement.statementId).unwrap();
             setStatement(null);
-            setStatementMessage('Черновик ведомости удален.');
         } catch (error) {
             console.error('Salary statement delete failed:', error);
-            setStatementError('Не удалось удалить черновик ведомости.');
         }
     };
 
@@ -577,9 +562,9 @@ export default function AccountingPage() {
                             {isConfigLoadError ? 'схема еще не настроена' : paymentTypeLabels[paymentType]}
                         </div>
 
-                        {(configError || configMessage) && (
-                            <p className={`text-sm font-semibold ${configError ? 'text-red-600' : 'text-emerald-600'}`}>
-                                {configError || configMessage}
+                        {configError && (
+                            <p className="text-sm font-semibold text-red-600">
+                                {configError}
                             </p>
                         )}
 
@@ -653,9 +638,9 @@ export default function AccountingPage() {
                         </label>
                     </div>
 
-                    {(statementError || statementMessage) && (
-                        <p className={`mt-3 text-sm font-semibold ${statementError ? 'text-red-600' : 'text-emerald-600'}`}>
-                            {statementError || statementMessage}
+                    {statementError && (
+                        <p className="mt-3 text-sm font-semibold text-red-600">
+                            {statementError}
                         </p>
                     )}
 

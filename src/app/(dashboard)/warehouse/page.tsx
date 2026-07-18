@@ -4,12 +4,14 @@ import { useState } from 'react';
 
 import InventoryPanel from '@/src/components/warehouse/InventoryPanel';
 import NomenclaturePanel from '@/src/components/warehouse/NomenclaturePanel';
+import ProcurementPanel from '@/src/components/warehouse/ProcurementPanel';
 import WarehouseOverview from '@/src/components/warehouse/WarehouseOverview';
 
-type WarehouseTab = 'overview' | 'nomenclature' | 'inventory';
+type WarehouseTab = 'overview' | 'procurement' | 'nomenclature' | 'inventory';
 
 const tabs: Array<{ id: WarehouseTab; label: string; description: string }> = [
     { id: 'overview', label: 'Обзор', description: 'Остатки и движения' },
+    { id: 'procurement', label: 'Закупки', description: 'Заказы и поставщики' },
     { id: 'nomenclature', label: 'Номенклатура', description: 'Позиции и приход' },
     { id: 'inventory', label: 'Инвентаризации', description: 'Пересчёт склада' },
 ];
@@ -30,7 +32,7 @@ export default function WarehousePage() {
                         <div>
                             <h1 className="text-2xl font-black text-slate-900">Склад</h1>
                             <p className="mt-0.5 text-sm text-slate-500">
-                                Остатки, поступления, движения и инвентаризации
+                                Закупки, остатки, движения и инвентаризации
                             </p>
                         </div>
                     </div>
@@ -43,7 +45,7 @@ export default function WarehousePage() {
 
             <nav
                 aria-label="Разделы склада"
-                className="grid grid-cols-1 gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm sm:grid-cols-3"
+                className="grid grid-cols-1 gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm sm:grid-cols-2 xl:grid-cols-4"
             >
                 {tabs.map((tab) => {
                     const active = activeTab === tab.id;
@@ -69,6 +71,7 @@ export default function WarehousePage() {
                     onOpenInventory={() => setActiveTab('inventory')}
                 />
             )}
+            {activeTab === 'procurement' && <ProcurementPanel />}
             {activeTab === 'nomenclature' && <NomenclaturePanel />}
             {activeTab === 'inventory' && <InventoryPanel />}
         </div>

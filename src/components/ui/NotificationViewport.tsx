@@ -1,0 +1,128 @@
+'use client';
+
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
+
+import {
+    dismissNotification,
+    type AppNotification,
+} from '@/src/features/notifications/notificationsSlice';
+import type { AppDispatch, RootState } from '@/src/lib/store';
+
+const EXIT_ANIMATION_MS = 260;
+
+function StatusIcon({ tone }: Pick<AppNotification, 'tone'>) {
+    if (tone === 'success') {
+        return (
+            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" className="h-5 w-5">
+                <path d="m5 12.5 4.2 4L19 7" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+        );
+    }
+
+    return (
+        <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" className="h-5 w-5">
+            <path d="M12 7.5v5.25M12 16.5h.01" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" />
+            <path d="M10.2 4.45 2.85 17.1A2 2 0 0 0 4.58 20h14.84a2 2 0 0 0 1.73-2.9L13.8 4.45a2.08 2.08 0 0 0-3.6 0Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+        </svg>
+    );
+}
+
+function NotificationToast({ notification }: { notification: AppNotification }) {
+    const dispatch = useDispatch<AppDispatch>();
+    const [isLeaving, setIsLeaving] = useState(false);
+    const isLeavingRef = useRef(false);
+    const removeTimerRef = useRef<number | null>(null);
+
+    const dismiss = useCallback(() => {
+        if (isLeavingRef.current) return;
+
+        isLeavingRef.current = true;
+        setIsLeaving(true);
+        removeTimerRef.current = window.setTimeout(() => {
+            dispatch(dismissNotification(notification.id));
+        }, EXIT_ANIMATION_MS);
+    }, [dispatch, notification.id]);
+
+    useEffect(() => {
+        const leaveTimer = window.setTimeout(
+            dismiss,
+            Math.max(notification.duration - EXIT_ANIMATION_MS, 0)
+        );
+
+        return () => {
+            window.clearTimeout(leaveTimer);
+            if (removeTimerRef.current !== null) {
+                window.clearTimeout(removeTimerRef.current);
+            }
+        };
+    }, [dismiss, notification.duration]);
+
+    const isSuccess = notification.tone === 'success';
+
+    return (
+        <article
+            role={isSuccess ? 'status' : 'alert'}
+            aria-live={isSuccess ? 'polite' : 'assertive'}
+            className={`notification-toast relative w-full overflow-hidden rounded-2xl border bg-white/95 shadow-[0_18px_50px_-18px_rgba(15,23,42,0.45)] backdrop-blur-xl ${
+                isLeaving ? 'notification-toast--leaving' : 'notification-toast--entering'
+            } ${isSuccess ? 'border-emerald-200/90' : 'border-red-200/90'}`}
+        >
+            <div className="flex items-start gap-3.5 px-4 pb-4 pt-4 sm:px-5">
+                <div
+                    className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${
+                        isSuccess
+                            ? 'bg-emerald-100 text-emerald-700'
+                            : 'bg-red-100 text-red-700'
+                    }`}
+                >
+                    <StatusIcon tone={notification.tone} />
+                </div>
+
+                <div className="min-w-0 flex-1 pt-0.5">
+                    <h2 className="text-sm font-extrabold tracking-tight text-slate-900">
+                        {notification.title}
+                    </h2>
+                    <p className="mt-1 text-sm leading-5 text-slate-600">
+                        {notification.message}
+                    </p>
+                </div>
+
+                <button
+                    type="button"
+                    onClick={dismiss}
+                    aria-label="Закрыть уведомление"
+                    className="-mr-1 -mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-xl leading-none text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                >
+                    &times;
+                </button>
+            </div>
+
+            <div className={`h-1 w-full ${isSuccess ? 'bg-emerald-100' : 'bg-red-100'}`}>
+                <div
+                    className={`notification-toast__progress h-full ${
+                        isSuccess ? 'bg-emerald-500' : 'bg-red-500'
+                    }`}
+                    style={{ animationDuration: `${notification.duration}ms` }}
+                />
+            </div>
+        </article>
+    );
+}
+
+export default function NotificationViewport() {
+    const notifications = useSelector((state: RootState) => state.notifications.items);
+
+    return (
+        <div
+            aria-label="Уведомления"
+            className="pointer-events-none fixed inset-x-3 top-3 z-[100] flex flex-col items-center gap-3 sm:left-auto sm:right-5 sm:top-5 sm:w-[min(24rem,calc(100vw-2.5rem))] sm:items-stretch"
+        >
+            {notifications.map((notification) => (
+                <div key={notification.id} className="pointer-events-auto w-full max-w-md sm:max-w-none">
+                    <NotificationToast notification={notification} />
+                </div>
+            ))}
+        </div>
+    );
+}

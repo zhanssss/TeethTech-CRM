@@ -7,17 +7,16 @@ import { setUser } from '@/src/features/auth/authSlice';
 import { getAuthRedirectPath, normalizeAuthRole } from '@/src/features/auth/authUtils';
 import type { AppDispatch } from '@/src/lib/store';
 import { useLoginUserMutation } from '@/src/services/api/authApi';
-import ErrorModal from '@/src/components/ui/ErrorModal';
+import { useNotifications } from '@/src/features/notifications/useNotifications';
 
 export default function LoginPage() {
     const dispatch = useDispatch<AppDispatch>();
     const router = useRouter();
     const [loginUser, { isLoading }] = useLoginUserMutation();
+    const { notifyError } = useNotifications();
 
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
-    const [error, setError] = useState('');
-
     const handleLogin = async (e: FormEvent<HTMLFormElement>) => {
         e.preventDefault();
 
@@ -25,7 +24,7 @@ export default function LoginPage() {
         const passwordValue = password;
 
         if (!emailValue || !passwordValue) {
-            setError('Заполните email и пароль');
+            notifyError('Заполните email и пароль');
             return;
         }
 
@@ -36,8 +35,6 @@ export default function LoginPage() {
             }).unwrap();
 
             const role = normalizeAuthRole(response.roles);
-
-            setError('');
 
             dispatch(
                 setUser({
@@ -52,18 +49,10 @@ export default function LoginPage() {
             router.push(getAuthRedirectPath(role));
         } catch (requestError) {
             console.error('Ошибка входа:', requestError);
-            setError('Неверный email или пароль');
         }
     };
     return (
-        <>
-            {error && (
-                <ErrorModal onClose={() => setError('')}>
-                    {error}
-                </ErrorModal>
-            )}
-
-            <div className="min-h-screen bg-gradient-to-br from-slate-100 via-white to-blue-50">
+        <div className="min-h-screen bg-gradient-to-br from-slate-100 via-white to-blue-50">
             <div className="mx-auto flex min-h-screen max-w-7xl items-center justify-center px-4 py-10">
                 <div className="grid w-full max-w-5xl overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl lg:grid-cols-2">
                     <div className="hidden flex-col justify-between bg-slate-900 p-10 text-white lg:flex">
@@ -150,6 +139,5 @@ export default function LoginPage() {
                 </div>
             </div>
         </div>
-        </>
     );
 }

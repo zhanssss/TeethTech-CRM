@@ -5,13 +5,21 @@ import type {
     InventoryCheckItem,
     InventoryCheckItemsPage,
     InventoryCheckStatus,
+    InventoryStatusRule,
+    CreateProcurementOrderRequest,
     NomenclatureNorm,
     NomenclatureNormRequest,
     NomenclatureItem,
+    ProcurementOrder,
+    ProcurementOrdersPage,
+    ProcurementOrdersQueryParams,
+    ProcurementSupplier,
     ReceiveStockRequest,
+    ReceiveProcurementOrderRequest,
     StockMovement,
     StockOverview,
     UpdateInventoryItemRequest,
+    UpsertProcurementSupplierRequest,
 } from '@/src/types/warehouse.types';
 
 type InventoryItemArgs = {
@@ -119,6 +127,37 @@ function normalizeInventoryCheckItemsResponse(response: unknown): InventoryCheck
     };
 }
 
+function normalizeProcurementOrdersResponse(response: unknown): ProcurementOrdersPage {
+    const content = getArrayFromResponse<ProcurementOrder>(response, ['content', 'items', 'orders']);
+
+    if (!response || typeof response !== 'object' || Array.isArray(response)) {
+        return {
+            content,
+            number: 0,
+            size: content.length,
+            numberOfElements: content.length,
+            totalPages: content.length > 0 ? 1 : 0,
+            totalElements: content.length,
+            first: true,
+            last: true,
+            empty: content.length === 0,
+        };
+    }
+
+    const responseRecord = response as Record<string, unknown>;
+    return {
+        content,
+        number: getNumberField(responseRecord, 'number', 0),
+        size: getNumberField(responseRecord, 'size', content.length),
+        numberOfElements: getNumberField(responseRecord, 'numberOfElements', content.length),
+        totalPages: getNumberField(responseRecord, 'totalPages', content.length > 0 ? 1 : 0),
+        totalElements: getNumberField(responseRecord, 'totalElements', content.length),
+        first: getBooleanField(responseRecord, 'first', true),
+        last: getBooleanField(responseRecord, 'last', true),
+        empty: getBooleanField(responseRecord, 'empty', content.length === 0),
+    };
+}
+
 export const warehouseApi = teethTechApi.injectEndpoints({
     endpoints: (builder) => ({
         getNomenclature: builder.query<NomenclatureItem[], NomenclatureQueryParams | void>({
@@ -211,6 +250,92 @@ export const warehouseApi = teethTechApi.injectEndpoints({
         getStockOverview: builder.query<StockOverview, void>({
             query: () => '/stock/overview',
             providesTags: [{ type: 'Stock', id: 'OVERVIEW' }],
+        }),
+
+        getProcurementOrders: builder.query<ProcurementOrdersPage, ProcurementOrdersQueryParams | void>({
+            query: (params) => ({
+                url: '/warehouse/procurement/orders',
+                params: params
+                    ? Object.fromEntries(
+                        Object.entries(params).filter(([, value]) => value !== undefined)
+                    )
+                    : undefined,
+            }),
+            transformResponse: normalizeProcurementOrdersResponse,
+            providesTags: (result) => [
+                { type: 'ProcurementOrders', id: 'LIST' },
+                ...(result?.content ?? []).map(({ id }) => ({ type: 'ProcurementOrders' as const, id })),
+            ],
+        }),
+
+        createProcurementOrder: builder.mutation<ProcurementOrder, CreateProcurementOrderRequest>({
+            query: (body) => ({
+                url: '/warehouse/procurement/orders',
+                method: 'POST',
+                body,
+            }),
+            invalidatesTags: [{ type: 'ProcurementOrders', id: 'LIST' }],
+        }),
+
+        submitProcurementOrder: builder.mutation<ProcurementOrder, string>({
+            query: (id) => ({
+                url: `/warehouse/procurement/orders/${id}/submit`,
+                method: 'PATCH',
+            }),
+            invalidatesTags: (_result, _error, id) => [
+                { type: 'ProcurementOrders', id },
+                { type: 'ProcurementOrders', id: 'LIST' },
+            ],
+        }),
+
+        receiveProcurementOrder: builder.mutation<
+            ProcurementOrder,
+            { id: string; body: ReceiveProcurementOrderRequest }
+        >({
+            query: ({ id, body }) => ({
+                url: `/warehouse/procurement/orders/${id}/receipts`,
+                method: 'POST',
+                body,
+            }),
+            invalidatesTags: (_result, _error, { id }) => [
+                { type: 'ProcurementOrders', id },
+                { type: 'ProcurementOrders', id: 'LIST' },
+                { type: 'Stock', id: 'OVERVIEW' },
+                { type: 'Stock', id: 'MOVEMENTS' },
+                { type: 'Nomenclature', id: 'LIST' },
+            ],
+        }),
+
+        getProcurementSuppliers: builder.query<ProcurementSupplier[], void>({
+            query: () => '/warehouse/procurement/suppliers',
+            transformResponse: (response: unknown) =>
+                getArrayFromResponse<ProcurementSupplier>(response, ['content', 'items', 'suppliers']),
+            providesTags: (result) => [
+                { type: 'ProcurementSuppliers', id: 'LIST' },
+                ...(result ?? []).map(({ id }) => ({ type: 'ProcurementSuppliers' as const, id })),
+            ],
+        }),
+
+        upsertProcurementSupplier: builder.mutation<
+            ProcurementSupplier,
+            UpsertProcurementSupplierRequest
+        >({
+            query: (body) => ({
+                url: '/warehouse/procurement/suppliers',
+                method: 'POST',
+                body,
+            }),
+            invalidatesTags: (_result, _error, body) => [
+                { type: 'ProcurementSuppliers', id: body.id },
+                { type: 'ProcurementSuppliers', id: 'LIST' },
+            ],
+        }),
+
+        getInventoryStatusRules: builder.query<InventoryStatusRule[], void>({
+            query: () => '/warehouse/rules/inventory-statuses',
+            transformResponse: (response: unknown) =>
+                getArrayFromResponse<InventoryStatusRule>(response, ['content', 'items', 'statuses']),
+            providesTags: [{ type: 'InventoryChecks', id: 'STATUS_RULES' }],
         }),
 
         getInventoryChecks: builder.query<InventoryCheck[], InventoryCheckStatus | void>({
@@ -335,6 +460,13 @@ export const {
     useCreateWarehouseMaterialMutation,
     useGetRecentStockMovementsQuery,
     useGetStockOverviewQuery,
+    useGetProcurementOrdersQuery,
+    useCreateProcurementOrderMutation,
+    useSubmitProcurementOrderMutation,
+    useReceiveProcurementOrderMutation,
+    useGetProcurementSuppliersQuery,
+    useUpsertProcurementSupplierMutation,
+    useGetInventoryStatusRulesQuery,
     useGetInventoryChecksQuery,
     useGetInventoryCheckQuery,
     useGetInventoryCheckItemsQuery,

@@ -14,7 +14,7 @@ import {
 } from '@/src/utils/employeesUtils';
 import CreateEmployeeModal from '@/src/components/Modals/CreateEmployeeModal';
 import { useDeleteUserMutation, useGetUsersQuery } from "@/src/services/api/usersApi";
-import ErrorModal from '@/src/components/ui/ErrorModal';
+import ErrorState from '@/src/components/ui/ErrorState';
 
 
 function StatCard({
@@ -40,8 +40,6 @@ export default function EmployeesPage() {
     const [selectedRole, setSelectedRole] = useState<EmployeeRoleFilter>('ALL');
     const [showFiredEmployees, setShowFiredEmployees] = useState(false);
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-    const [actionError, setActionError] = useState('');
-    const [actionMessage, setActionMessage] = useState('');
 
     const {
         data: users = [],
@@ -98,18 +96,13 @@ export default function EmployeesPage() {
     }, [filteredEmployees]);
 
     const handleDeleteUser = async (id: string, fullName: string) => {
-        setActionError('');
-        setActionMessage('');
-
         const shouldDelete = window.confirm(`Удалить сотрудника "${fullName}"?`);
         if (!shouldDelete) return;
 
         try {
             await deleteUser(id).unwrap();
-            setActionMessage('Сотрудник удален.');
         } catch (error) {
             console.error('User delete failed:', error);
-            setActionError('Не удалось удалить сотрудника.');
         }
     };
 
@@ -119,9 +112,9 @@ export default function EmployeesPage() {
 
     if (isError) {
         return (
-            <ErrorModal isDismissible={false}>
+            <ErrorState>
                 Ошибка загрузки сотрудников
-            </ErrorModal>
+            </ErrorState>
         );
     }
 
@@ -201,13 +194,6 @@ export default function EmployeesPage() {
                     </div>
                 </div>
             </section>
-            {(actionError || actionMessage) && (
-                <section className={`rounded-xl px-4 py-3 text-sm font-semibold ${
-                    actionError ? 'bg-red-50 text-red-700' : 'bg-emerald-50 text-emerald-700'
-                }`}>
-                    {actionError || actionMessage}
-                </section>
-            )}
             <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
                 <div className="border-b border-slate-200 bg-slate-50 px-4 py-3">
                     <h2 className="text-sm font-bold uppercase tracking-wider text-slate-500">

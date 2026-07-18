@@ -26,7 +26,6 @@ export default function TaskDetailsSidebar({
                                            }: TaskDetailsSidebarProps) {
     const [commentText, setCommentText] = useState('');
     const [reworkModalTaskId, setReworkModalTaskId] = useState('');
-    const [reworkSuccess, setReworkSuccess] = useState<{ taskId: string; message: string } | null>(null);
     const { isAuthenticated } = useSelector((state: RootState) => state.auth);
 
     if (!task) return null;
@@ -65,7 +64,6 @@ export default function TaskDetailsSidebar({
                             <button
                                 type="button"
                                 onClick={() => {
-                                    setReworkSuccess(null);
                                     setReworkModalTaskId(task.id);
                                 }}
                                 className="mt-3 rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-black text-amber-800 transition hover:border-amber-400 hover:bg-amber-100"
@@ -85,15 +83,6 @@ export default function TaskDetailsSidebar({
                 </div>
 
                 <div className="flex-1 space-y-5 overflow-y-auto p-4 sm:space-y-6 sm:p-5">
-                    {reworkSuccess?.taskId === task.id ? (
-                        <div
-                            className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-800"
-                            role="status"
-                        >
-                            {reworkSuccess.message}
-                        </div>
-                    ) : null}
-
                     <section className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                         <h3 className="text-xs font-black uppercase tracking-widest text-slate-500">
                             Основная информация
@@ -192,12 +181,8 @@ export default function TaskDetailsSidebar({
                 <ReturnTaskForReworkModal
                     taskId={task.id}
                     onClose={() => setReworkModalTaskId('')}
-                    onSuccess={(statusName) => {
+                    onSuccess={() => {
                         setReworkModalTaskId('');
-                        setReworkSuccess({
-                            taskId: task.id,
-                            message: `Задача возвращена на этап «${statusName}»`,
-                        });
                     }}
                 />
             ) : null}

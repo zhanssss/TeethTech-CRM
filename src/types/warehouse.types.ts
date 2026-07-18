@@ -50,7 +50,20 @@ export type InventoryCheckStatus =
     | 'DRAFT'
     | 'IN_PROGRESS'
     | 'COMPLETED'
-    | 'CANCELLED';
+    | 'CANCELLED'
+    | (string & {});
+
+export type InventoryStatusRule = {
+    code: InventoryCheckStatus;
+    name: string;
+    initial: boolean;
+    locksWarehouse: boolean;
+    allowsCounting: boolean;
+    marksCompleted: boolean;
+    marksCancelled: boolean;
+    terminal: boolean;
+    active: boolean;
+};
 
 export type InventoryCheckItem = {
     id: string;
@@ -102,4 +115,75 @@ export type NomenclatureNorm = NomenclatureNormRequest & {
     id: string;
     createdAt: string;
     updatedAt: string;
+};
+
+export type ProcurementSupplier = {
+    id: string;
+    name: string;
+    bin: string;
+    phone: string;
+    email: string;
+    active: boolean;
+};
+
+export type UpsertProcurementSupplierRequest = ProcurementSupplier;
+
+export type ProcurementOrderItem = {
+    id: string;
+    nomenclatureId: string;
+    name: string;
+    orderedQuantity: number;
+    receivedQuantity: number;
+    unitPrice: number;
+};
+
+export type ProcurementOrder = {
+    id: string;
+    number: string;
+    supplierId: string;
+    supplierName: string;
+    warehouseId: string;
+    status: string;
+    expectedAt: string | null;
+    receivedAt: string | null;
+    totalAmount: number;
+    items: ProcurementOrderItem[];
+};
+
+export type ProcurementOrdersPage = {
+    content: ProcurementOrder[];
+    number: number;
+    size: number;
+    numberOfElements: number;
+    totalPages: number;
+    totalElements: number;
+    first: boolean;
+    last: boolean;
+    empty: boolean;
+};
+
+export type ProcurementOrdersQueryParams = {
+    page?: number;
+    size?: number;
+    sort?: string | string[];
+};
+
+export type CreateProcurementOrderRequest = {
+    supplierId: string;
+    warehouseId: string;
+    expectedAt: string;
+    items: Array<{
+        nomenclatureId: string;
+        quantity: number;
+        unitPrice: number;
+    }>;
+};
+
+export type ReceiveProcurementOrderRequest = {
+    items: Array<{
+        itemId: string;
+        quantity: number;
+        lotNumber: string;
+        expiresAt: string;
+    }>;
 };

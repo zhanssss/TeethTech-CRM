@@ -12,7 +12,7 @@ import {
 
 import { StatCard } from '@/src/components/ui/Statcard';
 import { useGetAnalyticsQuery } from '@/src/services/api/analyticsApi';
-import ErrorModal from '@/src/components/ui/ErrorModal';
+import ErrorState from '@/src/components/ui/ErrorState';
 
 import type { Analytics } from '@/src/types/analytics.types';
 
@@ -42,14 +42,6 @@ const emptyAnalytics: Analytics = {
     materialShares: {},
 };
 
-const fallbackStageData: StageChartItem[] = [
-    { name: 'Нужно сделать', count: 12 },
-    { name: 'Моделирование', count: 19 },
-    { name: 'Фрезеровка', count: 8 },
-    { name: 'Обработка', count: 15 },
-    { name: 'Готово', count: 34 },
-];
-
 const formatChange = (value: number, suffix = '') => {
     if (value > 0) return `+${value}${suffix}`;
     return `${value}${suffix}`;
@@ -65,10 +57,6 @@ const getStageChartData = (
     const entries = Object.entries(stageLoads ?? {}).filter(
         ([, value]) => value > 0
     );
-
-    if (entries.length === 0) {
-        return fallbackStageData;
-    }
 
     return entries.map(([name, count]) => ({
         name: formatLabel(name),
@@ -99,9 +87,9 @@ export default function AnalyticsPage() {
 
     if (isError) {
         return (
-            <ErrorModal isDismissible={false}>
+            <ErrorState>
                 Не удалось загрузить аналитику
-            </ErrorModal>
+            </ErrorState>
         );
     }
 

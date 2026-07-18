@@ -4,7 +4,7 @@ import {useState} from 'react';
 import Modal from '@/src/components/ui/Modal'
 import {useUpdateClinicMutation} from '@/src/services/api/clinicsApi'
 import {UpdateClinicDto} from "@/src/types/clinic.types";
-import ErrorModal from '@/src/components/ui/ErrorModal';
+import { useNotifications } from '@/src/features/notifications/useNotifications';
 
 type EditClinicModalProps = {
     isOpen: boolean;
@@ -26,11 +26,8 @@ export default function EditClinicModal({
         email: '',
         bin: ''
     });
-    const [errorMessage, setErrorMessage] = useState('');
-
-
-
     const [ updateClinic, {isLoading}] = useUpdateClinicMutation();
+    const { notifyError } = useNotifications();
 
     if (!isOpen || !clinic) return null;
 
@@ -38,11 +35,9 @@ export default function EditClinicModal({
         e: React.FormEvent<HTMLFormElement>
     ) => {
        e.preventDefault();
-       setErrorMessage('');
-
        if(!clinic.id){
            console.log('Clinic id is missing')
-           setErrorMessage('Не найден идентификатор клиники');
+           notifyError('Не найден идентификатор клиники');
            return;
        }
 
@@ -68,7 +63,6 @@ export default function EditClinicModal({
            onClose();
        } catch (e) {
            console.error(e);
-           setErrorMessage('Не удалось сохранить изменения клиники');
        }
     }
 
@@ -76,12 +70,6 @@ export default function EditClinicModal({
 
     return (
         <Modal>
-            {errorMessage && (
-                <ErrorModal onClose={() => setErrorMessage('')}>
-                    {errorMessage}
-                </ErrorModal>
-            )}
-
             <div className="flex items-start justify-between gap-4 border-b border-slate-200 bg-slate-50 px-4 py-4 sm:px-6">
                 <div className="min-w-0">
                     <h2 className="text-xl font-bold text-slate-900">

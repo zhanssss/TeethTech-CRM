@@ -185,8 +185,6 @@ export default function ReturnTaskForReworkModal({
                 setAssignedTo('');
                 await refetchOptions();
             }
-
-            setFormError(getApiErrorMessage(error));
         }
     };
 

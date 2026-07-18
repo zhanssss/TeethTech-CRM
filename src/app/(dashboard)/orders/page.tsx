@@ -10,7 +10,6 @@ import type {
     OrderListItem,
 } from '@/src/types/order.types';
 import type { TaskFileAttachmentType } from '@/src/types/task.types';
-import { addOrder, useOrders } from '@/src/lib/ordersStore';
 import {
     useCreateOrderMutation,
     useDeleteOrderMutation,
@@ -225,42 +224,7 @@ async function uploadOrderTaskFile({
     }
 }
 
-function getErrorMessage(error: unknown) {
-    if (error instanceof Error) {
-        return error.message;
-    }
-
-    if (typeof error === 'object' && error !== null && 'data' in error) {
-        const data = (error as { data?: unknown }).data;
-
-        if (typeof data === 'string') return data;
-
-        if (typeof data === 'object' && data !== null) {
-            const apiError = data as {
-                detail?: unknown;
-                error?: unknown;
-                message?: unknown;
-                title?: unknown;
-            };
-
-            for (const value of [
-                apiError.detail,
-                apiError.message,
-                apiError.error,
-                apiError.title,
-            ]) {
-                if (typeof value === 'string' && value.trim()) {
-                    return value;
-                }
-            }
-        }
-    }
-
-    return 'Unknown error';
-}
-
 export default function OrdersPage() {
-    const localOrders = useOrders();
     const [createOrder, { isLoading: isCreatingOrder }] = useCreateOrderMutation();
     const [deleteOrder, { isLoading: isDeletingOrder }] = useDeleteOrderMutation();
     const [uploadTaskFile] = useUploadTaskFileMutation();
@@ -273,7 +237,6 @@ export default function OrdersPage() {
     const [isUploadingOrderFiles, setIsUploadingOrderFiles] = useState(false);
     const [search, setSearch] = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
-    const [deleteError, setDeleteError] = useState('');
     const [page, setPage] = useState(0);
     const [size, setSize] = useState(DEFAULT_PAGE_SIZE);
     const [sort, setSort] = useState(DEFAULT_ORDER_SORT);
@@ -288,14 +251,8 @@ export default function OrdersPage() {
     });
 
     const orders = useMemo(
-        () => {
-            if (ordersPage) {
-                return ordersPage.content.map(mapApiOrderToListItem);
-            }
-
-            return isOrdersError ? localOrders : [];
-        },
-        [isOrdersError, localOrders, ordersPage]
+        () => ordersPage?.content.map(mapApiOrderToListItem) ?? [],
+        [ordersPage]
     );
 
     const statuses = Array.from(new Set(orders.map((order) => order.status)));
@@ -335,10 +292,7 @@ export default function OrdersPage() {
     };
 
     const handleCreateOrder = async (payload: CreateOrderDto) => {
-        setDeleteError('');
         const createdOrder = await createOrder(stripOrderFiles(payload)).unwrap();
-
-        addOrder(mapApiOrderToListItem(createdOrder));
 
         setIsUploadingOrderFiles(true);
 
@@ -354,7 +308,6 @@ export default function OrdersPage() {
             });
         } catch (error) {
             console.error('Order file upload failed:', error);
-            setDeleteError(`Order created, but files were not uploaded: ${getErrorMessage(error)}`);
         } finally {
             setIsUploadingOrderFiles(false);
         }
@@ -364,13 +317,10 @@ export default function OrdersPage() {
         const shouldDelete = window.confirm('Удалить заказ?');
         if (!shouldDelete) return;
 
-        setDeleteError('');
-
         try {
             await deleteOrder(orderId).unwrap();
         } catch (error) {
             console.error('Ошибка удаления заказа:', error);
-            setDeleteError('Не удалось удалить заказ');
         }
     };
 
@@ -389,9 +339,9 @@ export default function OrdersPage() {
                 </button>
             </div>
 
-            {(isOrdersError || deleteError) && (
+            {isOrdersError && (
                 <div className="rounded-xl border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm font-semibold text-yellow-800">
-                    {deleteError || 'Не удалось загрузить заказы с сервера, показаны локальные данные.'}
+                    Не удалось загрузить заказы с сервера.
                 </div>
             )}
 

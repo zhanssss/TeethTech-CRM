@@ -93,7 +93,6 @@ export default function QualityIncidentsPanel({
             if (getErrorStatus(error) === 409) {
                 void refetch();
             }
-            setResolveError(getResolveErrorMessage(error));
         }
     };
 
@@ -348,19 +347,6 @@ function formatDateTime(value: string) {
 
 function shortId(value: string) {
     return value.length > 12 ? `${value.slice(0, 8)}…` : value;
-}
-
-function getResolveErrorMessage(error: unknown) {
-    const status = getErrorStatus(error);
-
-    if (status === 400) return 'Добавьте корректный комментарий по устранению.';
-    if (status === 401) return 'Сессия истекла. Войдите в систему повторно.';
-    if (status === 403) return 'У вас нет права закрывать этот инцидент.';
-    if (status === 404) return 'Инцидент или задача не найдены.';
-    if (status === 409) return 'Состояние инцидента уже изменилось. Список обновлён.';
-    if (status === 500) return 'Внутренняя ошибка сервера. Попробуйте ещё раз позже.';
-
-    return 'Не удалось закрыть инцидент.';
 }
 
 function getErrorStatus(error: unknown) {

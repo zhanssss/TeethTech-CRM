@@ -3,7 +3,6 @@
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useMemo, useState } from 'react';
-import { mockEmployees } from '@/src/mock/employees';
 import { mockTasksByEmployee } from '@/src/mock/employeeTasks';
 import { mockMonthlyHistory } from '@/src/mock/employeeHistory';
 import {
@@ -12,7 +11,9 @@ import {
     EmployeeTask,
     TaskStatus,
 } from '@/src/types/employee.types';
-import ErrorModal from '@/src/components/ui/ErrorModal';
+import ErrorState from '@/src/components/ui/ErrorState';
+import { useGetUsersQuery } from '@/src/services/api/usersApi';
+import { mapUserToEmployee } from '@/src/utils/employeesUtils';
 
 
 function getRoleLabel(role: EmployeeRole) {
@@ -141,17 +142,29 @@ function StatCard({
 export default function EmployeeDetailsPage() {
     const params = useParams<{ id: string | string[] }>();
     const id = Array.isArray(params.id) ? params.id[0] : params.id;
+    const { data: users = [], isLoading, isError } = useGetUsersQuery();
 
     const employee = useMemo(
-        () => mockEmployees.find((item) => item.id === id),
-        [id]
+        () => {
+            const user = users.find((item) => item.id === id);
+            return user ? mapUserToEmployee(user) : undefined;
+        },
+        [id, users]
     );
 
     const [tasks] = useState<EmployeeTask[]>(mockTasksByEmployee[id] || []);
 
+    if (isLoading) {
+        return <div className="text-sm text-slate-500">Загрузка сотрудника...</div>;
+    }
+
+    if (isError) {
+        return <ErrorState>Не удалось загрузить сотрудника</ErrorState>;
+    }
+
     if (!employee) {
         return (
-            <ErrorModal title="Сотрудник не найден" isDismissible={false}>
+            <ErrorState title="Сотрудник не найден">
                 <div className="space-y-4">
                     <p>Проверь id или вернись в список сотрудников.</p>
                     <Link
@@ -161,7 +174,7 @@ export default function EmployeeDetailsPage() {
                         ← Сотрудники
                     </Link>
                 </div>
-            </ErrorModal>
+            </ErrorState>
         );
     }
 
