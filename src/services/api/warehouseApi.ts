@@ -21,6 +21,7 @@ import type {
     UpdateInventoryItemRequest,
     UpsertProcurementSupplierRequest,
 } from '@/src/types/warehouse.types';
+import {formatPhoneNumber} from '@/src/utils/phone';
 
 type InventoryItemArgs = {
     id: string;
@@ -323,7 +324,7 @@ export const warehouseApi = teethTechApi.injectEndpoints({
             query: (body) => ({
                 url: '/warehouse/procurement/suppliers',
                 method: 'POST',
-                body,
+                body: {...body, phone: formatPhoneNumber(body.phone)},
             }),
             invalidatesTags: (_result, _error, body) => [
                 { type: 'ProcurementSuppliers', id: body.id },

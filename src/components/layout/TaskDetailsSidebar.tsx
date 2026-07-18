@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useSelector } from 'react-redux';
 import ReturnTaskForReworkModal from '@/src/components/Modals/ReturnTaskForReworkModal';
 import QualityIncidentsPanel from '@/src/components/tasks/QualityIncidentsPanel';
@@ -18,7 +18,7 @@ type TaskDetailsSidebarProps = {
 };
 
 export default function TaskDetailsSidebar({
-                                               task,
+                                               task: selectedTask,
                                                onClose,
                                                onAddComment,
                                                onAddAttachments,
@@ -26,9 +26,41 @@ export default function TaskDetailsSidebar({
                                            }: TaskDetailsSidebarProps) {
     const [commentText, setCommentText] = useState('');
     const [reworkModalTaskId, setReworkModalTaskId] = useState('');
+    const [renderedTask, setRenderedTask] = useState<Task | null>(selectedTask);
+    const [isVisible, setIsVisible] = useState(false);
     const { isAuthenticated } = useSelector((state: RootState) => state.auth);
 
-    if (!task) return null;
+    useEffect(() => {
+        let animationFrame: number | undefined;
+        let visibilityFrame: number | undefined;
+        let removalTimeout: number | undefined;
+
+        if (selectedTask) {
+            animationFrame = window.requestAnimationFrame(() => {
+                setRenderedTask(selectedTask);
+                visibilityFrame = window.requestAnimationFrame(() => setIsVisible(true));
+            });
+        } else {
+            animationFrame = window.requestAnimationFrame(() => {
+                setIsVisible(false);
+                const shouldReduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+                removalTimeout = window.setTimeout(
+                    () => setRenderedTask(null),
+                    shouldReduceMotion ? 0 : SIDEBAR_ANIMATION_DURATION
+                );
+            });
+        }
+
+        return () => {
+            if (animationFrame !== undefined) window.cancelAnimationFrame(animationFrame);
+            if (visibilityFrame !== undefined) window.cancelAnimationFrame(visibilityFrame);
+            if (removalTimeout !== undefined) window.clearTimeout(removalTimeout);
+        };
+    }, [selectedTask]);
+
+    if (!renderedTask) return null;
+
+    const task = renderedTask;
 
     const canReturnForRework = isAuthenticated && isTaskEligibleForRework(task);
 
@@ -45,10 +77,21 @@ export default function TaskDetailsSidebar({
         <>
             <div
                 onClick={onClose}
-                className="fixed inset-0 z-40 bg-slate-900/20 backdrop-blur-[1px]"
+                aria-hidden="true"
+                className={`fixed inset-0 z-40 bg-slate-900/20 backdrop-blur-[1px] transition-opacity duration-300 ease-out motion-reduce:transition-none ${
+                    isVisible ? 'opacity-100' : 'pointer-events-none opacity-0'
+                }`}
             />
 
-            <aside className="fixed inset-x-0 bottom-0 z-50 flex h-[92dvh] w-full flex-col rounded-t-2xl border-l border-slate-200 bg-white shadow-2xl sm:inset-x-auto sm:right-0 sm:top-0 sm:h-dvh sm:max-w-[30rem] sm:rounded-none">
+            <aside
+                inert={!isVisible}
+                aria-hidden={!isVisible}
+                className={`fixed inset-x-0 bottom-0 z-50 flex h-[92dvh] w-full flex-col rounded-t-2xl border-l border-slate-200 bg-white shadow-2xl transition-transform duration-300 ease-out motion-reduce:transition-none sm:inset-x-auto sm:right-0 sm:top-0 sm:h-dvh sm:max-w-[30rem] sm:rounded-none ${
+                    isVisible
+                        ? 'translate-y-0 sm:translate-x-0'
+                        : 'pointer-events-none translate-y-full sm:translate-x-full sm:translate-y-0'
+                }`}
+            >
                 <div className="flex items-start justify-between gap-4 border-b border-slate-200 p-4 sm:p-5">
                     <div className="min-w-0">
                         <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
@@ -191,6 +234,7 @@ export default function TaskDetailsSidebar({
 }
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const SIDEBAR_ANIMATION_DURATION = 300;
 
 const NON_PRODUCTION_STATUSES = new Set([
     'TODO',

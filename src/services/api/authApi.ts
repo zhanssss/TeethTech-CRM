@@ -5,6 +5,7 @@ import type {
     Login,
     Register,
 } from "@/src/types/auth.types"
+import {formatPhoneNumber} from '@/src/utils/phone';
 
 
 export const authApi = teethTechApi.injectEndpoints({
@@ -13,7 +14,7 @@ export const authApi = teethTechApi.injectEndpoints({
             query: (body) => ({
                url: '/users',
                method: 'POST',
-               body,
+               body: {...body, phone: formatPhoneNumber(body.phone)},
             }),
             invalidatesTags: ["Users"]
         }),

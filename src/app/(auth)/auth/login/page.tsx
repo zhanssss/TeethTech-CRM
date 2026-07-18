@@ -8,6 +8,8 @@ import { getAuthRedirectPath, normalizeAuthRole } from '@/src/features/auth/auth
 import type { AppDispatch } from '@/src/lib/store';
 import { useLoginUserMutation } from '@/src/services/api/authApi';
 import { useNotifications } from '@/src/features/notifications/useNotifications';
+import TeethTechLogo from '@/src/components/branding/TeethTechLogo';
+import logo from '@/public/teethtech-logo-full-v3.svg'
 
 export default function LoginPage() {
     const dispatch = useDispatch<AppDispatch>();
@@ -57,17 +59,15 @@ export default function LoginPage() {
                 <div className="grid w-full max-w-5xl overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl lg:grid-cols-2">
                     <div className="hidden flex-col justify-between bg-slate-900 p-10 text-white lg:flex">
                         <div>
-                            <div className="mb-6 flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-500 text-2xl font-black">
-                                TT
-                            </div>
-                            <h1 className="max-w-sm text-4xl font-black leading-tight">
-                                TeethTech CRM
+                            <h1 className="w-full">
+                                <TeethTechLogo onDarkBackground priority  />
                             </h1>
-                            <p className="mt-4 max-w-md text-sm leading-6 text-slate-300">
-                                Управление заказами, задачами и производственными этапами
-                                зуботехнической лаборатории в одном интерфейсе.
-                            </p>
+
                         </div>
+                        <p className="mt-6 max-w-md text-sm leading-6 text-slate-300">
+                            Управление заказами, задачами и производственными этапами
+                            зуботехнической лаборатории в одном интерфейсе.
+                        </p>
 
                         <div className="space-y-4">
                             <p className="text-xs text-slate-400">
@@ -79,13 +79,10 @@ export default function LoginPage() {
                     <div className="flex items-center justify-center p-6 sm:p-10">
                         <div className="w-full max-w-md">
                             <div className="mb-8 lg:hidden">
-                                <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-600 text-2xl font-black text-white">
-                                    TT
-                                </div>
-                                <h1 className="text-3xl font-black text-slate-900">
-                                    TeethTech CRM
+                                <h1 className="w-64 max-w-full">
+                                    <TeethTechLogo priority />
                                 </h1>
-                                <p className="mt-2 text-sm text-slate-500">
+                                <p className="mt-4 text-sm text-slate-500">
                                     Вход в систему лаборатории
                                 </p>
                             </div>

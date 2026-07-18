@@ -6,6 +6,7 @@ import type {
     UpdateUserProfileRequest,
     User
 } from "@/src/types/user.types"
+import {formatPhoneNumber} from '@/src/utils/phone';
 
 type ChangeUserPasswordArgs = {
     id: string;
@@ -22,7 +23,7 @@ export const usersApi = teethTechApi.injectEndpoints({
             query: ({ id, body }) => ({
                 url: `/users/${id}`,
                 method: 'PATCH',
-                body,
+                body: {...body, phone: formatPhoneNumber(body.phone)},
             }),
             invalidatesTags: ['Users'],
         }),
@@ -47,7 +48,13 @@ export const usersApi = teethTechApi.injectEndpoints({
             query: (body) => ({
                 url: '/users/batch',
                 method: 'POST',
-                body,
+                body: {
+                    ...body,
+                    employees: body.employees.map((employee) => ({
+                        ...employee,
+                        phone: formatPhoneNumber(employee.phone),
+                    })),
+                },
             }),
             invalidatesTags: ['Users'],
         }),

@@ -58,28 +58,33 @@ export default function DashboardLayout({
 
     return (
         <div className="relative flex h-dvh w-full overflow-hidden bg-slate-50">
-            {isSidebarOpen && (
-                <div
-                    onClick={() => setIsSidebarOpen(false)}
-                    className="fixed inset-0 z-40 bg-slate-900/40 backdrop-blur-[1px] lg:hidden"
-                />
-            )}
+            <div
+                onClick={() => setIsSidebarOpen(false)}
+                aria-hidden="true"
+                className={`fixed inset-0 z-40 bg-slate-900/40 backdrop-blur-[1px] transition-opacity duration-300 ease-out motion-reduce:transition-none lg:hidden ${
+                    isSidebarOpen ? 'opacity-100' : 'pointer-events-none opacity-0'
+                }`}
+            />
 
-            {isSidebarOpen && (
-                <Sidebar onClose={() => setIsSidebarOpen(false)} />
-            )}
+            <Sidebar
+                isOpen={isSidebarOpen}
+                onClose={() => setIsSidebarOpen(false)}
+            />
 
-            {!isSidebarOpen && (
-                <button
-                    onClick={() => setIsSidebarOpen(true)}
-                    className="absolute left-4 top-4 z-50 hidden h-10 w-10 items-center justify-center rounded-lg bg-slate-900 text-white shadow-lg transition-colors hover:bg-slate-800 lg:flex"
-                    aria-label="Открыть навигацию"
-                >
-                    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" className="h-5 w-5">
-                        <path strokeLinecap="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" />
-                    </svg>
-                </button>
-            )}
+            <button
+                onClick={() => setIsSidebarOpen(true)}
+                disabled={isSidebarOpen}
+                className={`absolute left-4 top-4 z-50 hidden h-10 w-10 items-center justify-center rounded-lg bg-slate-900 text-white shadow-lg transition-[opacity,transform,background-color] duration-200 hover:bg-slate-800 motion-reduce:transition-none lg:flex ${
+                    isSidebarOpen
+                        ? 'pointer-events-none scale-90 opacity-0'
+                        : 'scale-100 opacity-100 delay-150'
+                }`}
+                aria-label="Открыть навигацию"
+            >
+                <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" className="h-5 w-5">
+                    <path strokeLinecap="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+            </button>
 
             <div className="flex min-w-0 flex-1 flex-col">
                 <Header onMenuClick={() => setIsSidebarOpen(true)} />

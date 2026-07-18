@@ -2,6 +2,7 @@
 
 import {useState} from 'react';
 import Modal from '@/src/components/ui/Modal'
+import PhoneInput from '@/src/components/ui/PhoneInput';
 import {useUpdateClinicMutation} from '@/src/services/api/clinicsApi'
 import {UpdateClinicDto} from "@/src/types/clinic.types";
 import { useNotifications } from '@/src/features/notifications/useNotifications';
@@ -127,11 +128,10 @@ export default function EditClinicModal({
                         <label className="mb-1 block text-xs font-bold uppercase text-slate-400">
                             Телефон
                         </label>
-                        <input
-                            type="text"
-                            value={formData.phone}
-                            onChange={(e) =>
-                                setFormData({...formData, phone: e.target.value})
+                        <PhoneInput
+                            value={formData.phone ?? ''}
+                            onValueChange={(phone) =>
+                                setFormData({...formData, phone})
                             }
                             className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-500 focus:bg-white"
                         />

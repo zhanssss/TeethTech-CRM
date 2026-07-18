@@ -3,6 +3,7 @@
 import {useState} from 'react';
 import {  CreateClinicDto} from '@/src/types/clinic.types';
 import Modal from "../ui/Modal";
+import PhoneInput from '../ui/PhoneInput';
 import {useCreateClinicMutation} from "@/src/services/api/clinicsApi";
 
 type CreateClinicModalProps = {
@@ -105,13 +106,11 @@ export default function CreateClinicModal({
                         <label className="mb-1 block text-xs font-bold uppercase text-slate-400">
                             Телефон
                         </label>
-                        <input
-                            type="text"
+                        <PhoneInput
                             value={formData.phone}
-                            onChange={(e) =>
-                                setFormData({...formData, phone: e.target.value})
+                            onValueChange={(phone) =>
+                                setFormData({...formData, phone})
                             }
-                            placeholder="+7 777 000 00 00"
                             className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-500 focus:bg-white"
                         />
                     </div>

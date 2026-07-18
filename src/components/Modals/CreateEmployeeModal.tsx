@@ -1,5 +1,6 @@
 import { FormEvent, useState } from 'react';
 import Modal from '@/src/components/ui/Modal';
+import PhoneInput from '@/src/components/ui/PhoneInput';
 import QueryErrorNotice from '@/src/components/ui/QueryErrorNotice';
 import { useRegisterUserMutation } from '@/src/services/api/authApi';
 import { useGetRolesQuery } from '@/src/services/api/rolesApi';
@@ -87,11 +88,9 @@ export default function CreateEmployeeModal({ onClose }: CreateEmployeeModalProp
                     className="w-full rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm outline-none transition focus:border-blue-500 focus:bg-white"
                 />
 
-                <input
-                    type="tel"
+                <PhoneInput
                     value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    placeholder="+7 777 123 45 67"
+                    onValueChange={setPhone}
                     required
                     className="w-full rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm outline-none transition focus:border-blue-500 focus:bg-white"
                 />

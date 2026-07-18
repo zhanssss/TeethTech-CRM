@@ -18,6 +18,7 @@ import type  {
     GetClinicsParams,
     SearchClinicsParams
 } from '@/src/types/params.types'
+import {formatPhoneNumber} from '@/src/utils/phone';
 
 export const clinicsApi = teethTechApi.injectEndpoints({
     endpoints: (builder) => ({
@@ -114,7 +115,12 @@ export const clinicsApi = teethTechApi.injectEndpoints({
             query: ({id, body}) => ({
                 url: `/clinics/${id}`,
                 method: "PATCH",
-                body,
+                body: {
+                    ...body,
+                    ...(body.phone !== undefined
+                        ? {phone: formatPhoneNumber(body.phone)}
+                        : {}),
+                },
             }),
 
             invalidatesTags: (_result, _error, {id}) => ["Clinics", {
@@ -126,7 +132,7 @@ export const clinicsApi = teethTechApi.injectEndpoints({
             query: (body) => ({
                 url: '/clinics',
                 method: 'POST',
-                body,
+                body: {...body, phone: formatPhoneNumber(body.phone)},
             }),
             invalidatesTags: ["Clinics"],
         }),

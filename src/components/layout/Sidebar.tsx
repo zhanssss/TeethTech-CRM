@@ -8,6 +8,7 @@ import { logout } from '@/src/features/auth/authSlice';
 import { AppDispatch, RootState } from '@/src/lib/store';
 import { teethTechApi } from '@/src/services/teethTechApi';
 import { useNotifications } from '@/src/features/notifications/useNotifications';
+import TeethTechLogo from '@/src/components/branding/TeethTechLogo';
 
 type MenuItem = {
     name: string;
@@ -20,12 +21,13 @@ type MenuItem = {
 };
 
 type SidebarProps = {
+    isOpen: boolean;
     onClose: () => void;
 };
 
 
 
-export default function Sidebar({ onClose }: SidebarProps) {
+export default function Sidebar({ isOpen, onClose }: SidebarProps) {
     const pathname = usePathname();
     const dispatch = useDispatch<AppDispatch>();
     const router = useRouter();
@@ -110,14 +112,22 @@ export default function Sidebar({ onClose }: SidebarProps) {
     };
 
     return (
-        <aside className="fixed inset-y-0 left-0 z-50 flex h-dvh w-[min(18rem,85vw)] flex-col bg-slate-900 text-white shadow-2xl lg:static lg:w-64 lg:shadow-none">
+        <aside
+            inert={!isOpen}
+            aria-hidden={!isOpen}
+            className={`fixed inset-y-0 left-0 z-50 h-dvh w-[min(18rem,85vw)] overflow-hidden transition-transform duration-300 ease-out motion-reduce:transition-none lg:static lg:z-auto lg:shrink-0 lg:translate-x-0 lg:transition-[width] ${
+                isOpen
+                    ? 'translate-x-0 lg:w-64'
+                    : 'pointer-events-none -translate-x-full lg:w-0'
+            }`}
+        >
+            <div className="flex h-full w-[min(18rem,85vw)] flex-col bg-slate-900 text-white shadow-2xl lg:w-64 lg:shadow-none">
             <div className="flex items-center justify-between border-b border-slate-800 p-4 sm:p-6">
-                <div className="flex min-w-0 items-center gap-2 text-xl font-bold sm:text-2xl">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600 text-sm">
-                        TT
-                    </div>
-                    <span className="truncate">TeethTech</span>
-                </div>
+                <TeethTechLogo
+                    className="w-40 sm:w-full"
+                    onDarkBackground
+                    priority
+                />
 
                 <button
                     onClick={onClose}
@@ -201,6 +211,7 @@ export default function Sidebar({ onClose }: SidebarProps) {
                         {isLoggingOut ? 'Выходим...' : 'Выйти из CRM'}
                     </span>
                 </button>
+            </div>
             </div>
         </aside>
     );

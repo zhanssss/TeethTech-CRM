@@ -3,6 +3,7 @@
 import { type FormEvent, useMemo, useState } from 'react';
 
 import Modal from '@/src/components/ui/Modal';
+import PhoneInput from '@/src/components/ui/PhoneInput';
 import {
     useCreateProcurementOrderMutation,
     useGetNomenclatureQuery,
@@ -338,7 +339,7 @@ function SupplierModal({
                 <div className="grid gap-4 sm:grid-cols-2">
                     <label className="block space-y-1.5 text-sm font-bold text-slate-700">
                         <span>Телефон</span>
-                        <input type="tel" value={phone} onChange={(event) => setPhone(event.target.value)} placeholder="+7 700 000 00 00" className={fieldClassName} />
+                        <PhoneInput value={phone} onValueChange={setPhone} className={fieldClassName} />
                     </label>
                     <label className="block space-y-1.5 text-sm font-bold text-slate-700">
                         <span>Email</span>
