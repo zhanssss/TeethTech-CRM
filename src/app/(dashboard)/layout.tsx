@@ -8,6 +8,7 @@ import Sidebar from '@/src/components/layout/Sidebar';
 import Header from '@/src/components/layout/Header';
 import { getAuthRedirectPath } from '@/src/features/auth/authUtils';
 import { RootState } from '@/src/lib/store';
+import ChatNotifications from '@/src/components/Chat/ChatNotifications';
 
 export default function DashboardLayout({
                                             children,
@@ -58,6 +59,7 @@ export default function DashboardLayout({
 
     return (
         <div className="relative flex h-dvh w-full overflow-hidden bg-slate-50">
+            <ChatNotifications />
             <div
                 onClick={() => setIsSidebarOpen(false)}
                 aria-hidden="true"

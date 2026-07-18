@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
+import { useRouter } from 'next/navigation';
 
 import {
     dismissNotification,
@@ -12,6 +13,14 @@ import type { AppDispatch, RootState } from '@/src/lib/store';
 const EXIT_ANIMATION_MS = 260;
 
 function StatusIcon({ tone }: Pick<AppNotification, 'tone'>) {
+	if (tone === 'message') {
+		return (
+			<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" className="h-5 w-5">
+				<path d="M21 15a2 2 0 0 1-2 2H8l-5 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v10Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+			</svg>
+		);
+	}
+
     if (tone === 'success') {
         return (
             <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" className="h-5 w-5">
@@ -30,6 +39,7 @@ function StatusIcon({ tone }: Pick<AppNotification, 'tone'>) {
 
 function NotificationToast({ notification }: { notification: AppNotification }) {
     const dispatch = useDispatch<AppDispatch>();
+	const router = useRouter();
     const [isLeaving, setIsLeaving] = useState(false);
     const isLeavingRef = useRef(false);
     const removeTimerRef = useRef<number | null>(null);
@@ -59,27 +69,52 @@ function NotificationToast({ notification }: { notification: AppNotification }) 
     }, [dismiss, notification.duration]);
 
     const isSuccess = notification.tone === 'success';
+	const isMessage = notification.tone === 'message';
+	const openNotification = () => {
+		if (!notification.href) return;
+		router.push(notification.href);
+		dismiss();
+	};
 
     return (
         <article
-            role={isSuccess ? 'status' : 'alert'}
-            aria-live={isSuccess ? 'polite' : 'assertive'}
-            className={`notification-toast relative w-full overflow-hidden rounded-2xl border bg-white/95 shadow-[0_18px_50px_-18px_rgba(15,23,42,0.45)] backdrop-blur-xl ${
+            role={notification.tone === 'error' ? 'alert' : 'status'}
+			aria-live={notification.tone === 'error' ? 'assertive' : 'polite'}
+            tabIndex={notification.href ? 0 : undefined}
+			onClick={openNotification}
+            onKeyDown={(event) => {
+                if (notification.href && (event.key === 'Enter' || event.key === ' ')) {
+                    event.preventDefault();
+					openNotification();
+                }
+            }}
+            className={`notification-toast relative w-full overflow-hidden rounded-2xl border bg-white/95 shadow-[0_18px_50px_-18px_rgba(15,23,42,0.45)] backdrop-blur-xl ${notification.href ? 'cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500' : ''} ${
                 isLeaving ? 'notification-toast--leaving' : 'notification-toast--entering'
-            } ${isSuccess ? 'border-emerald-200/90' : 'border-red-200/90'}`}
+            } ${isMessage ? 'border-blue-200/90' : isSuccess ? 'border-emerald-200/90' : 'border-red-200/90'}`}
         >
             <div className="flex items-start gap-3.5 px-4 pb-4 pt-4 sm:px-5">
                 <div
-                    className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${
-                        isSuccess
+					className={`flex h-11 w-11 shrink-0 items-center justify-center ${isMessage ? 'rounded-full text-sm font-black' : 'rounded-xl'} ${
+						isMessage
+							? 'bg-blue-100 text-blue-700'
+							: isSuccess
                             ? 'bg-emerald-100 text-emerald-700'
                             : 'bg-red-100 text-red-700'
                     }`}
                 >
-                    <StatusIcon tone={notification.tone} />
+					{isMessage ? (
+						notification.title.trim().slice(0, 1).toLocaleUpperCase('ru') || 'С'
+					) : (
+						<StatusIcon tone={notification.tone} />
+					)}
                 </div>
 
                 <div className="min-w-0 flex-1 pt-0.5">
+					{isMessage ? (
+						<p className="mb-0.5 text-[10px] font-black uppercase tracking-[0.16em] text-blue-600">
+							Новое сообщение
+						</p>
+					) : null}
                     <h2 className="text-sm font-extrabold tracking-tight text-slate-900">
                         {notification.title}
                     </h2>
@@ -90,7 +125,10 @@ function NotificationToast({ notification }: { notification: AppNotification }) 
 
                 <button
                     type="button"
-                    onClick={dismiss}
+                    onClick={(event) => {
+                        event.stopPropagation();
+                        dismiss();
+                    }}
                     aria-label="Закрыть уведомление"
                     className="-mr-1 -mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-xl leading-none text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
                 >
@@ -98,10 +136,10 @@ function NotificationToast({ notification }: { notification: AppNotification }) 
                 </button>
             </div>
 
-            <div className={`h-1 w-full ${isSuccess ? 'bg-emerald-100' : 'bg-red-100'}`}>
+			<div className={`h-1 w-full ${isMessage ? 'bg-blue-100' : isSuccess ? 'bg-emerald-100' : 'bg-red-100'}`}>
                 <div
                     className={`notification-toast__progress h-full ${
-                        isSuccess ? 'bg-emerald-500' : 'bg-red-500'
+						isMessage ? 'bg-blue-600' : isSuccess ? 'bg-emerald-500' : 'bg-red-500'
                     }`}
                     style={{ animationDuration: `${notification.duration}ms` }}
                 />
@@ -116,7 +154,7 @@ export default function NotificationViewport() {
     return (
         <div
             aria-label="Уведомления"
-            className="pointer-events-none fixed inset-x-3 top-3 z-[100] flex flex-col items-center gap-3 sm:left-auto sm:right-5 sm:top-5 sm:w-[min(24rem,calc(100vw-2.5rem))] sm:items-stretch"
+			className="pointer-events-none fixed inset-x-3 top-3 z-[120] flex flex-col items-center gap-3 sm:left-auto sm:right-5 sm:top-5 sm:w-[min(26rem,calc(100vw-2.5rem))] sm:items-stretch"
         >
             {notifications.map((notification) => (
                 <div key={notification.id} className="pointer-events-auto w-full max-w-md sm:max-w-none">

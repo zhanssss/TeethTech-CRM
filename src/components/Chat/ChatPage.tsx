@@ -1,7 +1,7 @@
 'use client'
 
 import { useParams, useRouter } from 'next/navigation'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 
 import ErrorState from '@/src/components/ui/ErrorState'
@@ -9,7 +9,8 @@ import Modal from '@/src/components/ui/Modal'
 import {
 	appendMessage,
 	appendMessages,
-	applyRealtimeEvent,
+	removeMessage,
+	replaceMessage,
 	setActiveConversation,
 	setChats,
 	setLoadingChats,
@@ -36,13 +37,7 @@ import {
 } from '@/src/services/api/chatApi'
 import { useGetUsersQuery } from '@/src/services/api/usersApi'
 import {
-	addChatRealtimeListener,
-	connectChatRealtime,
-	disconnectChatRealtime,
 	getChatRealtimeStatus,
-	removeChatRealtimeListener,
-	sendChatRead,
-	sendChatTextMessage
 } from '@/src/services/chatRealtimeService'
 import type {
 	ChatMemberDto,
@@ -66,7 +61,9 @@ export default function ChatPage() {
 	const router = useRouter()
 	const params = useParams<{ conversationId?: string }>()
 	const dispatch = useDispatch()
-	const { id: currentUserId } = useSelector((state: RootState) => state.auth)
+	const { id: currentUserId, name: currentUserName } = useSelector(
+		(state: RootState) => state.auth
+	)
 	const {
 		chats,
 		activeConversationId,
@@ -92,6 +89,7 @@ export default function ChatPage() {
 	const [newTitle, setNewTitle] = useState('')
 	const [uploadError, setUploadError] = useState<string | null>(null)
 	const [sendError, setSendError] = useState<string | null>(null)
+	const [isNearBottom, setIsNearBottom] = useState(true)
 	const messageListRef = useRef<HTMLDivElement | null>(null)
 	const composerRef = useRef<HTMLTextAreaElement | null>(null)
 	const shouldLoadMoreRef = useRef(false)
@@ -120,18 +118,37 @@ export default function ChatPage() {
 	const activeMessages = activeConversationId
 		? (messagesByConversation[activeConversationId] ?? [])
 		: []
+	const sortedMessages = useMemo(
+		() =>
+			[...activeMessages].sort(
+				(left, right) =>
+					new Date(left.createdAt).getTime() -
+					new Date(right.createdAt).getTime()
+			),
+		[activeMessages]
+	)
 	const activeMembers = activeConversationId
 		? (membersByConversation[activeConversationId] ?? [])
 		: []
 	const activePagination = activeConversationId
 		? paginationByConversation[activeConversationId]
 		: undefined
-
 	const filteredChats = useMemo(() => {
-		const term = search.trim().toLowerCase()
-		if (!term) return chats
-		return chats.filter(chat => chat.title.toLowerCase().includes(term))
+		const term = search.trim().toLocaleLowerCase('ru')
+		return [...chats]
+			.sort(
+				(left, right) =>
+					Date.parse(right.lastMessageAt ?? '') -
+					Date.parse(left.lastMessageAt ?? '')
+			)
+			.filter(chat => !term || chat.title.toLocaleLowerCase('ru').includes(term))
 	}, [chats, search])
+
+	const scrollToBottom = () => {
+		const el = messageListRef.current
+		if (!el) return
+		el.scrollTop = el.scrollHeight
+	}
 
 	const filteredUsers = useMemo(() => {
 		const term = memberSearch.trim().toLowerCase()
@@ -178,35 +195,6 @@ export default function ChatPage() {
 			dispatch(setChats(chatList))
 		}
 	}, [chatList, dispatch])
-
-	useEffect(() => {
-		connectChatRealtime()
-		const listener = (event: {
-			conversationId: string
-			type: 'MESSAGE_CREATED' | 'MESSAGES_READ' | 'CHAT_UPDATED'
-			message?: ChatMessageDto | null
-			userId?: string | null
-			occurredAt?: string
-		}) => {
-			dispatch(applyRealtimeEvent(event))
-			const conversationId = event.conversationId
-			if (event.type === 'MESSAGE_CREATED' && event.message) {
-				const message = event.message
-				const shouldMarkRead =
-					activeConversationId === conversationId &&
-					document.visibilityState === 'visible' &&
-					message.senderId !== currentUserId
-				if (shouldMarkRead) {
-					sendChatRead(conversationId)
-				}
-			}
-		}
-		addChatRealtimeListener(listener)
-		return () => {
-			removeChatRealtimeListener(listener)
-			disconnectChatRealtime()
-		}
-	}, [activeConversationId, currentUserId, dispatch])
 
 	useEffect(() => {
 		const conversationId = params.conversationId
@@ -261,6 +249,13 @@ export default function ChatPage() {
 		}
 	}, [dispatch, messagesByConversation, notifyError, params.conversationId])
 
+	useEffect(
+		() => () => {
+			dispatch(setActiveConversation(null))
+		},
+		[dispatch]
+	)
+
 	useEffect(() => {
 		if (activeConversationId) {
 			void loadMembers(activeConversationId)
@@ -313,20 +308,26 @@ export default function ChatPage() {
 					}
 					void loadOlderMessages()
 				}
+
+				const position = el.scrollHeight - el.scrollTop - el.clientHeight
+				setIsNearBottom(position < 80)
 			}
+
+			handler()
 			el.addEventListener('scroll', handler)
 			return () => el.removeEventListener('scroll', handler)
 		}
 	}, [activeConversationId, activePagination, dispatch, notifyError])
 
-	useEffect(() => {
-		if (activeConversationId && activeMessages.length) {
-			const el = messageListRef.current
-			if (el) {
-				el.scrollTop = el.scrollHeight
-			}
+	useLayoutEffect(() => {
+		if (!activeConversationId || !messageListRef.current) return
+		if (sortedMessages.length === 0) return
+
+		const lastMessage = sortedMessages[sortedMessages.length - 1]
+		if (isNearBottom || lastMessage?.senderId === currentUserId) {
+			scrollToBottom()
 		}
-	}, [activeConversationId, activeMessages.length])
+	}, [activeConversationId, sortedMessages.length, isNearBottom, currentUserId])
 
 	const openDirectChat = async (userId: string) => {
 		if (!userId || userId === currentUserId) return
@@ -368,21 +369,39 @@ export default function ChatPage() {
 		const text = composer.trim()
 		if (!activeConversationId || !text) return
 		if (isSendingMessage || isSendingRest || isUploadingFile) return
+		const conversationId = activeConversationId
+		const originalReplyToId = replyToId
+		const temporaryId = `pending-${crypto.randomUUID()}`
+		const optimisticMessage: ChatMessageDto = {
+			id: temporaryId,
+			conversationId,
+			senderId: currentUserId ?? '',
+			senderName: currentUserName ?? 'Вы',
+			text,
+			replyToId: originalReplyToId,
+			createdAt: new Date().toISOString(),
+			editedAt: null,
+			deleted: false,
+			attachments: []
+		}
 		setSendError(null)
 		dispatch(setSendingMessage(true))
+		dispatch(appendMessage(optimisticMessage))
+		setComposer('')
+		setReplyToId(null)
 		try {
-			const payload = { text, replyToId }
+			const payload = { text, replyToId: originalReplyToId }
 			const created = await sendTextMessage({
-				conversationId: activeConversationId,
+				conversationId,
 				body: payload
 			}).unwrap()
-			dispatch(appendMessage(created))
-			dispatch(setSendingMessage(false))
-			setComposer('')
-			setReplyToId(null)
-			sendChatTextMessage(activeConversationId, payload)
+			dispatch(replaceMessage({ conversationId, temporaryId, message: created }))
 		} catch {
+			dispatch(removeMessage({ conversationId, messageId: temporaryId }))
+			setComposer(text)
+			setReplyToId(originalReplyToId)
 			setSendError('Не удалось отправить сообщение')
+		} finally {
 			dispatch(setSendingMessage(false))
 		}
 	}
@@ -709,17 +728,20 @@ export default function ChatPage() {
 							ref={messageListRef}
 							className="flex-1 overflow-y-auto bg-slate-50 p-4"
 						>
+							<div className="flex min-h-full flex-col">
+							<div className="mt-auto" aria-hidden="true" />
 							{isLoadingMessages ? (
 								<div className="text-center text-sm text-slate-500">
 									Загрузка истории…
 								</div>
-							) : activeMessages.length === 0 ? (
+							) : sortedMessages.length === 0 ? (
 								<div className="text-center text-sm text-slate-500">
 									Сообщений пока нет
 								</div>
 							) : (
-								activeMessages.map(message => renderMessage(message))
+								 sortedMessages.map(message => renderMessage(message))
 							)}
+							</div>
 						</div>
 						<div className="border-t border-slate-200 bg-white p-3">
 							{replyToId ? (

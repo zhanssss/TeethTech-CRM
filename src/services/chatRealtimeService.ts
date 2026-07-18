@@ -1,42 +1,70 @@
 import type { ChatRealtimeEvent } from '@/src/types/chat.types'
-import { Client, IMessage, StompSubscription } from '@stomp/stompjs'
+import {
+	Client,
+	IMessage,
+	StompSubscription,
+	TickerStrategy
+} from '@stomp/stompjs'
 import SockJS from 'sockjs-client'
 
-const WS_ENDPOINT = '/api/v1/ws-crm'
 const CHAT_SUBSCRIPTION_DESTINATION = '/user/queue/chat'
-const RECONNECT_DELAYS_MS = [1000, 2000, 5000, 10000, 30000]
+const IS_REALTIME_DEBUG_ENABLED = process.env.NODE_ENV !== 'production'
+
+function debugRealtime(message: string, details?: unknown) {
+	if (!IS_REALTIME_DEBUG_ENABLED) return
+	if (details === undefined) console.info(`[chat-realtime] ${message}`)
+	else console.info(`[chat-realtime] ${message}`, details)
+}
+
+function getWebSocketEndpoint() {
+	const configuredEndpoint = process.env.NEXT_PUBLIC_BACKEND_WS_URL?.trim()
+	if (configuredEndpoint) return configuredEndpoint
+	if (typeof window === 'undefined') return 'http://localhost:8081/api/v1/ws-crm'
+	return `${window.location.protocol}//${window.location.hostname}:8081/api/v1/ws-crm`
+}
 
 type ChatRealtimeListener = (event: ChatRealtimeEvent) => void
+type ChatRealtimeReconnectListener = () => void
 
 type ChatRealtimeServiceState = {
 	client: Client | null
 	activeSubscriptions: Map<string, StompSubscription>
 	listeners: Set<ChatRealtimeListener>
+	reconnectListeners: Set<ChatRealtimeReconnectListener>
+	hasConnectedBefore: boolean
 	reconnectAttempt: number
 	isConnected: boolean
 	isReconnecting: boolean
 	isOnline: boolean
+	connectionPromise: Promise<void> | null
+	consumerCount: number
+	disconnectTimer: number | null
 }
 
 const state: ChatRealtimeServiceState = {
 	client: null,
 	activeSubscriptions: new Map(),
 	listeners: new Set(),
+	reconnectListeners: new Set(),
+	hasConnectedBefore: false,
 	reconnectAttempt: 0,
 	isConnected: false,
 	isReconnecting: false,
-	isOnline: true
+	isOnline: true,
+	connectionPromise: null,
+	consumerCount: 0,
+	disconnectTimer: null
 }
 
-function getAccessToken(): string | null {
-	if (typeof document === 'undefined') return null
-
-	const cookies = document.cookie.split(';').map(cookie => cookie.trim())
-	const jwtCookie = cookies.find(cookie => cookie.startsWith('teethTechJwt='))
-
-	if (!jwtCookie) return null
-
-	return decodeURIComponent(jwtCookie.split('=')[1] ?? '')
+async function getAccessToken(): Promise<string> {
+	const response = await fetch('/api/auth/ws-token', {
+		cache: 'no-store',
+		credentials: 'same-origin'
+	})
+	if (!response.ok) throw new Error('Realtime authorization failed')
+	const payload = (await response.json()) as { token?: string }
+	if (!payload.token) throw new Error('Realtime token is missing')
+	return payload.token
 }
 
 function notifyConnectionStatus() {
@@ -48,50 +76,59 @@ function notifyConnectionStatus() {
 	return status
 }
 
-function createClient() {
+function createClient(accessToken: string) {
+	const endpoint = getWebSocketEndpoint()
 	const client = new Client({
-		webSocketFactory: () => new SockJS(WS_ENDPOINT),
+		webSocketFactory: () => new SockJS(endpoint),
 		connectHeaders: {
-			Authorization: `Bearer ${getAccessToken() ?? ''}`
+			Authorization: `Bearer ${accessToken}`
 		},
-		reconnectDelay: 0,
+		reconnectDelay: 5000,
+		connectionTimeout: 10000,
+		heartbeatIncoming: 10000,
+		heartbeatOutgoing: 10000,
+		heartbeatStrategy: TickerStrategy.Worker,
 		debug: () => undefined,
 		onConnect: () => {
+			const isReconnect = state.hasConnectedBefore
 			state.isConnected = true
 			state.isReconnecting = false
 			state.reconnectAttempt = 0
+			state.hasConnectedBefore = true
 			subscribeToChat()
+			debugRealtime('CONNECTED', {
+				endpoint,
+				reconnected: isReconnect
+			})
+			if (isReconnect) {
+				state.reconnectListeners.forEach(listener => listener())
+			}
 		},
 		onDisconnect: () => {
 			state.isConnected = false
+			state.activeSubscriptions.clear()
+			debugRealtime('DISCONNECTED')
 		},
-		onWebSocketClose: () => {
+		onWebSocketClose: event => {
 			state.isConnected = false
 			state.isReconnecting = true
-			scheduleReconnect()
+			state.activeSubscriptions.clear()
+			debugRealtime('CLOSED', { code: event.code, reason: event.reason })
 		},
-		onWebSocketError: () => {
+		onWebSocketError: event => {
 			state.isConnected = false
 			state.isReconnecting = true
-			scheduleReconnect()
+			debugRealtime('SOCKET_ERROR', event)
+		},
+		onStompError: frame => {
+			debugRealtime('STOMP_ERROR', {
+				message: frame.headers.message,
+				body: frame.body
+			})
 		}
 	})
 
 	return client
-}
-
-function scheduleReconnect() {
-	if (state.reconnectAttempt >= RECONNECT_DELAYS_MS.length - 1) {
-		return
-	}
-
-	const delay = RECONNECT_DELAYS_MS[state.reconnectAttempt]
-	state.reconnectAttempt += 1
-
-	window.setTimeout(() => {
-		if (!state.client || state.client.active) return
-		state.client.activate()
-	}, delay)
 }
 
 function subscribeToChat() {
@@ -103,6 +140,7 @@ function subscribeToChat() {
 		(message: IMessage) => {
 			try {
 				const payload = JSON.parse(message.body) as ChatRealtimeEvent
+				debugRealtime('MESSAGE_RECEIVED', payload)
 				state.listeners.forEach(listener => listener(payload))
 			} catch (error) {
 				console.error('Failed to parse chat realtime payload', error)
@@ -111,27 +149,56 @@ function subscribeToChat() {
 	)
 
 	state.activeSubscriptions.set(CHAT_SUBSCRIPTION_DESTINATION, subscription)
+	debugRealtime('SUBSCRIBED', CHAT_SUBSCRIPTION_DESTINATION)
 }
 
-function ensureConnection() {
+async function ensureConnection() {
 	if (state.client?.active || state.client?.connected) return
-	if (!state.client) {
-		state.client = createClient()
+	if (state.connectionPromise) return state.connectionPromise
+
+	state.connectionPromise = (async () => {
+		const accessToken = await getAccessToken()
+		debugRealtime('CONNECTING', getWebSocketEndpoint())
+		if (!state.client) state.client = createClient(accessToken)
+		state.client.activate()
+	})()
+
+	try {
+		await state.connectionPromise
+	} catch (error) {
+		state.isConnected = false
+		state.isReconnecting = false
+		console.error('Failed to connect chat realtime', error)
+	} finally {
+		state.connectionPromise = null
 	}
-	state.client.activate()
 }
 
 export function connectChatRealtime() {
-	ensureConnection()
+	state.consumerCount += 1
+	if (state.disconnectTimer !== null) {
+		window.clearTimeout(state.disconnectTimer)
+		state.disconnectTimer = null
+	}
+	void ensureConnection()
 }
 
 export function disconnectChatRealtime() {
-	state.client?.deactivate()
-	state.client = null
-	state.isConnected = false
-	state.isReconnecting = false
-	state.reconnectAttempt = 0
-	state.activeSubscriptions.clear()
+	state.consumerCount = Math.max(0, state.consumerCount - 1)
+	if (state.consumerCount > 0 || state.disconnectTimer !== null) return
+
+	state.disconnectTimer = window.setTimeout(() => {
+		state.disconnectTimer = null
+		if (state.consumerCount > 0) return
+		void state.client?.deactivate()
+		state.client = null
+		state.isConnected = false
+		state.isReconnecting = false
+		state.reconnectAttempt = 0
+		state.activeSubscriptions.clear()
+		state.connectionPromise = null
+		state.hasConnectedBefore = false
+	}, 0)
 }
 
 export function addChatRealtimeListener(listener: ChatRealtimeListener) {
@@ -140,6 +207,18 @@ export function addChatRealtimeListener(listener: ChatRealtimeListener) {
 
 export function removeChatRealtimeListener(listener: ChatRealtimeListener) {
 	state.listeners.delete(listener)
+}
+
+export function addChatRealtimeReconnectListener(
+	listener: ChatRealtimeReconnectListener
+) {
+	state.reconnectListeners.add(listener)
+}
+
+export function removeChatRealtimeReconnectListener(
+	listener: ChatRealtimeReconnectListener
+) {
+	state.reconnectListeners.delete(listener)
 }
 
 export function getChatRealtimeStatus() {

@@ -1,6 +1,6 @@
 import { createSlice, type PayloadAction } from '@reduxjs/toolkit';
 
-export type NotificationTone = 'error' | 'success';
+export type NotificationTone = 'error' | 'success' | 'message';
 
 export type AppNotification = {
     id: string;
@@ -8,6 +8,7 @@ export type AppNotification = {
     title: string;
     message: string;
     duration: number;
+    href?: string;
 };
 
 type NotificationInput = {
@@ -15,6 +16,7 @@ type NotificationInput = {
     message: string;
     title?: string;
     duration?: number;
+    href?: string;
 };
 
 type NotificationsState = {
@@ -24,6 +26,7 @@ type NotificationsState = {
 const DEFAULT_DURATION: Record<NotificationTone, number> = {
     success: 4000,
     error: 6000,
+    message: 6500,
 };
 
 const initialState: NotificationsState = {
@@ -52,13 +55,20 @@ const notificationsSlice = createSlice({
                     state.items.shift();
                 }
             },
-            prepare: ({ tone, message, title, duration }: NotificationInput) => ({
+            prepare: ({ tone, message, title, duration, href }: NotificationInput) => ({
                 payload: {
                     id: `notification-${Date.now()}-${++notificationSequence}`,
                     tone,
-                    title: title ?? (tone === 'success' ? 'Готово' : 'Ошибка'),
+                    title:
+                        title ??
+                        (tone === 'success'
+                            ? 'Готово'
+                            : tone === 'message'
+                              ? 'Новое сообщение'
+                              : 'Ошибка'),
                     message,
                     duration: duration ?? DEFAULT_DURATION[tone],
+                    href,
                 },
             }),
         },

@@ -55,7 +55,6 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 			{ name: 'Заказы', href: '/orders' },
 			{ name: 'Аналитика', href: '/analytics' },
 			{ name: 'Склад', href: '/warehouse' },
-			{ name: 'Сообщения', href: '/chats' },
 			{
 				name: 'Клиники',
 				href: '/clinics',
@@ -150,13 +149,13 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 								<Link
 									href={item.href}
 									onClick={handleNavigate}
-									className={`block rounded-lg p-3 text-sm font-medium transition-colors ${
+									className={`flex items-center justify-between gap-2 rounded-lg p-3 text-sm font-medium transition-colors ${
 										isParentActive
 											? 'bg-blue-600 text-white shadow-lg shadow-blue-900/20'
 											: 'text-slate-400 hover:bg-slate-800 hover:text-white'
 									}`}
 								>
-									{item.name}
+									<span>{item.name}</span>
 								</Link>
 
 								{item.children && isParentActive && (

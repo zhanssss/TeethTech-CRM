@@ -102,6 +102,34 @@ const chatSlice = createSlice({
 				message
 			])
 		},
+		replaceMessage: (
+			state,
+			action: PayloadAction<{
+				conversationId: string
+				temporaryId: string
+				message: ChatMessageDto
+			}>
+		) => {
+			const { conversationId, temporaryId, message } = action.payload
+			const existing = state.messagesByConversation[conversationId] ?? []
+			const temporaryMessage = existing.find(item => item.id === temporaryId)
+			const confirmedMessage = temporaryMessage
+				? { ...message, createdAt: temporaryMessage.createdAt }
+				: message
+			state.messagesByConversation[conversationId] = normalizeMessages([
+				...existing.filter(item => item.id !== temporaryId && item.id !== message.id),
+				confirmedMessage
+			])
+		},
+		removeMessage: (
+			state,
+			action: PayloadAction<{ conversationId: string; messageId: string }>
+		) => {
+			const { conversationId, messageId } = action.payload
+			state.messagesByConversation[conversationId] = (
+				state.messagesByConversation[conversationId] ?? []
+			).filter(item => item.id !== messageId)
+		},
 		setMembers: (
 			state,
 			action: PayloadAction<{
@@ -152,6 +180,52 @@ const chatSlice = createSlice({
 			state.chats = state.chats.map(chat =>
 				chat.id === action.payload ? { ...chat, unreadCount: 0 } : chat
 			)
+			state.totalUnreadCount = recountUnreadCount(state.chats)
+		},
+		incrementChatUnread: (state, action: PayloadAction<string>) => {
+			state.chats = state.chats.map(chat =>
+				chat.id === action.payload
+					? { ...chat, unreadCount: (chat.unreadCount ?? 0) + 1 }
+					: chat
+			)
+			state.totalUnreadCount = recountUnreadCount(state.chats)
+		},
+		receiveIncomingMessage: (
+			state,
+			action: PayloadAction<{
+				message: ChatMessageDto
+				isConversationOpen: boolean
+			}>
+		) => {
+			const { message, isConversationOpen } = action.payload
+			const conversationId = message.conversationId
+			const messages = state.messagesByConversation[conversationId] ?? []
+			const isNewMessage = !messages.some(item => item.id === message.id)
+
+			if (isNewMessage) {
+				state.messagesByConversation[conversationId] = normalizeMessages([
+					...messages,
+					message
+				])
+			}
+
+			const chat = state.chats.find(item => item.id === conversationId)
+			if (chat) {
+				chat.lastMessage = message.text ?? 'Новое вложение'
+				chat.lastMessageAt = message.createdAt
+				if (isConversationOpen) chat.unreadCount = 0
+				else if (isNewMessage) chat.unreadCount = (chat.unreadCount ?? 0) + 1
+			} else {
+				state.chats.unshift({
+					id: conversationId,
+					type: 'DIRECT',
+					title: message.senderName || 'Новый диалог',
+					lastMessage: message.text ?? 'Новое вложение',
+					lastMessageAt: message.createdAt,
+					unreadCount: isConversationOpen ? 0 : 1
+				})
+			}
+
 			state.totalUnreadCount = recountUnreadCount(state.chats)
 		},
 		applyRealtimeEvent: (state, action: PayloadAction<ChatRealtimeEvent>) => {
@@ -222,6 +296,8 @@ export const {
 	setMessages,
 	appendMessages,
 	appendMessage,
+	replaceMessage,
+	removeMessage,
 	setMembers,
 	setLoadingChats,
 	setLoadingMessages,
@@ -230,6 +306,8 @@ export const {
 	setPagination,
 	updateChatTitle,
 	markChatRead,
+	incrementChatUnread,
+	receiveIncomingMessage,
 	applyRealtimeEvent
 } = chatSlice.actions
 
