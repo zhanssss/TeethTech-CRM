@@ -1,7 +1,7 @@
 'use client';
 
 import {useMemo, useState} from 'react';
-import {useParams} from 'next/navigation';
+import {useParams, useRouter} from 'next/navigation';
 import Link from 'next/link';
 import {useSelector} from 'react-redux';
 import TaskDetailsSidebar from '@/src/components/layout/TaskDetailsSidebar';
@@ -10,6 +10,7 @@ import {RootState} from '@/src/lib/store';
 import type {Task} from '@/src/types/task.types';
 import type {OrderApiListItem, OrderDetails, OrderKanbanColumn, OrderKanbanTask} from '@/src/types/order.types';
 import type {User} from '@/src/types/user.types';
+import type {WorkflowStatus} from '@/src/types/workflow.types';
 import ErrorState from '@/src/components/ui/ErrorState';
 import {
     useAssignTaskMutation,
@@ -17,9 +18,11 @@ import {
     useGetOrderKanbanQuery,
     useGetOrdersQuery,
     useGetTaskAssignmentQuery,
+    useUpdateOrderStatusMutation,
     useUpdateTaskStatusMutation,
 } from '@/src/services/api/ordersApi';
 import {useGetUsersQuery} from '@/src/services/api/usersApi';
+import {useGetWorkflowStatusesQuery} from '@/src/services/api/workflowApi';
 import {useNotifications} from '@/src/features/notifications/useNotifications';
 import {getApiErrorMessage} from '@/src/services/apiNotifications';
 
@@ -30,6 +33,8 @@ const ORDER_LOOKUP_PARAMS = {
 };
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const COMPOSITE_NOTIFICATION = { error: false, success: false } as const;
+const REVIEW_STATUS_CODE = 'WAITING_FOR_APPROVAL';
+const CLOSED_STATUS_CODE = 'ORDER_CLOSED';
 
 function isUuid(value: string | null | undefined) {
     return Boolean(value && UUID_PATTERN.test(value));
@@ -107,6 +112,66 @@ function getColumnsTasks(columns: OrderKanbanColumn[]) {
     return columns.flatMap((column) => column.tasks);
 }
 
+function isCompletedTask(task: OrderKanbanTask, closedStatus: WorkflowStatus) {
+    return task.isCompleted === true
+        || task.currentStatusId === closedStatus.id
+        || task.currentStatusCode?.trim().toUpperCase() === closedStatus.code;
+}
+
+function isCompletedColumn(column: OrderKanbanColumn, closedStatus: WorkflowStatus) {
+    const closedValues = [closedStatus.code, closedStatus.name].map(normalizeStageValue);
+    const columnValues = [column.statusName, column.title].map(normalizeStageValue);
+
+    return column.statusId === closedStatus.id
+        || columnValues.some((value) => closedValues.includes(value));
+}
+
+function buildOrderKanbanColumns(
+    columns: OrderKanbanColumn[],
+    order: ServerOrderInfo | undefined,
+    closedStatus: WorkflowStatus | undefined
+) {
+    if (!closedStatus) return columns;
+
+    const completedTasksById = new Map<string, OrderKanbanTask>();
+
+    for (const task of getOrderDetailTasks(order)) {
+        if (isCompletedTask(task, closedStatus)) {
+            completedTasksById.set(task.id, task);
+        }
+    }
+
+    for (const task of getColumnsTasks(columns)) {
+        if (isCompletedTask(task, closedStatus)) {
+            completedTasksById.set(task.id, task);
+        }
+    }
+
+    const activeColumns = columns
+        .filter((column) => !isCompletedColumn(column, closedStatus))
+        .map((column) => {
+            const tasks = column.tasks.filter((task) => !isCompletedTask(task, closedStatus));
+
+            return {
+                ...column,
+                taskCount: tasks.length,
+                tasks,
+            };
+        });
+    const completedTasks = Array.from(completedTasksById.values());
+
+    return [
+        ...activeColumns,
+        {
+            statusId: closedStatus.id,
+            statusName: closedStatus.name,
+            title: closedStatus.name,
+            taskCount: completedTasks.length,
+            tasks: completedTasks,
+        },
+    ];
+}
+
 function getTaskColor(task: OrderKanbanTask) {
     return task.colorCode || getStringValue(task, ['colorName', 'color']);
 }
@@ -126,6 +191,103 @@ function isNewTaskStage(column: OrderKanbanColumn, task: OrderKanbanTask) {
     return value.includes('новая задач')
         || value.includes('new task')
         || value.split(' ').includes('todo');
+}
+
+function isReviewTaskStage(task: OrderKanbanTask) {
+    return task.currentStatusCode?.trim().toUpperCase() === REVIEW_STATUS_CODE;
+}
+
+function CompleteTaskButton({
+    orderId,
+    task,
+    closedStatusId,
+    isClosedStatusLoading,
+    shouldCloseOrder,
+}: {
+    orderId: string;
+    task: OrderKanbanTask;
+    closedStatusId?: string;
+    isClosedStatusLoading: boolean;
+    shouldCloseOrder: boolean;
+}) {
+    const router = useRouter();
+    const {notifyError, notifySuccess} = useNotifications();
+    const [updateTaskStatus, {isLoading}] = useUpdateTaskStatusMutation();
+    const [updateOrderStatus, {isLoading: isClosingOrder}] = useUpdateOrderStatusMutation();
+    const isTransitionAllowed = Boolean(
+        closedStatusId && task.allowedNextStatusIds?.includes(closedStatusId)
+    );
+
+    const handleComplete = async () => {
+        if (!closedStatusId || !isTransitionAllowed) return;
+
+        try {
+            await updateTaskStatus({
+                taskId: task.id,
+                body: {
+                    nextStatusId: closedStatusId,
+                    comment: 'Финальная проверка завершена',
+                },
+                notification: COMPOSITE_NOTIFICATION,
+            }).unwrap();
+        } catch (error) {
+            console.error('Task completion failed:', error);
+            notifyError(getApiErrorMessage(error, 'updateTaskStatus'));
+            return;
+        }
+
+        if (!shouldCloseOrder) {
+            notifySuccess('Задача завершена');
+            return;
+        }
+
+        try {
+            await updateOrderStatus(orderId).unwrap();
+            notifySuccess('Все задачи завершены. Заказ закрыт');
+            router.replace('/orders');
+        } catch (error) {
+            console.error('Automatic order closing failed:', error);
+            notifyError(
+                `Задача завершена, но заказ не удалось закрыть. ${getApiErrorMessage(error, 'updateOrderStatus')}`,
+                {duration: 9000}
+            );
+        }
+    };
+
+    if (isClosedStatusLoading) {
+        return (
+            <button
+                type="button"
+                disabled
+                className="w-full cursor-wait rounded-lg bg-slate-200 px-3 py-2.5 text-xs font-black text-slate-500"
+            >
+                Загружаем статус завершения...
+            </button>
+        );
+    }
+
+    if (!closedStatusId || !isTransitionAllowed) {
+        return (
+            <p className="rounded-lg bg-amber-50 px-3 py-2 text-center text-[10px] font-bold text-amber-700">
+                Переход в статус «Завершено» недоступен
+            </p>
+        );
+    }
+
+    return (
+        <button
+            type="button"
+            disabled={isLoading || isClosingOrder}
+            onClick={() => void handleComplete()}
+            className="w-full rounded-lg bg-slate-900 px-3 py-2.5 text-xs font-black text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+        >
+            {isClosingOrder
+                ? 'Закрываем заказ...'
+                : isLoading
+                    ? 'Завершаем...'
+                    : 'Завершить задачу'}
+        </button>
+    );
 }
 
 function StartTaskButton({
@@ -321,6 +483,16 @@ export default function OrderBoardPage() {
         isError: isUsersError,
         refetch: refetchUsers,
     } = useGetUsersQuery(undefined, {skip: !isUuid(id)});
+    const {
+        data: workflowStatuses = [],
+        isLoading: isWorkflowStatusesLoading,
+        isFetching: isWorkflowStatusesFetching,
+        isError: isWorkflowStatusesError,
+        refetch: refetchWorkflowStatuses,
+    } = useGetWorkflowStatusesQuery(undefined, {skip: !isUuid(id)});
+    const closedStatus = workflowStatuses.find(
+        (status) => status.code === CLOSED_STATUS_CODE
+    );
     const kanbanUserId = useMemo(
         () => isUuid(currentUserId)
             ? currentUserId ?? undefined
@@ -339,17 +511,25 @@ export default function OrderBoardPage() {
         {skip: !canLoadServerKanban}
     );
     const serverOrder = serverOrderDetails ?? serverOrders?.content.find((item) => item.id === id);
-    const isPageLoading = isServerOrdersLoading || isServerOrderLoading || isUsersLoading || isKanbanLoading;
+    const isPageLoading = isServerOrdersLoading
+        || isServerOrderLoading
+        || isUsersLoading
+        || isKanbanLoading
+        || isWorkflowStatusesLoading;
     const hasOrderLoadError = !serverOrder && (
         isUuid(id)
             ? (isServerOrderError && !hasErrorStatus(serverOrderError, 404)) || isServerOrdersError
             : isServerOrdersError
     );
-    const hasPageError = hasOrderLoadError || isUsersError || isKanbanError;
+    const hasPageError = hasOrderLoadError
+        || isUsersError
+        || isKanbanError
+        || isWorkflowStatusesError;
     const isPageRefetching = isServerOrdersFetching
         || isServerOrderFetching
         || isUsersFetching
-        || isKanbanFetching;
+        || isKanbanFetching
+        || isWorkflowStatusesFetching;
 
     const handleRetryPage = () => {
         void refetchServerOrders();
@@ -357,6 +537,7 @@ export default function OrderBoardPage() {
         if (isUuid(id)) {
             void refetchServerOrder();
             void refetchUsers();
+            void refetchWorkflowStatuses();
         }
 
         if (canLoadServerKanban) {
@@ -389,6 +570,8 @@ export default function OrderBoardPage() {
                 users={users}
                 isUsersLoading={isUsersLoading}
                 canAssignTasks={canAssignTasks}
+                closedStatus={closedStatus}
+                isClosedStatusLoading={isWorkflowStatusesLoading || isWorkflowStatusesFetching}
             />
         );
     }
@@ -415,6 +598,8 @@ function ServerKanbanBoard({
                                users,
                                isUsersLoading,
                                canAssignTasks,
+                               closedStatus,
+                               isClosedStatusLoading,
                            }: {
     orderId: string;
     order?: ServerOrderInfo;
@@ -422,12 +607,30 @@ function ServerKanbanBoard({
     users: User[];
     isUsersLoading: boolean;
     canAssignTasks: boolean;
+    closedStatus?: WorkflowStatus;
+    isClosedStatusLoading: boolean;
 }) {
-    const taskCount = columns.reduce((sum, column) => sum + column.taskCount, 0);
+    const boardColumns = useMemo(
+        () => buildOrderKanbanColumns(columns, order, closedStatus),
+        [closedStatus, columns, order]
+    );
+    const taskCount = boardColumns.reduce((sum, column) => sum + column.taskCount, 0);
     const [selectedTask, setSelectedTask] = useState<OrderKanbanTask | null>(null);
     const [isAssignmentModalOpen, setIsAssignmentModalOpen] = useState(false);
     const [assignmentModalTaskId, setAssignmentModalTaskId] = useState('');
-    const allTasks = [...getColumnsTasks(columns), ...getOrderDetailTasks(order)];
+    const allTasks = Array.from(
+        new Map(
+            [...getOrderDetailTasks(order), ...getColumnsTasks(boardColumns)]
+                .map((task) => [task.id, task] as const)
+        ).values()
+    );
+    const activeTaskCount = closedStatus
+        ? new Set(
+            allTasks
+                .filter((task) => !isCompletedTask(task, closedStatus))
+                .map((task) => task.id)
+        ).size
+        : 0;
     const patientName = getStringValue(order, ['patientFullName', 'patientName', 'patient']);
     const clinicName = getStringValue(order, ['clinicName', 'clinic']);
     const doctorName = getStringValue(order, ['doctorFullName', 'doctorName', 'doctor']);
@@ -528,8 +731,8 @@ function ServerKanbanBoard({
             </div>
 
             <div
-                className="grid grid-cols-1 items-start gap-x-10 gap-y-10 pb-8 pt-4 lg:grid-cols-3">
-                {columns.map((column, columnIndex) => (
+                className="grid grid-cols-1 items-start gap-6 pb-8 pt-4 lg:grid-cols-3 xl:grid-cols-4">
+                {boardColumns.map((column, columnIndex) => (
                     <section
                         key={`${column.statusName}-${column.title}`}
                         className="h-fit min-h-[280px] rounded-xl border border-slate-200 border-t-4 border-t-blue-500 bg-slate-50/60 shadow-sm"
@@ -599,12 +802,22 @@ function ServerKanbanBoard({
                                         <StartTaskButton
                                             orderId={orderId}
                                             task={task}
-                                            nextColumnStatusId={columns[columnIndex + 1]?.statusId}
+                                            nextColumnStatusId={boardColumns[columnIndex + 1]?.statusId}
                                             nextColumnStatusName={
-                                                columns[columnIndex + 1]?.statusName
-                                                || columns[columnIndex + 1]?.title
+                                                boardColumns[columnIndex + 1]?.statusName
+                                                || boardColumns[columnIndex + 1]?.title
                                             }
                                             onConfigureAssignments={() => openAssignmentModal(task.id)}
+                                        />
+                                    )}
+
+                                    {canAssignTasks && isReviewTaskStage(task) && (
+                                        <CompleteTaskButton
+                                            orderId={orderId}
+                                            task={task}
+                                            closedStatusId={closedStatus?.id}
+                                            isClosedStatusLoading={isClosedStatusLoading}
+                                            shouldCloseOrder={activeTaskCount === 1}
                                         />
                                     )}
                                 </div>

@@ -21,6 +21,9 @@ export type WorkflowStatus = {
     description: string;
     sortOrder: number;
     colorHex: string;
+    initial: boolean;
+    terminal: boolean;
+    review: boolean;
 };
 
 export type WorkflowStep = {
