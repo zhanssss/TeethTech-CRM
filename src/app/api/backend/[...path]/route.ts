@@ -24,6 +24,10 @@ const BACKEND_API_BASE_URL =
     process.env.API_BASE_URL ??
     DEFAULT_BACKEND_API_BASE_URL;
 
+const BACKEND_WS_BASE_URL =
+    process.env.BACKEND_WS_BASE_URL ??
+    `${BACKEND_API_BASE_URL.replace(/\/+$/u, '')}/ws-crm`;
+
 const BODYLESS_METHODS = new Set(['GET', 'HEAD']);
 const BODYLESS_STATUSES = new Set([204, 304]);
 const REQUEST_HEADERS_TO_SKIP = new Set([
@@ -44,8 +48,14 @@ const RESPONSE_HEADERS_TO_SKIP = new Set([
 ]);
 
 function buildBackendUrl(path: string[], request: NextRequest) {
-    const encodedPath = path.map((segment) => encodeURIComponent(segment)).join('/');
-    const baseUrl = BACKEND_API_BASE_URL.replace(/\/+$/u, '');
+    const isSockJsRequest = path[0] === 'ws-crm';
+    const targetPath = isSockJsRequest ? path.slice(1) : path;
+    const encodedPath = targetPath
+        .map((segment) => encodeURIComponent(segment))
+        .join('/');
+    const baseUrl = (
+        isSockJsRequest ? BACKEND_WS_BASE_URL : BACKEND_API_BASE_URL
+    ).replace(/\/+$/u, '');
     const targetUrl = new URL(`${baseUrl}/${encodedPath}`);
 
     request.nextUrl.searchParams.forEach((value, key) => {

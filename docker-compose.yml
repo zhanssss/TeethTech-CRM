@@ -3,11 +3,14 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_BACKEND_WS_URL: ${NEXT_PUBLIC_BACKEND_WS_URL:-}
     image: teeth-tech-crm-frontend:local
     ports:
       - "3000:3000"
     environment:
       BACKEND_API_BASE_URL: ${BACKEND_API_BASE_URL:-http://host.docker.internal:8081/api/v1}
+      BACKEND_WS_BASE_URL: ${BACKEND_WS_BASE_URL:-http://host.docker.internal:8081/api/v1/ws-crm}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     restart: unless-stopped
