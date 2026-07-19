@@ -67,6 +67,12 @@ const SUCCESS_MESSAGES: Record<string, string | null> = {
     cancelInventoryCheck: 'Инвентаризация отменена',
     completeInventoryCheck: 'Инвентаризация завершена',
     updateInventoryItem: 'Фактическое количество сохранено',
+    unlinkTelegram: 'Telegram отключён',
+    updateTelegramSettings: 'Настройки Telegram сохранены',
+    updateTelegramToken: 'Токен Telegram-бота сохранён',
+    regenerateTelegramWebhookSecret: 'Webhook secret обновлён',
+    connectTelegramIntegration: 'Webhook Telegram зарегистрирован',
+    disconnectTelegramIntegration: 'Webhook Telegram отключён',
 };
 
 const SILENT_ERROR_ENDPOINTS = new Set([
@@ -116,6 +122,7 @@ export function getApiErrorMessage(error: unknown, endpoint = '') {
     if (status === 403) return serverMessage || 'Недостаточно прав для этой операции';
     if (status === 404) return serverMessage || 'Запрашиваемые данные не найдены';
     if (status === 409) return serverMessage || 'Данные изменились. Обновите страницу и повторите попытку';
+    if (status === 429) return serverMessage || 'Слишком много запросов. Подождите и повторите попытку';
     if (status === 400 || status === 422) {
         return serverMessage || 'Проверьте введённые данные';
     }

@@ -38,7 +38,8 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 			return [
 				{ name: 'Мой профиль', href: '/employee', exact: true },
 				{ name: 'Календарь', href: '/employee/calendar' },
-				{ name: 'Аналитика', href: '/employee/analytics' }
+				{ name: 'Аналитика', href: '/employee/analytics' },
+				{ name: 'Настройки', href: '/settings', exact: true }
 			]
 		}
 
@@ -46,11 +47,12 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 			return [
 				{ name: 'Финансовый отчёт', href: '/accounting', exact: true },
 				{ name: 'Зарплаты', href: '/accounting/payroll', exact: true },
-				{ name: 'Счета', href: '/accounting/invoices' }
+				{ name: 'Счета', href: '/accounting/invoices' },
+				{ name: 'Настройки', href: '/settings', exact: true }
 			]
 		}
 
-		return [
+		const items: MenuItem[] = [
 			{ name: 'Дэшборд', href: '/' },
 			{ name: 'Заказы', href: '/orders' },
 			{ name: 'Аналитика', href: '/analytics' },
@@ -72,8 +74,19 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 					{ name: 'Типы работ', href: '/laboratory/work-types' },
 					{ name: 'Workflow', href: '/laboratory/workflows' }
 				]
-			}
+			},
+			{ name: 'Настройки', href: '/settings', exact: true }
 		]
+
+		if (role === 'ADMIN') {
+			items.push({
+				name: 'Интеграции',
+				href: '/settings/integrations',
+				exact: true
+			})
+		}
+
+		return items
 	})()
 
 	const handleLogout = async () => {

@@ -118,6 +118,8 @@ export const teethTechApi = createApi({
         "BillingSummary",
         "Workflow",
         "OrderStatuses",
+        "TelegramLink",
+        "TelegramIntegration",
     ],
     endpoints: () => ({}),
 });
