@@ -438,10 +438,10 @@ export default function TaskAssignmentModal({
     if (!isOpen) return null;
 
     return (
-        <Modal contentClassName="max-w-5xl p-0">
-            <div className="flex items-start justify-between gap-4 border-b border-slate-200 bg-slate-50 px-4 py-4 sm:px-6">
+        <Modal contentClassName="max-w-5xl overflow-hidden p-0">
+            <div className="flex items-start justify-between gap-4 border-b border-slate-200 bg-gradient-to-r from-violet-50 to-white px-5 py-5 dark:border-slate-700 dark:from-violet-950/30 dark:to-slate-900 sm:px-6">
                 <div>
-                    <h2 className="text-xl font-black text-slate-900">Ответственные по этапам</h2>
+                    <p className="text-[10px] font-black uppercase tracking-[.18em] text-violet-600">Команда производства</p><h2 className="mt-1 text-xl font-black text-slate-950 dark:text-white">Ответственные по этапам</h2>
                     <p className="mt-1 text-xs text-slate-500">
                         Режим назначения и полный план исполнителей для технической задачи
                     </p>
@@ -449,7 +449,7 @@ export default function TaskAssignmentModal({
                 <button
                     type="button"
                     onClick={onClose}
-                    className="text-2xl text-slate-400 transition hover:text-slate-700"
+                    className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-xl text-slate-400 shadow-sm transition hover:bg-slate-100 dark:bg-slate-800"
                     aria-label="Закрыть"
                 >
                     &times;

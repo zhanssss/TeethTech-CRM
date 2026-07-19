@@ -8,7 +8,8 @@ import {
 	useRef,
 	useState,
 	type KeyboardEvent,
-	type MouseEvent
+	type MouseEvent,
+	type ReactNode
 } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 
@@ -77,6 +78,25 @@ const CONTEXT_MENU_WIDTH = 224
 const CONTEXT_MENU_HEIGHT = 196
 const CONTEXT_MENU_GAP = 8
 
+function ChatIcon({ children, className = 'h-5 w-5' }: { children: ReactNode; className?: string }) {
+	return (
+		<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
+			{children}
+		</svg>
+	)
+}
+
+const SearchIcon = () => <ChatIcon className="h-4 w-4"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></ChatIcon>
+const PlusIcon = () => <ChatIcon className="h-4 w-4"><path d="M12 5v14M5 12h14" /></ChatIcon>
+const UsersIcon = () => <ChatIcon><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" /></ChatIcon>
+const EditIcon = () => <ChatIcon><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" /></ChatIcon>
+const PaperclipIcon = () => <ChatIcon><path d="m21.4 11.6-8.9 8.9a6 6 0 0 1-8.5-8.5l9.6-9.6a4 4 0 0 1 5.7 5.7l-9.6 9.6a2 2 0 1 1-2.8-2.8l8.9-8.9" /></ChatIcon>
+const ReplyIcon = () => <ChatIcon><path d="m9 17-5-5 5-5" /><path d="M20 18v-2a4 4 0 0 0-4-4H4" /></ChatIcon>
+const SendIcon = () => <ChatIcon><path d="m22 2-7 20-4-9-9-4Z" /><path d="M22 2 11 13" /></ChatIcon>
+const BackIcon = () => <ChatIcon><path d="m15 18-6-6 6-6" /></ChatIcon>
+const CloseIcon = () => <ChatIcon><path d="M18 6 6 18M6 6l12 12" /></ChatIcon>
+const CheckIcon = () => <ChatIcon className="h-4 w-4"><path d="m20 6-11 11-5-5" /></ChatIcon>
+
 export default function ChatPage() {
 	const router = useRouter()
 	const params = useParams<{ conversationId?: string }>()
@@ -109,7 +129,6 @@ export default function ChatPage() {
 	const [newTitle, setNewTitle] = useState('')
 	const [uploadError, setUploadError] = useState<string | null>(null)
 	const [sendError, setSendError] = useState<string | null>(null)
-	const [isNearBottom, setIsNearBottom] = useState(true)
 	const [messageContextMenu, setMessageContextMenu] =
 		useState<MessageContextMenuState | null>(null)
 	const [forwardMessageId, setForwardMessageId] = useState<string | null>(null)
@@ -120,6 +139,14 @@ export default function ChatPage() {
 	const composerRef = useRef<HTMLTextAreaElement | null>(null)
 	const contextMenuRef = useRef<HTMLDivElement | null>(null)
 	const shouldLoadMoreRef = useRef(false)
+	const isNearBottomRef = useRef(true)
+	const previousConversationRef = useRef<string | null>(null)
+	const previousLastMessageIdRef = useRef<string | null>(null)
+	const prependScrollSnapshotRef = useRef<{
+		conversationId: string
+		scrollHeight: number
+		scrollTop: number
+	} | null>(null)
 	const { data: users = [], error: usersError } = useGetUsersQuery()
 	const {
 		data: chatList = [],
@@ -305,6 +332,8 @@ export default function ChatPage() {
 		setMessageContextMenu(null)
 		setForwardMessageId(null)
 		setForwardSearch('')
+		isNearBottomRef.current = true
+		prependScrollSnapshotRef.current = null
 	}, [activeConversationId])
 
 	useEffect(() => {
@@ -366,6 +395,14 @@ export default function ChatPage() {
 								hasMore: boolean
 								nextBefore: string | null
 							}
+							const currentScroller = messageListRef.current
+							if (currentScroller) {
+								prependScrollSnapshotRef.current = {
+									conversationId: activeConversationId,
+									scrollHeight: currentScroller.scrollHeight,
+									scrollTop: currentScroller.scrollTop
+								}
+							}
 							dispatch(
 								appendMessages({
 									conversationId: activeConversationId,
@@ -390,10 +427,11 @@ export default function ChatPage() {
 				}
 
 				const position = el.scrollHeight - el.scrollTop - el.clientHeight
-				setIsNearBottom(position < 80)
+				isNearBottomRef.current = position < 80
 			}
 
-			handler()
+			const initialPosition = el.scrollHeight - el.scrollTop - el.clientHeight
+			isNearBottomRef.current = initialPosition < 80
 			el.addEventListener('scroll', handler)
 			return () => el.removeEventListener('scroll', handler)
 		}
@@ -403,11 +441,32 @@ export default function ChatPage() {
 		if (!activeConversationId || !messageListRef.current) return
 		if (sortedMessages.length === 0) return
 
+		const scroller = messageListRef.current
+		const prependSnapshot = prependScrollSnapshotRef.current
+		if (prependSnapshot?.conversationId === activeConversationId) {
+			const addedHeight = scroller.scrollHeight - prependSnapshot.scrollHeight
+			scroller.scrollTop = prependSnapshot.scrollTop + addedHeight
+			prependScrollSnapshotRef.current = null
+			return
+		}
+
 		const lastMessage = sortedMessages[sortedMessages.length - 1]
-		if (isNearBottom || lastMessage?.senderId === currentUserId) {
+		const conversationChanged =
+			previousConversationRef.current !== activeConversationId
+		const lastMessageChanged =
+			previousLastMessageIdRef.current !== lastMessage.id
+
+		if (
+			conversationChanged ||
+			(lastMessageChanged &&
+				(isNearBottomRef.current || lastMessage.senderId === currentUserId))
+		) {
 			scrollToBottom()
 		}
-	}, [activeConversationId, sortedMessages.length, isNearBottom, currentUserId])
+
+		previousConversationRef.current = activeConversationId
+		previousLastMessageIdRef.current = lastMessage.id
+	}, [activeConversationId, sortedMessages, currentUserId])
 
 	const openDirectChat = async (userId: string) => {
 		if (!userId || userId === currentUserId) return
@@ -725,19 +784,24 @@ export default function ChatPage() {
 				onContextMenu={event => handleMessageContextMenu(event, message)}
 				onKeyDown={event => handleMessageContextKeyDown(event, message)}
 				aria-label={`Сообщение от ${message.senderName}. Откройте контекстное меню для действий.`}
-				className={`flex ${isMine ? 'justify-end' : 'justify-start'} mb-3`}
+				className={`group flex ${isMine ? 'justify-end' : 'justify-start'} mb-3.5`}
 			>
+				{!isMine ? (
+					<div className="mr-2 mt-auto hidden h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-indigo-600 text-[10px] font-black text-white shadow-sm sm:flex">
+						{getInitials(message.senderName)}
+					</div>
+				) : null}
 				<div
-					className={`max-w-[80%] rounded-2xl px-4 py-3 shadow-sm transition-shadow ${messageContextMenu?.messageId === message.id ? 'ring-2 ring-blue-400 ring-offset-2' : ''} ${isMine ? 'bg-blue-600 text-white' : 'bg-white text-slate-800'}`}
+					className={`relative max-w-[84%] px-4 py-3 shadow-sm transition-all sm:max-w-[72%] ${messageContextMenu?.messageId === message.id ? 'ring-2 ring-violet-400 ring-offset-2 dark:ring-offset-slate-950' : ''} ${isMine ? 'rounded-[22px] rounded-br-md bg-gradient-to-br from-violet-600 to-indigo-600 text-white shadow-violet-500/10' : 'rounded-[22px] rounded-bl-md border border-slate-200/80 bg-white text-slate-800 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100'}`}
 				>
 					{!isMine && activeConversation?.type === 'GROUP' ? (
-						<div className="mb-1 text-xs font-semibold text-slate-500">
+						<div className="mb-1 text-xs font-bold text-violet-600 dark:text-violet-300">
 							{message.senderName}
 						</div>
 					) : null}
 					{replyMessage ? (
 						<div
-							className={`mb-2 rounded-lg border px-3 py-2 text-sm ${isMine ? 'border-blue-400 bg-blue-500/40' : 'border-slate-200 bg-slate-50'}`}
+							className={`mb-2 rounded-xl border-l-[3px] px-3 py-2 text-sm ${isMine ? 'border-white/50 bg-white/10' : 'border-violet-500 bg-slate-50 dark:bg-slate-900/50'}`}
 						>
 							↩ {replyMessage.text ?? 'Ответ на сообщение'}
 						</div>
@@ -786,9 +850,9 @@ export default function ChatPage() {
 						</>
 					)}
 					<div
-						className={`mt-2 text-[11px] ${isMine ? 'text-blue-100' : 'text-slate-400'}`}
+						className={`mt-1.5 flex justify-end text-[10px] font-medium ${isMine ? 'text-violet-100' : 'text-slate-400'}`}
 					>
-						{formatChatTime(message.createdAt)}
+						{formatChatTime(message.createdAt)}{isMine && !message.deleted ? '  ·  ✓✓' : ''}
 					</div>
 				</div>
 			</div>
@@ -809,46 +873,48 @@ export default function ChatPage() {
 	}
 
 	return (
-		<div className="flex h-[calc(100dvh-7rem)] flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm lg:flex-row">
-			<aside className="flex w-full flex-col border-b border-slate-200 bg-slate-50 lg:w-96 lg:border-b-0 lg:border-r">
-				<div className="border-b border-slate-200 p-4">
+		<div className="relative flex h-[calc(100dvh-6.5rem)] min-h-[620px] flex-col overflow-hidden rounded-[30px] border border-slate-200/80 bg-white shadow-[0_24px_70px_-35px_rgba(15,23,42,.35)] dark:border-slate-800 dark:bg-slate-950 lg:flex-row">
+			<aside className="flex w-full flex-col border-b border-slate-200/80 bg-slate-50/80 dark:border-slate-800 dark:bg-slate-900/70 lg:w-[360px] lg:border-b-0 lg:border-r xl:w-[390px]">
+				<div className="border-b border-slate-200/80 p-5 dark:border-slate-800">
 					<div className="flex items-center justify-between">
 						<div>
-							<h1 className="text-lg font-black text-slate-900">Сообщения</h1>
-							<p className="text-sm text-slate-500">Личные и групповые чаты</p>
+							<div className="flex items-center gap-2">
+								<h1 className="text-xl font-black tracking-tight text-slate-950 dark:text-white">Сообщения</h1>
+								<span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-violet-100 px-1.5 text-[10px] font-black text-violet-700 dark:bg-violet-500/20 dark:text-violet-300">{chats.reduce((sum, chat) => sum + chat.unreadCount, 0)}</span>
+							</div>
+							<p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">Команда всегда на связи</p>
 						</div>
 						<button
 							type="button"
 							onClick={() => setIsCreateDirectOpen(true)}
-							className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700"
+							className="flex h-10 items-center gap-2 rounded-xl bg-slate-950 px-3.5 text-sm font-bold text-white shadow-lg shadow-slate-950/10 transition hover:-translate-y-0.5 dark:bg-violet-600"
 						>
-							+ Новый
+							<PlusIcon /> Новый
 						</button>
 					</div>
-					<input
-						value={search}
-						onChange={event => setSearch(event.target.value)}
-						placeholder="Поиск по чату"
-						className="mt-4 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
-					/>
+					<label className="mt-4 flex h-11 items-center gap-2.5 rounded-2xl border border-slate-200 bg-white px-3.5 text-slate-400 shadow-sm transition focus-within:border-violet-300 focus-within:ring-4 focus-within:ring-violet-100 dark:border-slate-700 dark:bg-slate-800 dark:focus-within:ring-violet-500/10">
+						<SearchIcon />
+						<input value={search} onChange={event => setSearch(event.target.value)} placeholder="Поиск диалогов" className="min-w-0 flex-1 bg-transparent text-sm text-slate-900 outline-none placeholder:text-slate-400 dark:text-white" />
+						<span className="rounded-md border border-slate-200 px-1.5 py-0.5 text-[10px] font-semibold dark:border-slate-700">⌘K</span>
+					</label>
 				</div>
-				<div className="flex gap-2 border-b border-slate-200 p-3">
+				<div className="flex gap-2 border-b border-slate-200/80 px-4 py-3 dark:border-slate-800">
 					<button
 						type="button"
 						onClick={() => setIsCreateDirectOpen(true)}
-						className="flex-1 rounded-xl bg-blue-600 px-3 py-2 text-sm font-semibold text-white"
+						className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-violet-100 px-3 py-2 text-xs font-bold text-violet-700 transition hover:bg-violet-200 dark:bg-violet-500/15 dark:text-violet-300"
 					>
-						Личный чат
+						<PlusIcon /> Личный чат
 					</button>
 					<button
 						type="button"
 						onClick={() => setIsCreateGroupOpen(true)}
-						className="flex-1 rounded-xl bg-slate-900 px-3 py-2 text-sm font-semibold text-white"
+						className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 transition hover:border-violet-200 hover:text-violet-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
 					>
-						Создать группу
+						<UsersIcon /> Группа
 					</button>
 				</div>
-				<div className="flex-1 overflow-y-auto p-2">
+				<div className="flex-1 overflow-y-auto p-2.5">
 					{isChatsLoading ? (
 						<div className="space-y-2 p-2">
 							{Array.from({ length: 5 }).map((_, index) => (
@@ -868,14 +934,15 @@ export default function ChatPage() {
 								key={chat.id}
 								type="button"
 								onClick={() => router.push(`/chats/${chat.id}`)}
-								className={`flex w-full items-center gap-3 rounded-2xl border px-3 py-3 text-left transition ${activeConversationId === chat.id ? 'border-blue-300 bg-blue-50' : 'border-transparent bg-white hover:border-slate-200'}`}
+								className={`relative mb-1 flex w-full items-center gap-3 rounded-2xl border px-3 py-3 text-left transition-all ${activeConversationId === chat.id ? 'border-violet-200 bg-white shadow-[0_10px_30px_-18px_rgba(124,58,237,.55)] before:absolute before:bottom-3 before:left-0 before:top-3 before:w-1 before:rounded-r-full before:bg-violet-600 dark:border-violet-500/30 dark:bg-slate-800' : 'border-transparent hover:border-slate-200 hover:bg-white dark:hover:border-slate-700 dark:hover:bg-slate-800/70'}`}
 							>
-								<div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-slate-900 font-bold text-white">
+								<div className={`relative flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br font-black text-white shadow-sm ${chat.type === 'GROUP' ? 'from-fuchsia-500 to-violet-600' : 'from-violet-500 to-indigo-600'}`}>
 									{getInitials(chat.title)}
+									<span className="absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border-[3px] border-white bg-emerald-500 dark:border-slate-800" />
 								</div>
 								<div className="min-w-0 flex-1">
 									<div className="flex items-center justify-between gap-2">
-										<p className="truncate text-sm font-bold text-slate-900">
+										<p className="truncate text-sm font-bold text-slate-900 dark:text-white">
 											{chat.title}
 										</p>
 										{chat.lastMessageAt ? (
@@ -884,12 +951,12 @@ export default function ChatPage() {
 											</span>
 										) : null}
 									</div>
-									<p className="mt-1 truncate text-sm text-slate-500">
+									<p className="mt-1 truncate text-xs text-slate-500 dark:text-slate-400">
 										{chat.lastMessage ?? 'Начните диалог'}
 									</p>
 								</div>
 								{chat.unreadCount > 0 ? (
-									<span className="rounded-full bg-red-600 px-2 py-1 text-xs font-bold text-white">
+									<span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-violet-600 px-1.5 text-[10px] font-black text-white shadow-sm shadow-violet-500/30">
 										{chat.unreadCount}
 									</span>
 								) : null}
@@ -898,19 +965,21 @@ export default function ChatPage() {
 					)}
 				</div>
 			</aside>
-			<section className="flex min-w-0 flex-1 flex-col">
+			<section className="relative flex min-w-0 flex-1 flex-col bg-white dark:bg-slate-950">
 				{activeConversation ? (
 					<>
-						<header className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
+						<header className="flex min-h-[76px] items-center justify-between border-b border-slate-200/80 bg-white/90 px-4 py-3 backdrop-blur-xl dark:border-slate-800 dark:bg-slate-950/90 sm:px-6">
 							<div className="flex items-center gap-3">
-								<div className="flex h-11 w-11 items-center justify-center rounded-full bg-slate-900 font-bold text-white">
+								<div className="relative flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-500 to-indigo-600 font-black text-white shadow-lg shadow-violet-500/20">
 									{getInitials(activeConversation.title)}
+									<span className="absolute -bottom-1 -right-1 h-4 w-4 rounded-full border-[3px] border-white bg-emerald-500 dark:border-slate-950" />
 								</div>
 								<div>
-									<h2 className="text-base font-black text-slate-900">
+									<h2 className="text-base font-black text-slate-950 dark:text-white">
 										{activeConversation.title}
 									</h2>
-									<p className="text-sm text-slate-500">
+									<p className="mt-0.5 flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
+										<span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
 										{activeConversation.type === 'GROUP'
 											? 'Группа'
 											: 'Личный чат'}{' '}
@@ -918,14 +987,14 @@ export default function ChatPage() {
 									</p>
 								</div>
 							</div>
-							<div className="flex gap-2">
+							<div className="flex items-center gap-2">
 								{currentUserCanManageGroup ? (
 									<button
 										type="button"
 										onClick={() => setIsMembersOpen(true)}
-										className="rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700"
+										className="flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 transition hover:border-violet-200 hover:text-violet-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
 									>
-										Участники
+										<UsersIcon /><span className="hidden xl:inline">Участники</span>
 									</button>
 								) : null}
 								{activeConversation.type === 'GROUP' ? (
@@ -935,42 +1004,44 @@ export default function ChatPage() {
 											setNewTitle(activeConversation.title)
 											setIsRenaming(true)
 										}}
-										className="rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700"
+										className="flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 transition hover:border-violet-200 hover:text-violet-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
 									>
-										Переименовать
+										<EditIcon /><span className="hidden xl:inline">Переименовать</span>
 									</button>
 								) : null}
 								{isMobile ? (
 									<button
 										type="button"
 										onClick={() => router.push('/chats')}
-										className="rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700"
+										className="flex h-10 items-center gap-2 rounded-xl border border-slate-200 px-3 text-sm font-semibold text-slate-700 dark:border-slate-700 dark:text-slate-300"
 									>
-										Назад
+										<BackIcon /> Назад
 									</button>
 								) : null}
 							</div>
 						</header>
 						<div
 							ref={messageListRef}
-							className="flex-1 overflow-y-auto bg-slate-50 p-4"
+							className="flex-1 overflow-y-auto bg-[radial-gradient(circle_at_20%_0%,rgba(139,92,246,.08),transparent_28%),radial-gradient(circle_at_90%_30%,rgba(99,102,241,.06),transparent_25%)] bg-slate-50 p-4 dark:bg-[radial-gradient(circle_at_20%_0%,rgba(139,92,246,.12),transparent_28%)] dark:bg-slate-950 sm:p-6"
 						>
 							<div className="flex min-h-full flex-col">
 							<div className="mt-auto" aria-hidden="true" />
 							{isLoadingMessages ? (
-								<div className="text-center text-sm text-slate-500">
+								<div className="m-auto rounded-2xl border border-slate-200 bg-white px-5 py-3 text-center text-sm text-slate-500 shadow-sm dark:border-slate-800 dark:bg-slate-900">
 									Загрузка истории…
 								</div>
 							) : sortedMessages.length === 0 ? (
-								<div className="text-center text-sm text-slate-500">
-									Сообщений пока нет
+								<div className="m-auto max-w-sm rounded-[28px] border border-slate-200 bg-white p-8 text-center shadow-sm dark:border-slate-800 dark:bg-slate-900">
+									<div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-violet-100 text-violet-600 dark:bg-violet-500/15 dark:text-violet-300"><SendIcon /></div>
+									<p className="font-black text-slate-900 dark:text-white">Начните общение</p>
+									<p className="mt-1 text-xs leading-5 text-slate-500">Отправьте первое сообщение — оно сразу появится у собеседника.</p>
 								</div>
 							) : (
 								 sortedMessages.map(message => renderMessage(message))
 							)}
 							</div>
 						</div>
-						<div className="border-t border-slate-200 bg-white p-3">
+						<div className="border-t border-slate-200/80 bg-white p-3 dark:border-slate-800 dark:bg-slate-950 sm:px-5 sm:py-4">
 							{replyToId ? (
 								<div className="mb-2 flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">
 									<span>
@@ -1001,6 +1072,7 @@ export default function ChatPage() {
 									</button>
 								</div>
 							) : null}
+							<div className="rounded-[22px] border border-slate-200 bg-slate-50 p-2 shadow-sm transition focus-within:border-violet-300 focus-within:bg-white focus-within:ring-4 focus-within:ring-violet-100 dark:border-slate-700 dark:bg-slate-900 dark:focus-within:border-violet-500 dark:focus-within:bg-slate-900 dark:focus-within:ring-violet-500/10">
 							<textarea
 								ref={composerRef}
 								value={composer}
@@ -1012,12 +1084,12 @@ export default function ChatPage() {
 									}
 								}}
 								placeholder="Напишите сообщение"
-								className="min-h-[88px] w-full rounded-2xl border border-slate-300 px-3 py-3 text-sm outline-none focus:border-blue-500"
+								className="min-h-[54px] max-h-32 w-full resize-none bg-transparent px-3 py-2 text-sm text-slate-900 outline-none placeholder:text-slate-400 dark:text-white"
 							/>
-							<div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+							<div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-200/70 pt-2 dark:border-slate-700">
 								<div className="flex items-center gap-2">
-									<label className="cursor-pointer rounded-xl border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700">
-										Файл
+									<label title="Прикрепить файл" className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-xl text-slate-500 transition hover:bg-violet-100 hover:text-violet-700 dark:hover:bg-violet-500/15 dark:hover:text-violet-300">
+										<PaperclipIcon />
 										<input
 											type="file"
 											className="hidden"
@@ -1031,9 +1103,9 @@ export default function ChatPage() {
 												activeMessages[activeMessages.length - 1]?.id ?? null
 											)
 										}
-										className="rounded-xl border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700"
+										className="flex h-9 items-center gap-2 rounded-xl px-2.5 text-xs font-semibold text-slate-500 transition hover:bg-violet-100 hover:text-violet-700 dark:hover:bg-violet-500/15"
 									>
-										Ответ
+										<ReplyIcon /> Ответ
 									</button>
 									{selectedFile ? (
 										<button
@@ -1054,11 +1126,12 @@ export default function ChatPage() {
 										type="button"
 										onClick={() => void handleSendMessage()}
 										disabled={!composer.trim() || isSendingMessage}
-										className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+										className="flex h-10 items-center gap-2 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-4 text-sm font-bold text-white shadow-lg shadow-violet-500/20 transition hover:-translate-y-0.5 disabled:translate-y-0 disabled:opacity-40"
 									>
-										Отправить
+										<span className="hidden sm:inline">Отправить</span><SendIcon />
 									</button>
 								</div>
+							</div>
 							</div>
 							{sendError ? (
 								<div className="mt-2 text-sm text-red-600">{sendError}</div>
@@ -1069,8 +1142,8 @@ export default function ChatPage() {
 						</div>
 					</>
 				) : (
-					<div className="flex flex-1 items-center justify-center text-sm text-slate-500">
-						Выберите чат
+					<div className="flex flex-1 items-center justify-center bg-[radial-gradient(circle_at_center,rgba(139,92,246,.08),transparent_45%)] p-8 text-sm text-slate-500">
+						<div className="max-w-sm text-center"><div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-[26px] bg-gradient-to-br from-violet-500 to-indigo-600 text-white shadow-2xl shadow-violet-500/25"><SendIcon /></div><h2 className="text-xl font-black text-slate-950 dark:text-white">Ваши сообщения</h2><p className="mt-2 leading-6">Выберите диалог слева или создайте новый чат с коллегой.</p></div>
 					</div>
 				)}
 			</section>
@@ -1136,32 +1209,30 @@ export default function ChatPage() {
 				</div>
 			) : null}
 			{forwardMessage ? (
-				<Modal>
-					<div className="p-5">
+				<Modal contentClassName="max-w-lg overflow-hidden p-0">
+					<div className="p-5 sm:p-6">
 						<div className="flex items-center justify-between gap-4">
-							<h3 className="text-lg font-black text-slate-900">
-								Переслать сообщение
-							</h3>
+							<div><div className="mb-3 flex h-11 w-11 items-center justify-center rounded-2xl bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300"><SendIcon /></div><h3 className="text-xl font-black text-slate-950 dark:text-white">Переслать сообщение</h3><p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Выберите диалог, куда отправить сообщение</p></div>
 							<button
 								type="button"
 								onClick={() => {
 									setForwardMessageId(null)
 									setForwardSearch('')
 								}}
-								className="text-slate-500"
+								className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-500 transition hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700"
 								aria-label="Закрыть"
 							>
-								×
+								<CloseIcon />
 							</button>
 						</div>
-						<div className="mt-4 line-clamp-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">
+						<div className="mt-5 line-clamp-3 rounded-2xl border-l-4 border-violet-500 bg-slate-50 px-4 py-3 text-sm leading-6 text-slate-600 dark:bg-slate-800 dark:text-slate-300">
 							{forwardMessage.text}
 						</div>
 						<input
 							value={forwardSearch}
 							onChange={event => setForwardSearch(event.target.value)}
 							placeholder="Найти чат"
-							className="mt-4 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
+							className="mt-4 h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-900 outline-none transition focus:border-violet-400 focus:ring-4 focus:ring-violet-100 dark:border-slate-700 dark:bg-slate-800 dark:text-white dark:focus:ring-violet-500/10"
 							autoFocus
 						/>
 						<div className="mt-3 max-h-72 space-y-2 overflow-auto">
@@ -1172,9 +1243,9 @@ export default function ChatPage() {
 										type="button"
 										onClick={() => void handleForwardMessage(chat.id)}
 										disabled={isForwarding}
-										className="flex w-full items-center justify-between rounded-xl border border-slate-200 px-3 py-2.5 text-left text-sm hover:border-blue-300 hover:bg-blue-50 disabled:opacity-50"
+										className="group flex w-full items-center gap-3 rounded-2xl border border-slate-200 p-3 text-left text-sm transition hover:border-violet-300 hover:bg-violet-50 disabled:opacity-50 dark:border-slate-700 dark:hover:border-violet-500/50 dark:hover:bg-violet-500/10"
 									>
-										<span className="font-semibold text-slate-800">{chat.title}</span>
+										<span className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-indigo-600 font-black text-white">{getInitials(chat.title)}</span><span className="min-w-0 flex-1 truncate font-bold text-slate-800 dark:text-white">{chat.title}</span>
 										<span className="text-xs text-slate-400">
 											{chat.type === 'GROUP' ? 'Группа' : 'Личный чат'}
 										</span>
@@ -1190,36 +1261,33 @@ export default function ChatPage() {
 				</Modal>
 			) : null}
 			{isCreateDirectOpen ? (
-				<Modal>
-					<div className="p-5">
+				<Modal contentClassName="max-w-lg overflow-hidden p-0">
+					<div className="p-5 sm:p-6">
 						<div className="flex items-center justify-between">
-							<h3 className="text-lg font-black text-slate-900">
-								Новый личный чат
-							</h3>
+							<div><div className="mb-3 flex h-11 w-11 items-center justify-center rounded-2xl bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300"><PlusIcon /></div><h3 className="text-xl font-black text-slate-950 dark:text-white">Новый личный чат</h3><p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Найдите коллегу и начните диалог</p></div>
 							<button
 								type="button"
 								onClick={() => setIsCreateDirectOpen(false)}
-								className="text-slate-500"
+								className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-500 transition hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700"
 							>
-								×
+								<CloseIcon />
 							</button>
 						</div>
 						<input
 							value={memberSearch}
 							onChange={event => setMemberSearch(event.target.value)}
 							placeholder="Поиск сотрудников"
-							className="mt-4 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
+							className="mt-5 h-12 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 text-sm outline-none transition focus:border-violet-400 focus:bg-white focus:ring-4 focus:ring-violet-100 dark:border-slate-700 dark:bg-slate-800 dark:text-white dark:focus:ring-violet-500/10"
 						/>
-						<div className="mt-4 max-h-80 space-y-2 overflow-auto">
+						<div className="mt-4 max-h-80 space-y-2 overflow-auto pr-1">
 							{filteredUsers.map(user => (
 								<button
 									key={user.id}
 									type="button"
 									onClick={() => void openDirectChat(user.id)}
-									className="flex w-full items-center justify-between rounded-xl border border-slate-200 px-3 py-2 text-left text-sm"
+									className="group flex w-full items-center gap-3 rounded-2xl border border-slate-200 p-3 text-left text-sm transition hover:border-violet-300 hover:bg-violet-50 dark:border-slate-700 dark:hover:bg-violet-500/10"
 								>
-									<span>{user.fullName || user.name}</span>
-									<span className="text-slate-400">Открыть</span>
+									<span className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-indigo-600 font-black text-white">{getInitials(user.fullName || user.name || 'U')}</span><span className="min-w-0 flex-1"><span className="block truncate font-bold text-slate-900 dark:text-white">{user.fullName || user.name}</span><span className="block truncate text-xs text-slate-500">{user.email}</span></span><span className="rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-500 group-hover:bg-violet-600 group-hover:text-white dark:bg-slate-800">Открыть</span>
 								</button>
 							))}
 						</div>
@@ -1227,34 +1295,32 @@ export default function ChatPage() {
 				</Modal>
 			) : null}
 			{isCreateGroupOpen ? (
-				<Modal>
-					<div className="p-5">
+				<Modal contentClassName="max-w-xl overflow-hidden p-0">
+					<div className="p-5 sm:p-6">
 						<div className="flex items-center justify-between">
-							<h3 className="text-lg font-black text-slate-900">
-								Создать группу
-							</h3>
+							<div><div className="mb-3 flex h-11 w-11 items-center justify-center rounded-2xl bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300"><UsersIcon /></div><h3 className="text-xl font-black text-slate-950 dark:text-white">Создать группу</h3><p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Объедините команду в одном диалоге</p></div>
 							<button
 								type="button"
 								onClick={() => setIsCreateGroupOpen(false)}
-								className="text-slate-500"
+								className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-500 dark:bg-slate-800"
 							>
-								×
+								<CloseIcon />
 							</button>
 						</div>
-						<label className="mt-4 block text-sm font-semibold text-slate-700">
+						<label className="mt-5 block text-sm font-bold text-slate-700 dark:text-slate-300">
 							Название
 							<input
 								value={groupTitle}
 								onChange={event => setGroupTitle(event.target.value)}
-								className="mt-2 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
+								className="mt-2 h-12 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 text-sm outline-none focus:border-violet-400 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
 							/>
 						</label>
-						<label className="mt-4 block text-sm font-semibold text-slate-700">
+						<label className="mt-4 block text-sm font-bold text-slate-700 dark:text-slate-300">
 							Участники
 							<input
 								value={memberSearch}
 								onChange={event => setMemberSearch(event.target.value)}
-								className="mt-2 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
+								className="mt-2 h-12 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 text-sm outline-none focus:border-violet-400 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
 								placeholder="Поиск сотрудников"
 							/>
 						</label>
@@ -1262,7 +1328,7 @@ export default function ChatPage() {
 							{selectedMemberIds.map(id => (
 								<span
 									key={id}
-									className="rounded-full bg-slate-900 px-3 py-1 text-xs font-semibold text-white"
+									className="rounded-full bg-violet-100 px-3 py-1.5 text-xs font-bold text-violet-700 dark:bg-violet-500/15 dark:text-violet-300"
 								>
 									{users.find(user => user.id === id)?.fullName || 'Участник'}
 								</span>
@@ -1280,11 +1346,11 @@ export default function ChatPage() {
 												: [...current, user.id]
 										)
 									}
-									className="flex w-full items-center justify-between rounded-xl border border-slate-200 px-3 py-2 text-left text-sm"
+									className={`flex w-full items-center gap-3 rounded-2xl border p-3 text-left text-sm transition ${selectedMemberIds.includes(user.id) ? 'border-violet-300 bg-violet-50 dark:border-violet-500/50 dark:bg-violet-500/10' : 'border-slate-200 dark:border-slate-700'}`}
 								>
-									<span>{user.fullName || user.name}</span>
+									<span className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-900 text-xs font-black text-white dark:bg-slate-700">{getInitials(user.fullName || user.name || 'U')}</span><span className="flex-1 font-bold text-slate-900 dark:text-white">{user.fullName || user.name}</span>
 									{selectedMemberIds.includes(user.id) ? (
-										<span className="text-blue-600">✓</span>
+										<span className="flex h-7 w-7 items-center justify-center rounded-full bg-violet-600 text-white"><CheckIcon /></span>
 									) : null}
 								</button>
 							))}
@@ -1293,7 +1359,7 @@ export default function ChatPage() {
 							type="button"
 							onClick={() => void handleCreateGroup()}
 							disabled={isCreatingGroup}
-							className="mt-4 w-full rounded-xl bg-blue-600 px-3 py-2 text-sm font-semibold text-white disabled:opacity-60"
+							className="mt-5 h-12 w-full rounded-2xl bg-gradient-to-r from-violet-600 to-indigo-600 px-4 text-sm font-bold text-white shadow-lg shadow-violet-500/20 disabled:opacity-50"
 						>
 							Создать группу
 						</button>
@@ -1301,26 +1367,26 @@ export default function ChatPage() {
 				</Modal>
 			) : null}
 			{isMembersOpen ? (
-				<Modal>
-					<div className="p-5">
+				<Modal contentClassName="max-w-xl overflow-hidden p-0">
+					<div className="p-5 sm:p-6">
 						<div className="flex items-center justify-between">
-							<h3 className="text-lg font-black text-slate-900">Участники</h3>
+							<div><div className="mb-3 flex h-11 w-11 items-center justify-center rounded-2xl bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300"><UsersIcon /></div><h3 className="text-xl font-black text-slate-950 dark:text-white">Участники</h3><p className="mt-1 text-sm text-slate-500">{activeMembers.length} человек в группе</p></div>
 							<button
 								type="button"
 								onClick={() => setIsMembersOpen(false)}
-								className="text-slate-500"
+								className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-500 dark:bg-slate-800"
 							>
-								×
+								<CloseIcon />
 							</button>
 						</div>
-						<div className="mt-4 space-y-2">
+						<div className="mt-5 max-h-56 space-y-2 overflow-auto pr-1">
 							{activeMembers.map(member => (
 								<div
 									key={member.userId}
-									className="flex items-center justify-between rounded-xl border border-slate-200 px-3 py-2"
+									className="flex items-center gap-3 rounded-2xl border border-slate-200 p-3 dark:border-slate-700"
 								>
-									<div>
-										<p className="text-sm font-semibold text-slate-900">
+									<div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-indigo-600 text-xs font-black text-white">{getInitials(member.name)}</div><div className="min-w-0 flex-1">
+										<p className="truncate text-sm font-bold text-slate-900 dark:text-white">
 											{member.name}
 										</p>
 										<p className="text-xs text-slate-500">
@@ -1331,7 +1397,7 @@ export default function ChatPage() {
 										<button
 											type="button"
 											onClick={() => void handleRemoveMember(member.userId)}
-											className="text-sm text-red-600"
+											className="rounded-xl bg-red-50 px-3 py-2 text-xs font-bold text-red-600 transition hover:bg-red-100 dark:bg-red-500/10"
 										>
 											Удалить
 										</button>
@@ -1339,13 +1405,13 @@ export default function ChatPage() {
 								</div>
 							))}
 						</div>
-						<div className="mt-4">
-							<label className="text-sm font-semibold text-slate-700">
+						<div className="mt-5 border-t border-slate-200 pt-5 dark:border-slate-700">
+							<label className="text-sm font-bold text-slate-700 dark:text-slate-300">
 								Добавить участников
 								<input
 									value={memberSearch}
 									onChange={event => setMemberSearch(event.target.value)}
-									className="mt-2 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
+									className="mt-2 h-11 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 text-sm outline-none focus:border-violet-400 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
 								/>
 							</label>
 							<div className="mt-3 max-h-40 space-y-2 overflow-auto">
@@ -1360,11 +1426,11 @@ export default function ChatPage() {
 													: [...current, user.id]
 											)
 										}
-										className="flex w-full items-center justify-between rounded-xl border border-slate-200 px-3 py-2 text-left text-sm"
+										className={`flex w-full items-center justify-between rounded-xl border px-3 py-2 text-left text-sm dark:border-slate-700 ${selectedMemberIds.includes(user.id) ? 'border-violet-300 bg-violet-50 dark:bg-violet-500/10' : 'border-slate-200'}`}
 									>
 										<span>{user.fullName || user.name}</span>
 										{selectedMemberIds.includes(user.id) ? (
-											<span className="text-blue-600">✓</span>
+											<span className="text-violet-600"><CheckIcon /></span>
 										) : null}
 									</button>
 								))}
@@ -1372,7 +1438,7 @@ export default function ChatPage() {
 							<button
 								type="button"
 								onClick={() => void handleAddMembers()}
-								className="mt-3 w-full rounded-xl bg-blue-600 px-3 py-2 text-sm font-semibold text-white"
+								className="mt-3 h-11 w-full rounded-2xl bg-gradient-to-r from-violet-600 to-indigo-600 px-3 text-sm font-bold text-white shadow-lg shadow-violet-500/20"
 							>
 								Добавить
 							</button>
@@ -1381,28 +1447,26 @@ export default function ChatPage() {
 				</Modal>
 			) : null}
 			{isRenaming ? (
-				<Modal>
-					<div className="p-5">
-						<h3 className="text-lg font-black text-slate-900">
-							Переименовать группу
-						</h3>
+				<Modal contentClassName="max-w-md overflow-hidden p-0">
+					<div className="p-5 sm:p-6">
+						<div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300"><EditIcon /></div><h3 className="mt-4 text-xl font-black text-slate-950 dark:text-white">Переименовать группу</h3><p className="mt-1 text-sm text-slate-500">Название увидят все участники</p>
 						<input
 							value={newTitle}
 							onChange={event => setNewTitle(event.target.value)}
-							className="mt-4 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
+							className="mt-5 h-12 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 text-sm outline-none focus:border-violet-400 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
 						/>
 						<div className="mt-4 flex gap-2">
 							<button
 								type="button"
 								onClick={() => setIsRenaming(false)}
-								className="flex-1 rounded-xl border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700"
+								className="h-11 flex-1 rounded-xl border border-slate-200 px-3 text-sm font-bold text-slate-700 dark:border-slate-700 dark:text-slate-300"
 							>
 								Отмена
 							</button>
 							<button
 								type="button"
 								onClick={() => void handleRenameGroup()}
-								className="flex-1 rounded-xl bg-blue-600 px-3 py-2 text-sm font-semibold text-white"
+								className="h-11 flex-1 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-3 text-sm font-bold text-white shadow-lg shadow-violet-500/20"
 							>
 								Сохранить
 							</button>

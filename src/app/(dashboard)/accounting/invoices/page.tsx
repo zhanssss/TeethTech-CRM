@@ -484,13 +484,13 @@ export default function InvoicesPage() {
     };
 
     return (
-        <div className="space-y-6">
-            <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+        <div className="mx-auto w-full max-w-[1500px] space-y-6 pb-8">
+            <header className="relative overflow-hidden rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900 lg:flex lg:items-end lg:justify-between">
                 <div>
-                    <p className="text-xs font-bold uppercase tracking-[0.18em] text-blue-600">
+                    <p className="text-xs font-black uppercase tracking-[0.18em] text-violet-600">
                         Финансы
                     </p>
-                    <h1 className="mt-1 text-2xl font-bold text-slate-900">Счета</h1>
+                    <h1 className="mt-1 text-3xl font-black text-slate-950 dark:text-white">Счета и оплаты</h1>
                     <p className="mt-1 text-sm text-slate-500">
                         Выставление счетов клиникам, контроль оплат и история операций
                     </p>
@@ -509,28 +509,28 @@ export default function InvoicesPage() {
             </header>
 
             <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                <article className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                <article className="rounded-[22px] border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
                     <p className="text-xs font-bold uppercase tracking-wide text-slate-400">К выставлению</p>
                     <p className="mt-2 text-2xl font-black text-slate-900">
                         {pendingQuery.data?.totalElements ?? 0}
                     </p>
                     <p className="mt-1 text-xs text-slate-500">заказов ожидают счёт</p>
                 </article>
-                <article className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                <article className="rounded-[22px] border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
                     <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Остаток к выставлению</p>
                     <p className="mt-2 text-xl font-black text-blue-700">
                         {formatMoney(pageTotals.remainingToInvoice)}
                     </p>
                     <p className="mt-1 text-xs text-slate-500">на текущей странице</p>
                 </article>
-                <article className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                <article className="rounded-[22px] border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
                     <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Текущий долг</p>
                     <p className="mt-2 text-xl font-black text-amber-700">
                         {formatMoney(pageTotals.outstanding)}
                     </p>
                     <p className="mt-1 text-xs text-slate-500">по показанным заказам</p>
                 </article>
-                <article className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                <article className="rounded-[22px] border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
                     <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Всего счетов</p>
                     <p className="mt-2 text-2xl font-black text-slate-900">
                         {invoicesQuery.data?.totalElements ?? 0}
@@ -539,7 +539,7 @@ export default function InvoicesPage() {
                 </article>
             </section>
 
-            <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+            <section className="overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
                 <div className="border-b border-slate-200 bg-slate-50 px-4 py-4 sm:px-5">
                     <h2 className="font-bold text-slate-900">Заказы к выставлению</h2>
                     <p className="mt-1 text-sm text-slate-500">
@@ -619,7 +619,7 @@ export default function InvoicesPage() {
                         />
             </section>
 
-            <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+            <section className="overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
                 <div className="border-b border-slate-200 bg-slate-50 px-4 py-4 sm:px-5">
                     <h2 className="font-bold text-slate-900">Все счета</h2>
                     <p className="mt-1 text-sm text-slate-500">

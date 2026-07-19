@@ -123,6 +123,12 @@ export default function InventoryPanel() {
 	const [updateItem] = useUpdateInventoryItemMutation()
 
 	const checks = listQuery.data ?? []
+	const checkStats = {
+		total: checks.length,
+		draft: checks.filter(item => item.statusCode === 'DRAFT').length,
+		inProgress: checks.filter(item => item.statusCode === 'IN_PROGRESS').length,
+		completed: checks.filter(item => item.statusCode === 'COMPLETED').length
+	}
 	const check = detailQuery.data
 	const items = useMemo(() => itemsQuery.data?.content ?? [], [itemsQuery.data?.content])
 	const rulesByCode = useMemo(
@@ -289,8 +295,8 @@ export default function InventoryPanel() {
 	const title = check?.comment || 'Инвентаризация без комментария'
 
 	return (
-		<div className="overflow-hidden rounded-xl border border-slate-200 bg-white text-slate-900 shadow-[0_1px_2px_rgba(30,36,32,0.06)]">
-			<nav aria-label="Этапы инвентаризации" className="flex overflow-x-auto border-b border-slate-200 bg-slate-50 px-3">
+		<div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white text-slate-900 shadow-[0_1px_2px_rgba(30,36,32,0.06)]">
+			<nav aria-label="Этапы инвентаризации" className="flex gap-2 overflow-x-auto border-b border-slate-200 bg-slate-50 p-3">
 				{stages.map(stage => {
 					const enabled = stageEnabled(stage.id)
 					const active = activeStage === stage.id
@@ -300,17 +306,16 @@ export default function InventoryPanel() {
 							type="button"
 							disabled={!enabled}
 							onClick={() => goToStage(stage.id)}
-							className={`relative flex shrink-0 items-center gap-2 px-3 py-3 text-xs transition ${active ? 'font-semibold text-blue-600' : enabled ? 'text-slate-500 hover:text-slate-900' : 'cursor-not-allowed text-slate-300'}`}
+							className={`relative flex min-w-32 shrink-0 items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-xs transition ${active ? 'bg-white font-semibold text-violet-700 shadow-sm ring-1 ring-violet-100' : enabled ? 'text-slate-500 hover:bg-white hover:text-slate-900' : 'cursor-not-allowed text-slate-300'}`}
 						>
-							<span className="font-mono text-[10px]">{stage.index}</span>
-							<span>{stage.label}</span>
-							{active && <span className="absolute inset-x-2 bottom-0 h-0.5 bg-blue-600" />}
+							<span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg font-mono text-[10px] font-bold ${active ? 'bg-violet-600 text-white' : enabled ? 'bg-slate-200 text-slate-600' : 'bg-slate-100'}`}>{stage.index}</span>
+							<span className="whitespace-nowrap">{stage.label}</span>
 						</button>
 					)
 				})}
 			</nav>
 
-			<div className="mx-auto max-w-[1120px] p-4 sm:p-6 lg:p-8">
+			<div className="p-4 sm:p-6 lg:p-8">
 				{activeStage === 'history' && (
 					<section>
 						<div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
@@ -320,22 +325,31 @@ export default function InventoryPanel() {
 								<p className="mt-1 text-sm text-slate-500">История пересчётов и быстрый доступ к активному документу.</p>
 							</div>
 							<div className="flex gap-2">
-								<select value={filter} onChange={event => setFilter(event.target.value as '' | InventoryCheckStatus)} className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-blue-500">
+								<select value={filter} onChange={event => setFilter(event.target.value as '' | InventoryCheckStatus)} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-violet-500">
 									{filters.map(item => <option key={item.value} value={item.value}>{item.label}</option>)}
 								</select>
-								<button type="button" onClick={() => { setCreating(true); setCreateError('') }} className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">+ Новая</button>
+								<button type="button" onClick={() => { setCreating(true); setCreateError('') }} className="rounded-xl bg-violet-600 px-4 py-2 text-sm font-bold text-white shadow-lg shadow-violet-950/15 hover:bg-violet-700">+ Новая</button>
 							</div>
 						</div>
 
+						<div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+							{[
+								['Всего документов', checkStats.total, 'bg-violet-500'],
+								['Черновики', checkStats.draft, 'bg-slate-500'],
+								['Идёт пересчёт', checkStats.inProgress, 'bg-amber-500'],
+								['Завершено', checkStats.completed, 'bg-emerald-500']
+							].map(([label, value, color]) => <article key={String(label)} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"><div className="flex items-center justify-between"><p className="text-[11px] font-semibold text-slate-500">{label}</p><span className={`h-2.5 w-2.5 rounded-full ${color}`} /></div><p className="mt-3 text-2xl font-black text-slate-950">{value}</p></article>)}
+						</div>
+
 						{listQuery.isError && <ErrorNotice message={getApiErrorMessage(listQuery.error, 'Не удалось загрузить инвентаризации')} />}
-						<div className="mt-5 overflow-x-auto rounded-lg border border-slate-200">
+						<div className="mt-4 overflow-x-auto rounded-2xl border border-slate-200">
 							<table className="w-full min-w-[720px] border-collapse text-left text-sm">
 								<thead className="bg-slate-50 font-mono text-[10px] uppercase tracking-wider text-slate-400">
 									<tr><th className="px-4 py-3 font-medium">Инвентаризация</th><th className="px-4 py-3 font-medium">Начало</th><th className="px-4 py-3 font-medium">Позиций</th><th className="px-4 py-3 font-medium">Статус</th><th className="px-4 py-3" /></tr>
 								</thead>
 								<tbody className="divide-y divide-slate-200">
 									{checks.map(item => (
-										<tr key={item.id} className="transition hover:bg-slate-50/60">
+										<tr key={item.id} className="transition hover:bg-violet-50/50">
 											<td className="px-4 py-3"><p className="font-medium">{item.comment || 'Без комментария'}</p><p className="mt-0.5 font-mono text-[11px] text-slate-400">№ {shortId(item.id)}</p></td>
 											<td className="px-4 py-3 text-slate-500">{item.startedAt ? formatDateTime(item.startedAt) : 'Не начата'}</td>
 											<td className="px-4 py-3 font-mono">{item.items.length}</td>
@@ -358,7 +372,7 @@ export default function InventoryPanel() {
 						<p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">Система зафиксирует ожидаемые остатки всех складских позиций. После запуска операции склада будут временно заблокированы.</p>
 						<form onSubmit={handleCreate} className="mt-6 rounded-lg border border-slate-200 p-5">
 							<label className="block text-sm font-medium">Название или комментарий</label>
-							<textarea rows={4} value={comment} onChange={event => setComment(event.target.value)} placeholder="Например: Плановая инвентаризация за июль" className="mt-2 w-full resize-none rounded-md border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100" />
+							<textarea rows={4} value={comment} onChange={event => setComment(event.target.value)} placeholder="Например: Плановая инвентаризация за июль" className="mt-2 w-full resize-none rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-100" />
 							{createError && <ErrorNotice message={createError} />}
 							<div className="mt-5 flex gap-2"><button type="button" onClick={() => setCreating(false)} className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium hover:bg-slate-50">Отмена</button><button type="submit" disabled={createState.isLoading} className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50">{createState.isLoading ? 'Создаём…' : 'Создать черновик'}</button></div>
 						</form>
@@ -392,7 +406,7 @@ export default function InventoryPanel() {
 						<div className="mt-5 flex items-end justify-between gap-4"><div className="font-mono text-2xl font-semibold">{progress.counted}<span className="ml-1 text-sm font-normal text-slate-400">из {progress.total} позиций</span></div><span className="text-xs text-slate-500">расхождений: {stats.surplusCount + stats.shortageCount}</span></div>
 						<div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full bg-blue-600 transition-all" style={{ width: `${progress.percent}%` }} /></div>
 						<div className="mt-5 flex flex-col gap-2 lg:flex-row lg:items-center">
-							<input type="search" value={search} onChange={event => setSearch(event.target.value)} placeholder="Поиск по названию материала" className="min-w-0 flex-1 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-blue-500" />
+							<input type="search" value={search} onChange={event => setSearch(event.target.value)} placeholder="Поиск по названию материала" className="min-w-0 flex-1 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-violet-500" />
 							<div className="flex w-fit rounded-full border border-slate-200 bg-slate-50 p-0.5">{([['all', 'Все'], ['uncounted', 'Не пересчитано'], ['discrepancy', 'Есть расхождение']] as Array<[CountFilter, string]>).map(([value, label]) => <button key={value} type="button" onClick={() => setCountFilter(value)} className={`rounded-full px-3 py-1.5 text-xs ${countFilter === value ? 'bg-white font-medium shadow-sm' : 'text-slate-500'}`}>{label}</button>)}</div>
 						</div>
 						{actionError && <ErrorNotice message={actionError} />}

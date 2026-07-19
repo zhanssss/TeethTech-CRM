@@ -102,10 +102,10 @@ export default function EmployeeCalendarPage() {
     };
 
     return (
-        <div className="space-y-6">
-            <header className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div className="mx-auto w-full max-w-[1450px] space-y-6 pb-8">
+            <header className="relative overflow-hidden rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900 lg:flex lg:items-center lg:justify-between">
                 <div>
-                    <h1 className="text-2xl font-bold text-slate-900">Мой календарь</h1>
+                    <p className="text-[10px] font-black uppercase tracking-[.18em] text-violet-600">Рабочее расписание</p><h1 className="mt-1 text-3xl font-black text-slate-950 dark:text-white">Мой календарь</h1>
                     <p className="text-sm text-slate-500">
                         План задач и дедлайнов сотрудника {name}
                     </p>
@@ -136,7 +136,7 @@ export default function EmployeeCalendarPage() {
 
             <section className="grid grid-cols-1 gap-6 xl:grid-cols-3">
                 <div
-                    className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm xl:col-span-2"
+                    className="overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900 xl:col-span-2"
                     aria-busy={isFetching}
                 >
                     <div className="grid grid-cols-7 border-b border-slate-200 bg-slate-50 text-center text-[10px] font-bold uppercase tracking-widest text-slate-400 sm:text-[11px]">
@@ -238,7 +238,7 @@ export default function EmployeeCalendarPage() {
                     )}
                 </div>
 
-                <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+                <div className="rounded-[24px] border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
                     <div className="flex items-center justify-between gap-3 border-b border-slate-200 bg-slate-50 px-5 py-4">
                         <h2 className="text-sm font-bold uppercase tracking-wider text-slate-500">
                             Задачи на{' '}

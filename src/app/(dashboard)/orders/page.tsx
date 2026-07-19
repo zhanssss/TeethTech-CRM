@@ -285,6 +285,10 @@ export default function OrdersPage() {
         return matchesSearch && matchesStatus;
     });
 
+    const activeOrdersCount = orders.filter((order) => order.status === 'Активен').length;
+    const pageUnitsCount = orders.reduce((sum, order) => sum + (order.units ?? 0), 0);
+    const pageTotal = orders.reduce((sum, order) => sum + (order.total ?? 0), 0);
+
     const resetFilters = () => {
         setSearch('');
         setStatusFilter('all');
@@ -361,15 +365,15 @@ export default function OrdersPage() {
     };
 
     return (
-        <div className="space-y-6 relative">
+        <div className="relative mx-auto max-w-[1600px] space-y-5 pb-6">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                    <h1 className="text-2xl font-bold text-slate-900">Реестр заказов</h1>
-                    <p className="text-slate-500 text-sm">Управление производственным потоком лаборатории</p>
+                    <h1 className="text-2xl font-bold tracking-tight text-slate-950">Реестр заказов</h1>
+                    <p className="mt-1 text-sm text-slate-500">Управление производственным потоком лаборатории</p>
                 </div>
                 <button
                     onClick={() => setIsModalOpen(true)}
-                    className="w-full rounded-xl bg-blue-600 px-5 py-2.5 font-bold text-white shadow-lg shadow-blue-200 transition-all hover:bg-blue-700 active:scale-95 sm:w-auto"
+                    className="w-full rounded-xl bg-violet-600 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-violet-950/15 transition-all hover:bg-violet-700 active:scale-95 sm:w-auto"
                 >
                     + Новый заказ
                 </button>
@@ -383,20 +387,35 @@ export default function OrdersPage() {
                 />
             )}
 
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-4">
+            <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                {[
+                    { label: 'Всего заказов', value: ordersPage?.totalElements ?? orders.length, note: 'в реестре', color: 'bg-violet-500' },
+                    { label: 'Активные', value: activeOrdersCount, note: 'на этой странице', color: 'bg-emerald-500' },
+                    { label: 'Единиц работ', value: pageUnitsCount, note: 'на этой странице', color: 'bg-blue-500' },
+                    { label: 'Сумма заказов', value: formatMoney(pageTotal), note: 'на этой странице', color: 'bg-amber-500' },
+                ].map((metric) => (
+                    <article key={metric.label} className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-[0_1px_2px_rgba(15,23,42,0.03)] transition hover:-translate-y-0.5 hover:border-violet-200 hover:shadow-lg hover:shadow-violet-950/5">
+                        <div className="flex items-center justify-between"><p className="text-xs font-semibold text-slate-500">{metric.label}</p><span className={`h-2.5 w-2.5 rounded-full ${metric.color}`} /></div>
+                        <p className="mt-5 truncate text-2xl font-black tracking-tight text-slate-950" title={String(metric.value)}>{metric.value}</p>
+                        <p className="mt-2 text-[11px] text-slate-400">{metric.note}</p>
+                    </article>
+                ))}
+            </section>
+
+            <div className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.03)]">
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-5">
                     <input
                         type="text"
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
                         placeholder="Поиск: ID, пациент, работа, статус"
-                        className="md:col-span-2 rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none focus:border-blue-500"
+                        className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none transition focus:border-violet-500 focus:ring-2 focus:ring-violet-100 md:col-span-2"
                     />
 
                     <select
                         value={statusFilter}
                         onChange={(e) => setStatusFilter(e.target.value)}
-                        className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none focus:border-blue-500 bg-white"
+                        className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm outline-none transition focus:border-violet-500 focus:ring-2 focus:ring-violet-100"
                     >
                         <option value="all">Все статусы</option>
                         {statuses.map((status) => (
@@ -409,7 +428,7 @@ export default function OrdersPage() {
                     <select
                         value={sort}
                         onChange={(e) => handleSortChange(e.target.value)}
-                        className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none focus:border-blue-500 bg-white"
+                        className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm outline-none transition focus:border-violet-500 focus:ring-2 focus:ring-violet-100"
                     >
                         <option value="deadline,ASC">Срок: по возрастанию</option>
                         <option value="deadline,DESC">Срок: по убыванию</option>
@@ -418,7 +437,7 @@ export default function OrdersPage() {
                     <select
                         value={size}
                         onChange={(e) => handleSizeChange(Number(e.target.value))}
-                        className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none focus:border-blue-500 bg-white"
+                        className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm outline-none transition focus:border-violet-500 focus:ring-2 focus:ring-violet-100"
                     >
                         {PAGE_SIZE_OPTIONS.map((pageSize) => (
                             <option key={pageSize} value={pageSize}>
@@ -471,7 +490,7 @@ export default function OrdersPage() {
                 </div>
             </div>
 
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+            <div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.03)]">
                 <div className="overflow-x-auto">
                     <table className="w-full min-w-[860px] border-collapse text-left lg:min-w-[980px]">
                         <thead className="bg-slate-50 border-b border-slate-200 text-slate-400 text-[11px] uppercase tracking-widest">
@@ -497,7 +516,7 @@ export default function OrdersPage() {
                         )}
 
                         {filteredOrders.map((order) => (
-                            <tr key={order.id} className="hover:bg-blue-50/30 transition group">
+                            <tr key={order.id} className="group transition hover:bg-violet-50/50">
                                 <td className="p-4 text-sm font-mono text-slate-400">
                                     #{order.orderNumber ?? order.id}
                                 </td>
@@ -516,7 +535,7 @@ export default function OrdersPage() {
                                     <div className="flex justify-end gap-2">
                                         <Link
                                             href={`/orders/${order.id}`}
-                                            className="text-blue-600 hover:bg-blue-600 hover:text-white border border-blue-600 px-3 py-1.5 rounded-lg text-xs font-bold transition"
+                                            className="rounded-lg border border-violet-500 px-3 py-1.5 text-xs font-bold text-violet-600 transition hover:bg-violet-600 hover:text-white"
                                         >
                                             Открыть
                                         </Link>

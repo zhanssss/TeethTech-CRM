@@ -229,7 +229,7 @@ export default function NomenclaturePanel() {
 
     return (
         <div className="space-y-5">
-            <section className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+            <section className="rounded-2xl border border-slate-200/80 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.03)]">
                 <div className="flex flex-col gap-4 border-b border-slate-100 p-4 sm:p-5 lg:flex-row lg:items-center lg:justify-between">
                     <div>
                         <h2 className="font-bold text-slate-900">Номенклатура склада</h2>
@@ -249,7 +249,7 @@ export default function NomenclaturePanel() {
                                 value={search}
                                 onChange={(event) => setSearch(event.target.value)}
                                 placeholder="Код или название"
-                                className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 pl-9 pr-3 text-sm outline-none transition focus:border-blue-500 focus:bg-white sm:w-64"
+                                className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 pl-9 pr-3 text-sm outline-none transition focus:border-violet-500 focus:bg-white focus:ring-2 focus:ring-violet-100 sm:w-64"
                             />
                         </label>
 
@@ -258,7 +258,7 @@ export default function NomenclaturePanel() {
                                 type="checkbox"
                                 checked={activeOnly}
                                 onChange={(event) => setActiveOnly(event.target.checked)}
-                                className="h-4 w-4 accent-blue-600"
+                                className="h-4 w-4 accent-violet-600"
                             />
                             Только активные
                         </label>
@@ -269,7 +269,7 @@ export default function NomenclaturePanel() {
                                 setCreateMaterialOpen(true);
                                 setCreateMaterialError('');
                             }}
-                            className="rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-blue-700"
+                            className="rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-bold text-white shadow-lg shadow-violet-950/15 transition hover:bg-violet-700"
                         >
                             + Добавить материал
                         </button>
@@ -301,7 +301,7 @@ export default function NomenclaturePanel() {
                             {filteredItems.map((item) => {
                                 const low = item.currentStock <= item.minStockLevel;
                                 return (
-                                    <tr key={item.id} className="transition hover:bg-blue-50/30">
+                                    <tr key={item.id} className="transition hover:bg-violet-50/50">
                                         <td className="px-5 py-4 font-mono text-xs font-bold text-slate-500">{item.code}</td>
                                         <td className="px-5 py-4">
                                             <p className="text-sm font-bold text-slate-900">{item.name}</p>
@@ -322,7 +322,7 @@ export default function NomenclaturePanel() {
                                             <button
                                                 type="button"
                                                 onClick={() => openItem(item.id)}
-                                                className="rounded-xl bg-blue-50 px-3.5 py-2 text-xs font-bold text-blue-700 transition hover:bg-blue-100"
+                                            className="rounded-xl bg-violet-50 px-3.5 py-2 text-xs font-bold text-violet-700 transition hover:bg-violet-100"
                                             >
                                                 Открыть / приход
                                             </button>

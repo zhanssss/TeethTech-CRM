@@ -1,5 +1,140 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  --app-background: #f8fafc;
+  --app-surface: #ffffff;
+  --app-surface-muted: #f1f5f9;
+  --app-border: #e2e8f0;
+  --app-text: #0f172a;
+  --app-muted: #64748b;
+}
+
+html.dark {
+  --app-background: #09090b;
+  --app-surface: #18181b;
+  --app-surface-muted: #27272a;
+  --app-border: #3f3f46;
+  --app-text: #fafafa;
+  --app-muted: #a1a1aa;
+}
+
+html {
+  background: var(--app-background);
+  transition: background-color 180ms ease, color 180ms ease;
+}
+
+body {
+  background: var(--app-background);
+  color: var(--app-text);
+}
+
+/* Shared visual language for legacy dashboard screens while their business
+   markup stays untouched. Newer components can still override these rules. */
+.app-dashboard-main .bg-blue-600 { background-color: #7c3aed; }
+.app-dashboard-main .hover\:bg-blue-700:hover { background-color: #6d28d9; }
+.app-dashboard-main .text-blue-600 { color: #7c3aed; }
+.app-dashboard-main .text-blue-700 { color: #6d28d9; }
+.app-dashboard-main .border-blue-200 { border-color: #ddd6fe; }
+.app-dashboard-main .border-blue-300 { border-color: #c4b5fd; }
+.app-dashboard-main .bg-blue-50 { background-color: #f5f3ff; }
+.app-dashboard-main .bg-blue-100 { background-color: #ede9fe; }
+.app-dashboard-main :is(input, select, textarea):focus {
+  border-color: #8b5cf6 !important;
+  --tw-ring-color: rgb(139 92 246 / 0.18) !important;
+}
+.app-dashboard-main table thead {
+  background: color-mix(in srgb, var(--app-surface-muted) 72%, transparent);
+}
+.app-dashboard-main table tbody tr {
+  transition: background-color 160ms ease;
+}
+.app-dashboard-main table tbody tr:hover {
+  background: rgb(139 92 246 / 0.045);
+}
+.dark .app-dashboard-main .bg-blue-50,
+.dark .app-dashboard-main .bg-blue-100 { background-color: rgb(124 58 237 / 0.16) !important; }
+
+/* Compatibility layer for existing screens. It lets the whole CRM use the
+   global theme without changing component behavior or API-bound markup. */
+.dark .bg-white { background-color: #18181b !important; }
+.dark .bg-white\/70 { background-color: rgb(24 24 27 / 0.82) !important; }
+.dark .bg-white\/80 { background-color: rgb(24 24 27 / 0.88) !important; }
+.dark .bg-slate-50,
+.dark .bg-slate-50\/80 { background-color: #09090b !important; }
+.dark .bg-slate-100 { background-color: #27272a !important; }
+.dark .bg-slate-200 { background-color: #3f3f46 !important; }
+.dark .bg-slate-300 { background-color: #52525b !important; }
+.dark .bg-slate-700 { background-color: #3f3f46 !important; }
+.dark .bg-slate-800 { background-color: #27272a !important; }
+.dark .bg-slate-900 { background-color: #09090b !important; }
+
+.dark .text-slate-950,
+.dark .text-slate-900,
+.dark .text-zinc-900 { color: #fafafa !important; }
+.dark .text-slate-800,
+.dark .text-slate-700 { color: #e4e4e7 !important; }
+.dark .text-slate-600,
+.dark .text-slate-500 { color: #a1a1aa !important; }
+.dark .text-slate-400 { color: #71717a !important; }
+.dark .text-slate-300,
+.dark .text-slate-200 { color: #d4d4d8 !important; }
+
+.dark .border-slate-100,
+.dark .border-slate-200,
+.dark .border-slate-200\/80,
+.dark .border-slate-300,
+.dark .border-zinc-300 { border-color: #3f3f46 !important; }
+.dark .divide-slate-100 > :not(:last-child),
+.dark .divide-slate-200 > :not(:last-child) { border-color: #3f3f46 !important; }
+.dark .ring-white { --tw-ring-color: #18181b !important; }
+
+.dark .bg-blue-50,
+.dark .bg-blue-50\/30,
+.dark .bg-blue-50\/60,
+.dark .bg-blue-100 { background-color: rgb(37 99 235 / 0.15) !important; }
+.dark .bg-red-50,
+.dark .bg-red-100 { background-color: rgb(220 38 38 / 0.15) !important; }
+.dark .bg-emerald-50,
+.dark .bg-emerald-100 { background-color: rgb(5 150 105 / 0.15) !important; }
+.dark .bg-amber-50,
+.dark .bg-amber-100,
+.dark .bg-yellow-50 { background-color: rgb(217 119 6 / 0.15) !important; }
+.dark .bg-violet-50,
+.dark .bg-violet-50\/50 { background-color: rgb(124 58 237 / 0.16) !important; }
+
+.dark .text-blue-900,
+.dark .text-blue-800,
+.dark .text-blue-700 { color: #93c5fd !important; }
+.dark .text-red-900,
+.dark .text-red-800,
+.dark .text-red-700 { color: #fca5a5 !important; }
+.dark .text-emerald-900,
+.dark .text-emerald-800,
+.dark .text-emerald-700 { color: #6ee7b7 !important; }
+.dark .text-amber-900,
+.dark .text-amber-800,
+.dark .text-amber-700,
+.dark .text-yellow-700 { color: #fcd34d !important; }
+.dark .text-violet-700 { color: #c4b5fd !important; }
+
+.dark input,
+.dark select,
+.dark textarea {
+  background-color: #18181b;
+  border-color: #3f3f46;
+  color: #fafafa;
+}
+.dark input::placeholder,
+.dark textarea::placeholder { color: #71717a; }
+.dark input:disabled,
+.dark select:disabled,
+.dark textarea:disabled { background-color: #27272a; color: #71717a; }
+
+.dark ::-webkit-calendar-picker-indicator { filter: invert(1); }
+.dark ::selection { background: rgb(124 58 237 / 0.45); }
+
 @keyframes notification-toast-enter {
   from {
     opacity: 0;

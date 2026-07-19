@@ -139,7 +139,7 @@ export default function EmployeeAnalyticsPage() {
     }
 
     return (
-        <div className="space-y-6">
+        <div className="mx-auto w-full max-w-[1450px] space-y-6 pb-8">
             <header>
                 <h1 className="text-2xl font-bold text-slate-900">Моя аналитика</h1>
                 <p className="text-sm text-slate-500">

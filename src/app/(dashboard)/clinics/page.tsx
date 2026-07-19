@@ -24,6 +24,7 @@ export default function ClinicsPage() {
     const [page, setPage] = useState(0);
     const [size, setSize] = useState(10);
     const [sort, setSort] = useState('name,ASC');
+    const [search, setSearch] = useState('');
 
     const {data, isLoading, isError} = useGetClinicsQuery({
         page,
@@ -47,6 +48,16 @@ export default function ClinicsPage() {
 
     }, [ data]);
 
+    const visibleClinics = useMemo(() => {
+        const query = search.trim().toLocaleLowerCase('ru-RU');
+        if (!query) return clinics;
+        return clinics.filter((clinic) => [clinic.name, clinic.address, clinic.phone]
+            .some((value) => value?.toLocaleLowerCase('ru-RU').includes(query)));
+    }, [clinics, search]);
+    const pageOrders = clinics.reduce((sum, clinic) => sum + clinic.ordersCount, 0);
+    const pageActiveOrders = clinics.reduce((sum, clinic) => sum + clinic.activeOrders, 0);
+    const pageCompletedOrders = clinics.reduce((sum, clinic) => sum + clinic.completedOrders, 0);
+
     if (isLoading) return <p>Загрузка...</p>
     if (isError) {
         return (
@@ -57,10 +68,10 @@ export default function ClinicsPage() {
     }
 
     return (
-        <div className="space-y-6">
+        <div className="mx-auto max-w-[1600px] space-y-5 pb-6">
             <header className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                 <div>
-                    <h1 className="text-2xl font-bold text-slate-900">Клиники</h1>
+                    <h1 className="text-2xl font-bold tracking-tight text-slate-950">Клиники</h1>
                     <p className="text-sm text-slate-500">
                         Добавьте, редактируйте и просматривайте данные по клиникам
                     </p>
@@ -68,38 +79,53 @@ export default function ClinicsPage() {
 
                 <button
                     onClick={() => setIsModalOpen(true)}
-                    className="w-full rounded-xl bg-blue-600 px-5 py-2.5 font-bold text-white shadow-lg shadow-blue-200 transition-all hover:bg-blue-700 active:scale-95 md:w-auto"
+                    className="w-full rounded-xl bg-violet-600 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-violet-950/15 transition-all hover:bg-violet-700 active:scale-95 md:w-auto"
                 >
                     + Добавить клинику
                 </button>
             </header>
 
+            <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                {[
+                    ['Клиник на странице', data?.numberOfElements ?? clinics.length, 'в текущей выборке', 'bg-violet-500'],
+                    ['Заказов', pageOrders, 'на этой странице', 'bg-blue-500'],
+                    ['Активные заказы', pageActiveOrders, 'сейчас в работе', 'bg-amber-500'],
+                    ['Завершено', pageCompletedOrders, 'на этой странице', 'bg-emerald-500'],
+                ].map(([label, value, note, color]) => <article key={String(label)} className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-[0_1px_2px_rgba(15,23,42,0.03)] transition hover:-translate-y-0.5 hover:border-violet-200 hover:shadow-lg"><div className="flex items-center justify-between"><p className="text-xs font-semibold text-slate-500">{label}</p><span className={`h-2.5 w-2.5 rounded-full ${color}`} /></div><p className="mt-5 text-3xl font-black tracking-tight text-slate-950">{value}</p><p className="mt-2 text-[11px] text-slate-400">{note}</p></article>)}
+            </section>
+
             <Section style="py-3">
-                <div className="flex flex-col gap-3 sm:flex-row sm:gap-5">
+                <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
                     <input
-                        type="text"
-                        placeholder="Название клиники"
-                        className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none focus:border-blue-500 focus:bg-white sm:max-w-sm"
+                        type="search"
+                        value={search}
+                        onChange={(event) => setSearch(event.target.value)}
+                        placeholder="Название, адрес или телефон"
+                        className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-violet-500 focus:bg-white focus:ring-2 focus:ring-violet-100 lg:max-w-md"
                     />
 
                     <select
-                        className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-1 text-sm outline-none transition focus:border-blue-500 focus:bg-white sm:w-56">
-                        <option value="ordersCount">По кол-ву заказов</option>
+                        value={sort}
+                        onChange={(event) => { setSort(event.target.value); setPage(0); }}
+                        className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-violet-500 focus:bg-white lg:w-56">
+                        <option value="name,ASC">Название: А–Я</option>
+                        <option value="name,DESC">Название: Я–А</option>
                     </select>
+                    <select value={size} onChange={(event) => { setSize(Number(event.target.value)); setPage(0); }} className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-violet-500 focus:bg-white lg:w-44"><option value={10}>10 на странице</option><option value={20}>20 на странице</option><option value={50}>50 на странице</option></select>
+                    <p className="ml-auto text-xs text-slate-400">Показано: <strong className="text-slate-700">{visibleClinics.length}</strong></p>
                 </div>
             </Section>
 
             <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-                <div className="border-b border-slate-200 bg-slate-50 px-4 py-3">
-                    <h2 className="text-sm font-bold uppercase tracking-wider text-slate-500">
-                        Реестр клиник
-                    </h2>
+                <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50 px-5 py-4">
+                    <div><h2 className="text-sm font-bold text-slate-900">Реестр клиник</h2><p className="mt-1 text-xs text-slate-400">Контакты и статистика заказов</p></div>
+                    <span className="rounded-full bg-violet-50 px-3 py-1 text-xs font-bold text-violet-700">{data?.numberOfElements ?? clinics.length} клиник</span>
                 </div>
 
-                <div className="overflow-x-auto">
+                <div className="max-h-[620px] overflow-auto [scrollbar-color:#8b5cf6_transparent]">
                     <table className="w-full min-w-[760px] border-collapse text-left lg:min-w-[900px]">
                         <thead
-                            className="border-b border-slate-200 bg-slate-50 text-[.7rem] uppercase tracking-widest text-slate-400">
+                            className="sticky top-0 z-10 border-b border-slate-200 bg-white/95 text-[.65rem] uppercase tracking-widest text-slate-400 backdrop-blur">
                         <tr>
                             <th className="p-4 font-bold">Название</th>
                             <th className="p-4 font-bold">Адрес</th>
@@ -111,29 +137,30 @@ export default function ClinicsPage() {
                         </thead>
 
                         <tbody className="divide-y divide-slate-100">
-                        {clinics.map((clinic) => (
+                        {visibleClinics.map((clinic) => (
                             <tr
                                 key={clinic.id}
-                                className="transition hover:bg-blue-50/30"
+                                className="transition hover:bg-violet-50/50"
                             >
                                 <td className="p-4 font-bold text-slate-800">
                                     <Link
                                         href={`/clinics/${clinic.id}`}
-                                        className="text-blue-600 hover:underline"
+                                        className="group flex items-center gap-3 text-slate-900"
                                     >
-                                        {clinic.name}
+                                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-violet-100 text-xs font-black text-violet-700">{clinic.name.trim().charAt(0).toLocaleUpperCase('ru-RU')}</span><span className="group-hover:text-violet-600">{clinic.name}</span>
                                     </Link>
                                 </td>
                                 <td className="p-4">{clinic.address}</td>
                                 <td className="p-4">{clinic.phone}</td>
-                                <td className="p-4">{clinic.ordersCount}</td>
-                                <td className="p-4">{clinic.activeOrders}</td>
-                                <td className="p-4">{clinic.completedOrders}</td>
+                                <td className="p-4 font-bold text-slate-900">{clinic.ordersCount}</td>
+                                <td className="p-4"><span className="rounded-lg bg-amber-50 px-2.5 py-1 text-xs font-bold text-amber-700">{clinic.activeOrders}</span></td>
+                                <td className="p-4"><span className="rounded-lg bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-700">{clinic.completedOrders}</span></td>
                             </tr>
                         ))}
                         </tbody>
                     </table>
                 </div>
+                <div className="flex items-center justify-between border-t border-slate-200 px-5 py-4"><p className="text-xs text-slate-500">Страница {(data?.number ?? page) + 1}</p><div className="flex gap-2"><button type="button" disabled={!data || data.first} onClick={() => setPage((current) => Math.max(0, current - 1))} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-700 disabled:opacity-40">Назад</button><button type="button" disabled={!data || data.last} onClick={() => setPage((current) => current + 1)} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-700 disabled:opacity-40">Далее</button></div></div>
             </section>
 
             <CreateClinicModal

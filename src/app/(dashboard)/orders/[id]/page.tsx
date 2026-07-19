@@ -14,7 +14,6 @@ import type {WorkflowStatus} from '@/src/types/workflow.types';
 import ErrorState from '@/src/components/ui/ErrorState';
 import {
     useAssignTaskMutation,
-    useGetOrderQuery,
     useGetOrderKanbanQuery,
     useGetOrdersQuery,
     useGetTaskAssignmentQuery,
@@ -38,13 +37,6 @@ const CLOSED_STATUS_CODE = 'ORDER_CLOSED';
 
 function isUuid(value: string | null | undefined) {
     return Boolean(value && UUID_PATTERN.test(value));
-}
-
-function hasErrorStatus(error: unknown, status: number) {
-    return typeof error === 'object'
-        && error !== null
-        && 'status' in error
-        && error.status === status;
 }
 
 type ServerOrderInfo = OrderApiListItem | OrderDetails;
@@ -174,6 +166,19 @@ function buildOrderKanbanColumns(
 
 function getTaskColor(task: OrderKanbanTask) {
     return task.colorCode || getStringValue(task, ['colorName', 'color']);
+}
+
+const orderColumnThemes = [
+    { border: 'border-slate-300', dot: 'bg-slate-500', badge: 'bg-slate-100 text-slate-700', glow: 'from-slate-500/10' },
+    { border: 'border-blue-300', dot: 'bg-blue-500', badge: 'bg-blue-50 text-blue-700', glow: 'from-blue-500/10' },
+    { border: 'border-cyan-300', dot: 'bg-cyan-500', badge: 'bg-cyan-50 text-cyan-700', glow: 'from-cyan-500/10' },
+    { border: 'border-amber-300', dot: 'bg-amber-500', badge: 'bg-amber-50 text-amber-700', glow: 'from-amber-500/10' },
+    { border: 'border-violet-300', dot: 'bg-violet-500', badge: 'bg-violet-50 text-violet-700', glow: 'from-violet-500/10' },
+    { border: 'border-emerald-300', dot: 'bg-emerald-500', badge: 'bg-emerald-50 text-emerald-700', glow: 'from-emerald-500/10' },
+];
+
+function getOrderColumnTheme(index: number) {
+    return orderColumnThemes[index % orderColumnThemes.length];
 }
 
 function normalizeStageValue(value: string | undefined | null) {
@@ -466,17 +471,6 @@ export default function OrderBoardPage() {
         refetch: refetchServerOrders,
     } = useGetOrdersQuery(ORDER_LOOKUP_PARAMS);
     const {
-        data: serverOrderDetails,
-        isLoading: isServerOrderLoading,
-        isFetching: isServerOrderFetching,
-        isError: isServerOrderError,
-        error: serverOrderError,
-        refetch: refetchServerOrder,
-    } = useGetOrderQuery(
-        id,
-        {skip: !isUuid(id)}
-    );
-    const {
         data: users = [],
         isLoading: isUsersLoading,
         isFetching: isUsersFetching,
@@ -510,23 +504,17 @@ export default function OrderBoardPage() {
         {id, userId: kanbanUserId ?? ''},
         {skip: !canLoadServerKanban}
     );
-    const serverOrder = serverOrderDetails ?? serverOrders?.content.find((item) => item.id === id);
+    const serverOrder = serverOrders?.content.find((item) => item.id === id);
     const isPageLoading = isServerOrdersLoading
-        || isServerOrderLoading
         || isUsersLoading
         || isKanbanLoading
         || isWorkflowStatusesLoading;
-    const hasOrderLoadError = !serverOrder && (
-        isUuid(id)
-            ? (isServerOrderError && !hasErrorStatus(serverOrderError, 404)) || isServerOrdersError
-            : isServerOrdersError
-    );
+    const hasOrderLoadError = isServerOrdersError && !serverKanbanColumns;
     const hasPageError = hasOrderLoadError
         || isUsersError
         || isKanbanError
         || isWorkflowStatusesError;
     const isPageRefetching = isServerOrdersFetching
-        || isServerOrderFetching
         || isUsersFetching
         || isKanbanFetching
         || isWorkflowStatusesFetching;
@@ -535,7 +523,6 @@ export default function OrderBoardPage() {
         void refetchServerOrders();
 
         if (isUuid(id)) {
-            void refetchServerOrder();
             void refetchUsers();
             void refetchWorkflowStatuses();
         }
@@ -631,6 +618,11 @@ function ServerKanbanBoard({
                 .map((task) => task.id)
         ).size
         : 0;
+    const displayActiveTaskCount = closedStatus ? activeTaskCount : allTasks.length;
+    const completedTaskCount = Math.max(0, allTasks.length - displayActiveTaskCount);
+    const completionShare = allTasks.length > 0
+        ? Math.round((completedTaskCount / allTasks.length) * 100)
+        : 0;
     const patientName = getStringValue(order, ['patientFullName', 'patientName', 'patient']);
     const clinicName = getStringValue(order, ['clinicName', 'clinic']);
     const doctorName = getStringValue(order, ['doctorFullName', 'doctorName', 'doctor']);
@@ -678,118 +670,146 @@ function ServerKanbanBoard({
                         >
                             Ответственные по этапам
                         </button>
-                        <span
-                            className="bg-yellow-100 text-yellow-700 px-3 py-1 rounded-full text-[10px] font-black uppercase">
-                            {isActive ? 'Активен' : 'Закрыт'}
-                        </span>
                     </div>
                 </header>
 
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div
-                    className="grid grid-cols-1 gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:grid-cols-2 sm:p-5 md:col-span-2">
-                    <div>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase">Пациент</p>
-                        <p className="font-bold text-slate-800 text-lg">{patientName || '-'}</p>
+            <section className="relative overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm">
+                <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-violet-600 via-fuchsia-500 to-blue-500" />
+                <div className="grid gap-5 p-4 sm:p-5 xl:grid-cols-[minmax(280px,1.05fr)_minmax(0,1.8fr)] xl:items-stretch">
+                    <div className="flex min-w-0 flex-col justify-between rounded-2xl bg-gradient-to-br from-violet-600 to-violet-800 p-5 text-white shadow-lg shadow-violet-950/15">
+                        <div className="flex items-center gap-4">
+                            <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-white/15 text-xl font-black ring-1 ring-white/20">
+                                {(patientName || 'П').trim().charAt(0).toLocaleUpperCase('ru-RU')}
+                            </span>
+                            <div className="min-w-0">
+                                <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-violet-200">Пациент</p>
+                                <h2 className="mt-1 truncate text-xl font-black" title={patientName || '-'}>{patientName || '-'}</h2>
+                            </div>
+                        </div>
+                        <div className="mt-6 grid gap-3 border-t border-white/15 pt-4 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
+                            <div className="min-w-0"><p className="text-[9px] uppercase tracking-wider text-violet-200">Клиника</p><p className="mt-1 truncate text-xs font-bold" title={clinicName || '-'}>{clinicName || '-'}</p></div>
+                            <div className="min-w-0"><p className="text-[9px] uppercase tracking-wider text-violet-200">Лечащий врач</p><p className="mt-1 truncate text-xs font-bold" title={doctorName || '-'}>{doctorName || '-'}</p></div>
+                        </div>
                     </div>
-                    <div>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase">Клиника</p>
-                        <p className="text-blue-600 text-sm font-semibold">{clinicName || '-'}</p>
-                    </div>
-                    <div>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase">Врач</p>
-                        <p className="text-slate-700 text-sm font-medium">{doctorName || '-'}</p>
-                    </div>
-                    <div>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase">Вид работы</p>
-                        <p className="text-slate-700 text-sm font-medium">{workTypeName || '-'}</p>
-                    </div>
-                    <div>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase">Кол-во</p>
-                        <p className="text-slate-700 text-sm font-medium">{quantity} ед.</p>
-                    </div>
-                    <div>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase">Итого</p>
-                        <p className="font-black text-slate-900 text-lg">
-                            {totalPrice.toLocaleString('ru-RU')} ₸
-                        </p>
+
+                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-2 2xl:grid-cols-4">
+                        <div className="flex min-w-0 flex-col justify-between rounded-xl border border-slate-200 bg-slate-50 p-4 sm:col-span-2 xl:col-span-2 2xl:col-span-2">
+                            <div className="flex items-center justify-between gap-3"><p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Вид работы</p><span className="flex h-8 w-8 items-center justify-center rounded-lg bg-violet-100 text-violet-600"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" className="h-4 w-4"><path d="M4 7h16M7 4v6m10-6v6M5 20h14a1 1 0 0 0 1-1V7H4v12a1 1 0 0 0 1 1Z" strokeWidth="1.8" strokeLinecap="round" /></svg></span></div>
+                            <p className="mt-4 line-clamp-2 text-base font-bold text-slate-900" title={workTypeName || '-'}>{workTypeName || '-'}</p>
+                        </div>
+
+                        <div className="rounded-xl border border-slate-200 bg-white p-4">
+                            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Количество</p>
+                            <p className="mt-3 text-2xl font-black text-slate-950">{quantity}<span className="ml-1 text-xs font-semibold text-slate-400">ед.</span></p>
+                        </div>
+
+                        <div className="rounded-xl border border-slate-200 bg-white p-4">
+                            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Цвет</p>
+                            <div className="mt-3 flex flex-wrap gap-1.5">
+                                {colors.length ? colors.map((color) => <span key={color} className="rounded-lg bg-amber-50 px-2.5 py-1 text-xs font-black text-amber-800 ring-1 ring-amber-200">{color}</span>) : <span className="text-lg font-black text-slate-400">—</span>}
+                            </div>
+                        </div>
+
+                        <div className="rounded-xl border border-slate-200 bg-white p-4 sm:col-span-2 lg:col-span-2 xl:col-span-1 2xl:col-span-2">
+                            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Стоимость заказа</p>
+                            <p className="mt-3 text-2xl font-black tracking-tight text-slate-950">{totalPrice.toLocaleString('ru-RU')} <span className="text-sm text-violet-600">₸</span></p>
+                        </div>
+
+                        <div className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-4 sm:col-span-2 lg:col-span-2 xl:col-span-1 2xl:col-span-2">
+                            <div><p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Задачи</p><p className="mt-2 text-xl font-black text-slate-950">{taskCount}</p></div>
+                            <div className="text-right"><p className="text-[10px] text-slate-400">Статус заказа</p><span className={`mt-2 inline-flex rounded-full px-2.5 py-1 text-[10px] font-bold ${isActive ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>{isActive ? 'Активен' : 'Закрыт'}</span></div>
+                        </div>
                     </div>
                 </div>
+            </section>
 
-                <div
-                    className="flex flex-col justify-between rounded-2xl bg-slate-900 p-4 text-white shadow-lg sm:p-5">
+            <div className="rounded-2xl border border-slate-200/80 bg-white p-3 shadow-sm sm:p-4">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                     <div>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase">Цвет</p>
-                        <p className="mt-2 text-xl font-black text-orange-400">
-                            {colors.length ? colors.join(', ') : '-'}
-                        </p>
+                        <div className="flex items-center gap-3">
+                            <h2 className="text-sm font-bold text-slate-900">Производственный маршрут</h2>
+                            <span className="rounded-full bg-violet-50 px-2.5 py-1 text-[10px] font-bold text-violet-700">{boardColumns.length} этапов</span>
+                        </div>
+                        <p className="mt-1 text-xs text-slate-400">Все задачи заказа и их текущее положение</p>
                     </div>
-                    <p className="mt-4 border-t border-slate-800 pt-4 text-sm font-semibold text-slate-100">
-                        {taskCount} задач на доске
-                    </p>
+                    <div className="grid grid-cols-3 gap-2 sm:flex sm:items-center">
+                        <div className="rounded-xl bg-slate-50 px-3 py-2"><p className="text-[9px] uppercase tracking-wider text-slate-400">Всего</p><p className="mt-0.5 text-sm font-black text-slate-900">{allTasks.length}</p></div>
+                        <div className="rounded-xl bg-amber-50 px-3 py-2"><p className="text-[9px] uppercase tracking-wider text-amber-600">В работе</p><p className="mt-0.5 text-sm font-black text-amber-800">{displayActiveTaskCount}</p></div>
+                        <div className="rounded-xl bg-emerald-50 px-3 py-2"><p className="text-[9px] uppercase tracking-wider text-emerald-600">Готово</p><p className="mt-0.5 text-sm font-black text-emerald-800">{completedTaskCount}</p></div>
+                        <div className="col-span-3 min-w-40 sm:ml-2">
+                            <div className="mb-1.5 flex justify-between text-[10px] font-semibold text-slate-500"><span>Прогресс заказа</span><span>{completionShare}%</span></div>
+                            <div className="h-2 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full bg-gradient-to-r from-violet-600 to-emerald-500 transition-all" style={{width: `${completionShare}%`}} /></div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            <div
-                className="grid grid-cols-1 items-start gap-6 pb-8 pt-4 lg:grid-cols-3 xl:grid-cols-4">
-                {boardColumns.map((column, columnIndex) => (
+            <div className="overflow-x-auto pb-8 pt-3 [scrollbar-color:#8b5cf6_transparent]">
+                <div className="flex min-w-max snap-x snap-mandatory items-start gap-3 pb-2">
+                {boardColumns.map((column, columnIndex) => {
+                    const theme = getOrderColumnTheme(columnIndex);
+                    return (
                     <section
                         key={`${column.statusName}-${column.title}`}
-                        className="h-fit min-h-[280px] rounded-xl border border-slate-200 border-t-4 border-t-blue-500 bg-slate-50/60 shadow-sm"
+                        className={`flex max-h-[680px] min-h-[300px] w-[16.5rem] shrink-0 snap-start flex-col overflow-hidden rounded-2xl border bg-slate-50/60 shadow-sm 2xl:w-[17rem] ${theme.border}`}
                     >
-                        <div className="rounded-t-xl border-b border-slate-200 bg-white/50 p-4">
+                        <div className={`sticky top-0 z-10 border-b border-slate-200 bg-gradient-to-br ${theme.glow} to-white p-3 backdrop-blur`}>
                             <div className="flex items-center justify-between gap-3">
-                                <h2 className="font-bold text-xs text-slate-800 uppercase tracking-widest">
-                                    {column.title || column.statusName}
-                                </h2>
-                                <span className="bg-slate-200 text-slate-700 text-[10px] font-black px-2 py-0.5 rounded">
+                                <div className="flex min-w-0 items-center gap-3">
+                                    <span className={`h-3 w-3 shrink-0 rounded-full shadow-sm ring-4 ring-white ${theme.dot}`} />
+                                    <h2 className="truncate text-xs font-bold uppercase tracking-wider text-slate-800">
+                                        {column.title || column.statusName}
+                                    </h2>
+                                </div>
+                                <span className={`rounded-full px-2.5 py-1 text-[10px] font-black ${theme.badge}`}>
                                     {column.taskCount}
                                 </span>
                             </div>
                         </div>
 
-                        <div className="min-h-[150px] space-y-3 p-3">
+                        <div className="min-h-[140px] flex-1 space-y-2.5 overflow-y-auto p-2.5">
                             {column.tasks.map((task) => (
                                 <div key={task.id} className="space-y-2">
                                     <button
                                         type="button"
                                         onClick={() => setSelectedTask(task)}
-                                        className="w-full bg-white p-4 rounded-lg shadow-sm border border-slate-200 flex flex-col gap-3 text-left transition hover:border-blue-400 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        className="group relative flex w-full flex-col gap-2.5 overflow-hidden rounded-xl border border-slate-200 bg-white p-3 text-left shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-violet-300 hover:shadow-lg hover:shadow-violet-950/10 focus:outline-none focus:ring-2 focus:ring-violet-500"
                                     >
+                                    <span className="absolute inset-y-0 left-0 w-1 bg-violet-500 opacity-0 transition group-hover:opacity-100" />
                                     <div className="flex justify-between items-center text-[10px]">
-                                        <span className="font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">
+                                        <span className="max-w-36 truncate rounded-md bg-violet-50 px-2 py-1 font-bold text-violet-700">
                                             {task.taskNumber ?? task.workTypeCode ?? task.id.slice(0, 8)}
                                         </span>
-                                        <span className="text-slate-400 italic">{task.quantity} ед.</span>
+                                        <span className="rounded-md bg-slate-100 px-2 py-1 font-semibold text-slate-500">{task.quantity} ед.</span>
                                     </div>
 
                                     <div>
-                                        <h3 className="text-slate-900 font-semibold text-sm">
+                                        <h3 className="text-sm font-bold leading-5 text-slate-900">
                                             {task.workTypeName}
                                         </h3>
-                                        <p className="mt-1 text-xs text-slate-500">
+                                        <p className="mt-1 line-clamp-2 text-[11px] text-slate-500">
                                             {task.materialName || 'Материал не указан'}
                                             {task.colorCode ? ` · цвет ${task.colorCode}` : ''}
                                         </p>
                                     </div>
 
-                                    <div className="grid grid-cols-2 gap-2 text-[10px] text-slate-500">
-                                        <div>
+                                    <div className="grid grid-cols-2 gap-1.5 text-[9px] text-slate-500">
+                                        <div className="min-w-0 rounded-lg bg-slate-50 p-2">
                                             <p className="font-bold uppercase text-slate-400">Техник</p>
-                                            <p className="font-semibold text-slate-700">
+                                            <p className="truncate font-semibold text-slate-700" title={task.dentalTechnicianFullName || task.technician?.fullName || '-'}>
                                                 {task.dentalTechnicianFullName || task.technician?.fullName || '-'}
                                             </p>
                                         </div>
-                                        <div>
+                                        <div className="min-w-0 rounded-lg bg-slate-50 p-2">
                                             <p className="font-bold uppercase text-slate-400">Статус</p>
-                                            <p className="font-semibold text-slate-700">
+                                            <p className="truncate font-semibold text-slate-700" title={task.currentStatusFormName || task.currentStatusCode || task.operator?.fullName || '-'}>
                                                 {task.currentStatusFormName || task.currentStatusCode || task.operator?.fullName || '-'}
                                             </p>
                                         </div>
                                     </div>
 
-                                    <div className="flex items-center justify-between border-t border-slate-100 pt-3">
-                                        <span className="text-[10px] text-slate-400">
+                                    <div className="flex items-center justify-between gap-3 border-t border-slate-100 pt-3">
+                                        <span className="max-w-28 truncate text-[9px] text-slate-400" title={task.toothNumbers?.length ? `Зубы: ${task.toothNumbers.join(', ')}` : 'Зубы не указаны'}>
                                             {task.toothNumbers?.length ? `Зубы: ${task.toothNumbers.join(', ')}` : 'Зубы не указаны'}
                                         </span>
                                         <span className="text-xs font-black text-slate-800">
@@ -824,13 +844,14 @@ function ServerKanbanBoard({
                             ))}
 
                             {column.tasks.length === 0 && (
-                                <div className="py-8 text-center text-xs italic text-slate-400">
-                                    Пусто
+                                <div className="flex min-h-40 items-center justify-center rounded-xl border border-dashed border-slate-300 bg-white/50 px-4 text-center text-xs text-slate-400">
+                                    На этом этапе задач нет
                                 </div>
                             )}
                         </div>
                     </section>
-                ))}
+                );})}
+                </div>
             </div>
         </div>
 

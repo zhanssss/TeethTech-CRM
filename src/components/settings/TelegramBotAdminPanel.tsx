@@ -207,7 +207,7 @@ export default function TelegramBotAdminPanel() {
 
     return (
         <div className="space-y-6">
-            <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+            <section className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-6">
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                     <div>
                         <div className="flex flex-wrap items-center gap-2">
@@ -236,7 +236,7 @@ export default function TelegramBotAdminPanel() {
                 </div>
             </section>
 
-            <section aria-labelledby="telegram-token-title" className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+            <section aria-labelledby="telegram-token-title" className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-6">
                 <h2 id="telegram-token-title" className="text-lg font-extrabold text-slate-900">Токен бота</h2>
                 <p className="mt-1 text-sm leading-6 text-slate-500">
                     Вставьте настоящий bot token, полученный у BotFather. Сохранённый токен нельзя просмотреть.
@@ -288,7 +288,7 @@ export default function TelegramBotAdminPanel() {
                 </div>
             </section>
 
-            <section aria-labelledby="telegram-webhook-title" className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+            <section aria-labelledby="telegram-webhook-title" className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-6">
                 <h2 id="telegram-webhook-title" className="text-lg font-extrabold text-slate-900">Webhook и состояние</h2>
 
                 <div className="mt-4 grid gap-4 lg:grid-cols-2">
@@ -358,7 +358,7 @@ export default function TelegramBotAdminPanel() {
                 </div>
             </section>
 
-            <section aria-labelledby="telegram-commands-title" className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+            <section aria-labelledby="telegram-commands-title" className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-6">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                         <h2 id="telegram-commands-title" className="text-lg font-extrabold text-slate-900">Команды бота</h2>

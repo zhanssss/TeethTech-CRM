@@ -48,10 +48,10 @@ export default function CreateEmployeeModal({ onClose }: CreateEmployeeModalProp
     };
 
     return (
-        <Modal>
-            <form onSubmit={handleSubmit} className="flex flex-col gap-y-4 p-4 sm:p-6">
+        <Modal contentClassName="max-w-xl overflow-hidden p-0">
+            <form onSubmit={handleSubmit} className="flex flex-col gap-y-4 p-5 sm:p-6">
                 <div className="flex items-start justify-between gap-4 border-b border-slate-100 pb-4">
-                    <h2>Добавить сотрудника</h2>
+                    <div><p className="text-[10px] font-black uppercase tracking-widest text-violet-600">Команда лаборатории</p><h2 className="mt-1 text-xl font-black text-slate-950 dark:text-white">Добавить сотрудника</h2><p className="mt-1 text-xs text-slate-500">Создайте профиль и задайте условия оплаты</p></div>
                     <button
                         type="button"
                         className="rounded-lg px-2 text-xl font-bold text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
@@ -150,7 +150,7 @@ export default function CreateEmployeeModal({ onClose }: CreateEmployeeModalProp
                 <button
                     type="submit"
                     disabled={isLoading || isRolesError}
-                    className="cursor-pointer rounded-xl bg-blue-600 py-3 text-sm font-bold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+                    className="cursor-pointer rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 py-3 text-sm font-bold text-white shadow-lg shadow-violet-500/20 transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:bg-slate-300"
                 >
                     {isLoading ? 'Создание...' : 'Добавить'}
                 </button>

@@ -37,7 +37,7 @@ type ReceiptItemDraft = {
 };
 
 const PAGE_SIZE = 20;
-const fieldClassName = 'w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-blue-500 focus:bg-white';
+const fieldClassName = 'w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-violet-500 focus:bg-white focus:ring-2 focus:ring-violet-100';
 
 const orderStatusLabels: Record<string, string> = {
     DRAFT: 'Черновик',
@@ -620,10 +620,10 @@ export default function ProcurementPanel() {
                     ['Ожидают приёмки', receivableCount, 'В работе сейчас'],
                     ['Поставщики', suppliers.length, `${suppliers.filter((supplier) => supplier.active).length} активных`],
                 ].map(([label, value, note]) => (
-                    <article key={label} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-                        <p className="text-xs font-bold text-slate-500">{label}</p>
-                        <p className="mt-1 text-2xl font-black text-slate-900">{value}</p>
-                        <p className="mt-1 text-[11px] text-slate-400">{note}</p>
+                    <article key={label} className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-[0_1px_2px_rgba(15,23,42,0.03)] transition hover:-translate-y-0.5 hover:border-violet-200 hover:shadow-lg hover:shadow-violet-950/5">
+                        <div className="flex items-center justify-between"><p className="text-xs font-bold text-slate-500">{label}</p><span className="h-2.5 w-2.5 rounded-full bg-violet-500" /></div>
+                        <p className="mt-5 text-2xl font-black tracking-tight text-slate-950">{value}</p>
+                        <p className="mt-2 text-[11px] text-slate-400">{note}</p>
                     </article>
                 ))}
             </section>
@@ -635,17 +635,17 @@ export default function ProcurementPanel() {
                             ['orders', 'Заказы'],
                             ['suppliers', 'Поставщики'],
                         ] as Array<[ProcurementView, string]>).map(([id, label]) => (
-                            <button key={id} type="button" onClick={() => setView(id)} className={`rounded-lg px-4 py-2 text-sm font-bold transition ${view === id ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}>{label}</button>
+                            <button key={id} type="button" onClick={() => setView(id)} className={`rounded-lg px-4 py-2 text-sm font-bold transition ${view === id ? 'bg-white text-violet-700 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}>{label}</button>
                         ))}
                     </div>
 
                     {view === 'orders' ? (
                         <div className="flex flex-col gap-2 sm:flex-row">
                             <input type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Номер, поставщик или статус" className={`${fieldClassName} sm:w-64`} />
-                            <button type="button" onClick={() => setCreateOrderOpen(true)} disabled={suppliers.length === 0 || (nomenclatureQuery.data?.length ?? 0) === 0} title={suppliers.length === 0 ? 'Сначала добавьте поставщика' : undefined} className="rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50">+ Новый заказ</button>
+                            <button type="button" onClick={() => setCreateOrderOpen(true)} disabled={suppliers.length === 0 || (nomenclatureQuery.data?.length ?? 0) === 0} title={suppliers.length === 0 ? 'Сначала добавьте поставщика' : undefined} className="rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-bold text-white shadow-lg shadow-violet-950/15 hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-50">+ Новый заказ</button>
                         </div>
                     ) : (
-                        <button type="button" onClick={() => { setEditingSupplier(undefined); setSupplierModalOpen(true); }} className="rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-blue-700">+ Новый поставщик</button>
+                        <button type="button" onClick={() => { setEditingSupplier(undefined); setSupplierModalOpen(true); }} className="rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-bold text-white shadow-lg shadow-violet-950/15 hover:bg-violet-700">+ Новый поставщик</button>
                     )}
                 </div>
 
@@ -669,7 +669,7 @@ export default function ProcurementPanel() {
                                         const received = order.items.reduce((sum, item) => sum + item.receivedQuantity, 0);
                                         const progress = ordered > 0 ? Math.min(100, Math.round((received / ordered) * 100)) : 0;
                                         return (
-                                            <tr key={order.id} onClick={() => setSelectedOrderId(order.id)} className="cursor-pointer transition hover:bg-blue-50/40">
+                                            <tr key={order.id} onClick={() => setSelectedOrderId(order.id)} className="cursor-pointer transition hover:bg-violet-50/50">
                                                 <td className="px-5 py-4">
                                                     <p className="text-sm font-black text-slate-900">{order.number || `#${shortId(order.id)}`}</p>
                                                     <p className="mt-1 text-[10px] font-bold text-slate-400">{order.items.length} позиций</p>
@@ -708,7 +708,7 @@ export default function ProcurementPanel() {
                     <>
                         <div className="grid gap-4 p-4 sm:grid-cols-2 sm:p-5 xl:grid-cols-3">
                             {suppliers.map((supplier) => (
-                                <article key={supplier.id} className="rounded-2xl border border-slate-200 p-4 transition hover:border-blue-200 hover:shadow-sm">
+                                <article key={supplier.id} className="rounded-2xl border border-slate-200 p-4 transition hover:-translate-y-0.5 hover:border-violet-200 hover:shadow-md">
                                     <div className="flex items-start justify-between gap-3">
                                         <div className="min-w-0">
                                             <div className="flex flex-wrap items-center gap-2">

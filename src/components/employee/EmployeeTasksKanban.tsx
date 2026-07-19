@@ -23,20 +23,20 @@ const COLUMN_STYLES: Record<ColumnVariant, {
     emptyText: string;
 }> = {
     previous: {
-        accent: 'border-t-amber-400',
-        badge: 'bg-amber-100 text-amber-800',
+        accent: 'border-slate-200 bg-slate-50/70 dark:border-slate-700 dark:bg-slate-900/60',
+        badge: 'bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-200',
         eyebrow: 'Предыдущий этап',
         emptyText: 'На предыдущем этапе задач нет.',
     },
     current: {
-        accent: 'border-t-blue-500',
-        badge: 'bg-blue-100 text-blue-800',
+        accent: 'border-violet-300 bg-violet-50/55 ring-1 ring-violet-100 dark:border-violet-500/40 dark:bg-violet-500/10 dark:ring-violet-500/10',
+        badge: 'bg-violet-600 text-white shadow-sm shadow-violet-500/25',
         eyebrow: 'Мой этап',
         emptyText: 'Сейчас у вас нет задач в работе.',
     },
     next: {
-        accent: 'border-t-violet-500',
-        badge: 'bg-violet-100 text-violet-800',
+        accent: 'border-indigo-200 bg-indigo-50/45 dark:border-indigo-500/30 dark:bg-indigo-500/10',
+        badge: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300',
         eyebrow: 'Следующий этап',
         emptyText: 'На следующий этап задачи ещё не переданы.',
     },
@@ -44,6 +44,15 @@ const COLUMN_STYLES: Record<ColumnVariant, {
 
 function formatMoney(value: number) {
     return new Intl.NumberFormat('ru-RU').format(value);
+}
+
+function ColumnIcon({ variant }: { variant: ColumnVariant }) {
+    const path = variant === 'previous'
+        ? <path d="m15 18-6-6 6-6" />
+        : variant === 'current'
+            ? <><circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/></>
+            : <path d="m9 18 6-6-6-6" />;
+    return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4" aria-hidden="true">{path}</svg>;
 }
 
 function getTaskLabel(task: EmployeeKanbanTask) {
@@ -102,7 +111,7 @@ function MoveTaskButton({ task }: { task: EmployeeKanbanTask }) {
                 type="button"
                 onClick={handleMoveNext}
                 disabled={isLoading}
-                className="inline-flex min-h-10 w-full items-center justify-center rounded-xl bg-blue-600 px-4 py-2 text-sm font-bold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+                className="inline-flex min-h-9 w-full items-center justify-center rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-4 py-2 text-xs font-black text-white shadow-lg shadow-violet-500/20 transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:translate-y-0 disabled:bg-slate-300"
             >
                 {isLoading ? 'Передача...' : 'Завершить этап'}
                 {!isLoading && <span aria-hidden="true" className="ml-2">→</span>}
@@ -135,10 +144,11 @@ function EmployeeTaskCard({
                     onOpen();
                 }
             }}
-            className="rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-blue-300 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-blue-400"
+            className="group relative overflow-hidden rounded-[18px] border border-slate-200 bg-white p-3.5 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-violet-300 hover:shadow-lg hover:shadow-violet-500/10 focus:outline-none focus:ring-2 focus:ring-violet-400 dark:border-slate-700 dark:bg-slate-900"
         >
+			<span className="absolute inset-y-3 left-0 w-1 rounded-r-full bg-gradient-to-b from-violet-500 to-indigo-500 opacity-0 transition group-hover:opacity-100" />
             <div className="flex items-start justify-between gap-3">
-                <span className="rounded-md bg-blue-50 px-2 py-1 font-mono text-[10px] font-black uppercase tracking-wide text-blue-700">
+				<span className="rounded-lg bg-violet-50 px-2 py-1 font-mono text-[9px] font-black uppercase tracking-wide text-violet-700 dark:bg-violet-500/15 dark:text-violet-300">
                     {task.workTypeCode || task.id.slice(0, 8)}
                 </span>
                 <span className="shrink-0 text-xs font-semibold text-slate-400">
@@ -146,7 +156,7 @@ function EmployeeTaskCard({
                 </span>
             </div>
 
-            <h3 className="mt-3 text-base font-black leading-snug text-slate-900">
+			<h3 className="mt-2.5 text-sm font-black leading-snug text-slate-900 dark:text-white">
                 {getTaskLabel(task)}
             </h3>
             <p className="mt-1 text-xs leading-5 text-slate-500">
@@ -155,12 +165,12 @@ function EmployeeTaskCard({
             </p>
 
             {status && (
-                <p className="mt-3 inline-flex rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[10px] font-bold text-slate-600">
+				<p className="mt-2.5 inline-flex rounded-lg border border-violet-100 bg-violet-50 px-2.5 py-1 text-[9px] font-black text-violet-700 dark:border-violet-500/20 dark:bg-violet-500/10 dark:text-violet-300">
                     {status}
                 </p>
             )}
 
-            <dl className="mt-4 grid grid-cols-2 gap-3 border-t border-slate-100 pt-4 text-xs">
+			<dl className="mt-3 grid grid-cols-2 gap-2 rounded-xl bg-slate-50 p-2.5 text-xs dark:bg-slate-800">
                 <div>
                     <dt className="font-bold uppercase tracking-wide text-slate-400">Зубы</dt>
                     <dd className="mt-1 font-semibold text-slate-700">
@@ -175,7 +185,7 @@ function EmployeeTaskCard({
                 </div>
             </dl>
 
-            <div className="mt-4 flex items-end justify-between gap-3 border-t border-slate-100 pt-4">
+			<div className="mt-3 flex items-end justify-between gap-3 border-t border-slate-100 pt-3 dark:border-slate-800">
                 <div className="min-w-0">
                     <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Техник</p>
                     <p className="mt-1 truncate text-xs font-semibold text-slate-700">
@@ -185,14 +195,14 @@ function EmployeeTaskCard({
                 <Link
                     href={`/orders/${task.orderId}`}
                     onClick={(event) => event.stopPropagation()}
-                    className="shrink-0 text-xs font-bold text-blue-600 hover:underline"
+					className="shrink-0 rounded-lg bg-slate-100 px-2 py-1 text-[10px] font-black text-slate-600 transition hover:bg-violet-100 hover:text-violet-700 dark:bg-slate-800 dark:text-slate-300"
                 >
                     Заказ →
                 </Link>
             </div>
 
             {canMoveNext && (
-                <div className="mt-4 border-t border-slate-100 pt-4">
+				<div className="mt-3 border-t border-slate-100 pt-3 dark:border-slate-800">
                     <MoveTaskButton task={task} />
                 </div>
             )}
@@ -212,13 +222,11 @@ function KanbanColumn({
     const styles = COLUMN_STYLES[variant];
 
     return (
-        <section className={`min-h-80 rounded-2xl border border-slate-200 border-t-4 bg-slate-50/70 shadow-sm ${styles.accent}`}>
-            <header className="rounded-t-xl border-b border-slate-200 bg-white/80 p-4">
+		<section className={`min-h-72 rounded-[22px] border shadow-sm ${styles.accent}`}>
+			<header className="rounded-t-[21px] border-b border-slate-200/80 bg-white/80 p-3.5 backdrop-blur-sm dark:border-slate-700 dark:bg-slate-900/80">
                 <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                        <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">
-                            {styles.eyebrow}
-                        </p>
+						<div className="flex items-center gap-1.5 text-[9px] font-black uppercase tracking-[0.16em] text-slate-400"><ColumnIcon variant={variant} />{styles.eyebrow}</div>
                         <h3 className="mt-1 truncate text-sm font-black text-slate-900">
                             {column.title || column.statusName}
                         </h3>
@@ -232,7 +240,7 @@ function KanbanColumn({
                 </div>
             </header>
 
-            <div className="space-y-3 p-3">
+			<div className="max-h-[560px] space-y-2.5 overflow-y-auto p-2.5">
                 {column.tasks.map((task) => (
                     <EmployeeTaskCard
                         key={task.id}
@@ -305,13 +313,13 @@ export default function EmployeeTasksKanban() {
 
     return (
         <>
-            <section aria-labelledby="employee-tasks-title" className="space-y-5">
-                <header className="flex flex-col gap-3 border-b border-slate-200 pb-5 sm:flex-row sm:items-end sm:justify-between">
+			<section aria-labelledby="employee-tasks-title" className="space-y-4 rounded-[26px] border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-950 sm:p-5">
+				<header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                     <div>
-                        <p className="text-xs font-bold uppercase tracking-[0.18em] text-blue-600">
+						<p className="text-[10px] font-black uppercase tracking-[0.18em] text-violet-600">
                             Рабочая смена
                         </p>
-                        <h2 id="employee-tasks-title" className="mt-1 text-2xl font-black text-slate-900">
+						<h2 id="employee-tasks-title" className="mt-1 text-xl font-black text-slate-950 dark:text-white">
                             Мои задачи
                         </h2>
                         <p className="mt-1 max-w-2xl text-sm text-slate-500">
@@ -320,21 +328,21 @@ export default function EmployeeTasksKanban() {
                     </div>
 
                     <div className="flex items-center gap-2">
-                        <span className="rounded-full bg-slate-200 px-3 py-1.5 text-xs font-bold text-slate-700">
+						<span className="rounded-xl bg-slate-100 px-3 py-2 text-xs font-black text-slate-700 dark:bg-slate-800 dark:text-slate-300">
                             Всего: {totalTasks}
                         </span>
                         <button
                             type="button"
                             onClick={() => refetch()}
                             disabled={isFetching}
-                            className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-600 transition hover:border-blue-300 hover:text-blue-700 disabled:cursor-wait disabled:text-slate-400"
+							className="rounded-xl border border-violet-200 bg-violet-50 px-3 py-2 text-xs font-black text-violet-700 transition hover:bg-violet-100 disabled:cursor-wait disabled:text-slate-400 dark:border-violet-500/30 dark:bg-violet-500/10 dark:text-violet-300"
                         >
                             {isFetching ? 'Обновление...' : 'Обновить'}
                         </button>
                     </div>
                 </header>
 
-                <div className="grid items-start gap-4 lg:grid-cols-3">
+				<div className="grid items-start gap-3 lg:grid-cols-3">
                     <KanbanColumn
                         column={data.previousColumn}
                         variant="previous"

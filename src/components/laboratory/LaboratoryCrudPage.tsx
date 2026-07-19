@@ -1,6 +1,6 @@
 'use client';
 
-import React, { FormEvent, useState } from 'react';
+import React, { FormEvent, useMemo, useState } from 'react';
 import ErrorState from '@/src/components/ui/ErrorState';
 import { useNotifications } from '@/src/features/notifications/useNotifications';
 
@@ -119,9 +119,19 @@ export default function LaboratoryCrudPage<
 
     const [form, setForm] = useState<FormState>(initialFormState);
     const [editingId, setEditingId] = useState<string | null>(null);
+    const [search, setSearch] = useState('');
     const { notifyError } = useNotifications();
 
     const isSubmitting = isCreating || isUpdating;
+    const filteredItems = useMemo(() => {
+        const query = search.trim().toLocaleLowerCase('ru-RU');
+        if (!query) return items;
+        return items.filter((item) => [item.name, item.code, item.description]
+            .some((value) => value?.toLocaleLowerCase('ru-RU').includes(query)));
+    }, [items, search]);
+    const hasActivation = items.some((item) => typeof item.isActive === 'boolean');
+    const activeCount = hasActivation ? items.filter((item) => item.isActive).length : items.length;
+    const inactiveCount = hasActivation ? items.length - activeCount : 0;
 
     const handleChange = (fieldName: string, value: FormValue) => {
         setForm((prev) => ({
@@ -189,27 +199,38 @@ export default function LaboratoryCrudPage<
 
     return (
         <>
-            <section className="min-h-full w-full bg-slate-50 p-0 sm:p-4 lg:p-6">
-            <div className="mb-4 rounded-2xl bg-white px-4 py-4 shadow-sm sm:mb-6 sm:px-6 sm:py-5">
-                <h1 className="text-2xl font-semibold text-slate-900">
+            <section className="min-h-full w-full space-y-5">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                <div>
+                <h1 className="text-2xl font-bold tracking-tight text-slate-950">
                     {pageTitle}
                 </h1>
 
                 <p className="mt-1 text-sm text-slate-500">
                     {pageDescription}
                 </p>
+                </div>
+                <span className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-semibold text-slate-500">Справочник лаборатории</span>
             </div>
 
+            <section className={`grid gap-4 ${hasActivation ? 'sm:grid-cols-3' : 'sm:grid-cols-2'}`}>
+                {[
+                    ['Всего записей', items.length, 'в справочнике', 'bg-violet-500'],
+                    ['Доступно', activeCount, hasActivation ? 'активных записей' : 'для использования', 'bg-emerald-500'],
+                    ...(hasActivation ? [['Отключено', inactiveCount, 'скрыто из выбора', 'bg-slate-400']] : []),
+                ].map(([label, value, note, color]) => <article key={String(label)} className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-violet-200"><div className="flex items-center justify-between"><p className="text-xs font-semibold text-slate-500">{label}</p><span className={`h-2.5 w-2.5 rounded-full ${color}`} /></div><p className="mt-4 text-2xl font-black text-slate-950">{value}</p><p className="mt-1 text-[11px] text-slate-400">{note}</p></article>)}
+            </section>
+
             <section className="grid gap-4 lg:gap-6 xl:grid-cols-[minmax(18rem,420px)_1fr]">
-                <div className="rounded-2xl bg-white p-4 shadow-sm sm:p-5">
+                <div className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm sm:p-5">
                     <div className="mb-5">
-                        <h2 className="text-lg font-semibold text-slate-900">
-                            {editingId ? `Редактировать: ${formTitle}` : formTitle}
+                        <div className="flex items-center gap-3"><span className={`flex h-9 w-9 items-center justify-center rounded-xl text-sm font-black ${editingId ? 'bg-amber-50 text-amber-700' : 'bg-violet-50 text-violet-700'}`}>{editingId ? '✎' : '+'}</span><div><h2 className="text-base font-bold text-slate-900">
+                            {editingId ? `Редактирование` : `Добавить: ${formTitle}`}
                         </h2>
 
-                        <p className="mt-1 text-sm text-slate-500">
+                        <p className="mt-0.5 text-xs text-slate-500">
                             {formDescription}
-                        </p>
+                        </p></div></div>
                     </div>
 
                     <form onSubmit={handleSubmit} className="flex flex-col gap-y-4">
@@ -230,7 +251,7 @@ export default function LaboratoryCrudPage<
                                             }
                                             placeholder={field.placeholder}
                                             rows={4}
-                                            className="resize-none rounded-xl bg-slate-100 px-4 py-3 text-sm text-slate-900 outline-none transition focus:bg-white focus:ring-2 focus:ring-blue-500"
+                                            className="resize-none rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-violet-500 focus:bg-white focus:ring-2 focus:ring-violet-100"
                                         />
                                     </div>
                                 );
@@ -240,7 +261,7 @@ export default function LaboratoryCrudPage<
                                 return (
                                     <label
                                         key={field.name}
-                                        className="flex cursor-pointer items-center justify-between rounded-xl bg-slate-100 px-4 py-3"
+                                        className="flex cursor-pointer items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-4 py-3"
                                     >
                                         <span className="text-sm font-medium text-slate-700">
                                             {field.label}
@@ -252,7 +273,7 @@ export default function LaboratoryCrudPage<
                                             onChange={(event) =>
                                                 handleChange(field.name, event.target.checked)
                                             }
-                                            className="h-4 w-4 cursor-pointer"
+                                            className="h-4 w-4 cursor-pointer accent-violet-600"
                                         />
                                     </label>
                                 );
@@ -279,7 +300,7 @@ export default function LaboratoryCrudPage<
                                             )
                                         }
                                         placeholder={field.placeholder}
-                                        className="h-11 rounded-xl bg-slate-100 px-4 text-sm text-slate-900 outline-none transition focus:bg-white focus:ring-2 focus:ring-blue-500"
+                                        className="h-11 rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm text-slate-900 outline-none transition focus:border-violet-500 focus:bg-white focus:ring-2 focus:ring-violet-100"
                                     />
                                 </div>
                             );
@@ -289,7 +310,7 @@ export default function LaboratoryCrudPage<
                             <button
                                 type="submit"
                                 disabled={isSubmitting}
-                                className="h-11 flex-1 rounded-xl bg-blue-600 px-4 text-sm font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-300"
+                                className="h-11 flex-1 rounded-xl bg-violet-600 px-4 text-sm font-bold text-white shadow-lg shadow-violet-950/15 transition hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-50"
                             >
                                 {editingId ? 'Сохранить' : 'Добавить'}
                             </button>
@@ -307,17 +328,18 @@ export default function LaboratoryCrudPage<
                     </form>
                 </div>
 
-                <div className="rounded-2xl bg-white p-4 shadow-sm sm:p-5">
-                    <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm sm:p-5">
+                    <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                         <div>
-                            <h2 className="text-lg font-semibold text-slate-900">
+                            <h2 className="text-base font-bold text-slate-900">
                                 {listTitle}
                             </h2>
 
-                            <p className="mt-1 text-sm text-slate-500">
-                                Всего: {items.length}
+                            <p className="mt-1 text-xs text-slate-500">
+                                Показано: {filteredItems.length} из {items.length}
                             </p>
                         </div>
+                        <input type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Поиск по названию или коду" className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none transition focus:border-violet-500 focus:bg-white focus:ring-2 focus:ring-violet-100 sm:w-64" />
                     </div>
 
                     {isLoading && (
@@ -344,18 +366,22 @@ export default function LaboratoryCrudPage<
                         </div>
                     )}
 
-                    {!isLoading && !isError && items.length > 0 && (
-                        <div className="grid max-h-[70dvh] gap-3 overflow-y-auto pr-1 md:grid-cols-2 xl:max-h-[620px]">
-                            {items.map((item) => (
+                    {!isLoading && !isError && items.length > 0 && filteredItems.length === 0 && (
+                        <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-12 text-center text-sm text-slate-400">По вашему запросу ничего не найдено</div>
+                    )}
+
+                    {!isLoading && !isError && filteredItems.length > 0 && (
+                        <div className="grid max-h-[70dvh] gap-3 overflow-y-auto pr-1 md:grid-cols-2 xl:max-h-[620px] [scrollbar-color:#8b5cf6_transparent]">
+                            {filteredItems.map((item) => (
                                 <div
                                     key={item.id}
-                                    className="rounded-2xl bg-slate-50 p-4 transition hover:bg-slate-100"
+                                    className="rounded-2xl border border-slate-200 bg-slate-50 p-4 transition hover:-translate-y-0.5 hover:border-violet-200 hover:bg-white hover:shadow-md"
                                 >
                                     <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                                         <div className="min-w-0">
-                                            <div className="mb-2 flex items-center gap-2">
+                                            <div className="mb-3 flex items-center gap-2">
                                                 {item.code && (
-                                                    <span className="rounded-lg bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 shadow-sm">
+                                                    <span className="rounded-lg bg-violet-50 px-2.5 py-1 font-mono text-xs font-bold text-violet-700">
                                                         {item.code}
                                                     </span>
                                                 )}
@@ -394,7 +420,7 @@ export default function LaboratoryCrudPage<
                                             <button
                                                 type="button"
                                                 onClick={() => handleEdit(item)}
-                                                className="rounded-xl bg-white px-3 py-2 text-xs font-medium text-slate-700 shadow-sm transition hover:bg-blue-50 hover:text-blue-700"
+                                                className="rounded-xl bg-white px-3 py-2 text-xs font-medium text-slate-700 shadow-sm transition hover:bg-violet-50 hover:text-violet-700"
                                             >
                                                 Изменить
                                             </button>

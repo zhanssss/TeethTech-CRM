@@ -162,44 +162,49 @@ export default function ClinicDetailsPage() {
     const totalOrdersSum = clinic.totalAmount ?? 0;
     const totalPaidSum = clinic.totalPaid ?? 0;
     const debt = clinic.totalDebt ?? totalOrdersSum - totalPaidSum;
+    const paidShare = totalOrdersSum > 0 ? Math.min(100, Math.round(totalPaidSum / totalOrdersSum * 100)) : 0;
 
     return (
-        <div className="space-y-6">
-            <header className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-                <div>
+        <div className="mx-auto max-w-[1600px] space-y-5 pb-6">
+            <header className="relative overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm">
+                <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-violet-600 via-fuchsia-500 to-blue-500" />
+                <div className="flex flex-col gap-5 p-5 sm:p-6 lg:flex-row lg:items-center lg:justify-between">
+                <div className="flex min-w-0 items-start gap-4">
+                    <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-600 to-fuchsia-600 text-2xl font-black text-white shadow-lg shadow-violet-950/20">{clinic.name.trim().charAt(0).toLocaleUpperCase('ru-RU')}</span>
+                    <div className="min-w-0">
                     <Link
                         href="/clinics"
-                        className="mb-2 inline-block text-xs font-bold uppercase tracking-wider text-blue-600 hover:underline"
+                        className="mb-1 inline-block text-[10px] font-bold uppercase tracking-wider text-violet-600 hover:underline"
                     >
                         ← Реестр клиник
                     </Link>
 
-                    <h1 className="text-3xl font-black text-slate-900">
+                    <h1 className="truncate text-2xl font-black tracking-tight text-slate-950 sm:text-3xl" title={clinic.name}>
                         {clinic.name}
                     </h1>
 
-                    <p className="mt-1 text-sm text-slate-500">
-                        Карточка клиники, контакты, врачи, заказы и финансовая информация
-                    </p>
+                    <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500"><span className="flex items-center gap-1.5"><span className="text-violet-500">●</span>{clinic.address || 'Адрес не указан'}</span><span>{clinic.phone || 'Телефон не указан'}</span><span>{clinic.email || 'Email не указан'}</span></div>
+                    </div>
                 </div>
-            <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
+            <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
                     <button
                         onClick={() => setIsEditModalOpen(true)}
-                        className="w-full rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-blue-200 transition hover:bg-blue-700 active:scale-95 sm:w-auto"
+                        className="w-full rounded-xl bg-violet-600 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-violet-950/15 transition hover:bg-violet-700 active:scale-95 sm:w-auto"
                     >
-                        Редактировать данные
+                        Редактировать
                     </button>
                     <button
                         onClick={() => setIsApproveModalOpen(true)}
-                        className="w-full rounded-xl bg-red-800 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-red-200 transition hover:bg-red-500 active:scale-95 sm:w-auto"
+                        className="w-full rounded-xl border border-red-200 bg-white px-5 py-2.5 text-sm font-bold text-red-600 transition hover:bg-red-50 active:scale-95 sm:w-auto"
                     >
                         Удалить клинику
                     </button>
                 </div>
+                </div>
             </header>
 
             <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
-                <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+                <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-violet-200">
                     <p className="text-xs font-bold uppercase text-slate-400">
                         Всего заказов
                     </p>
@@ -208,7 +213,7 @@ export default function ClinicDetailsPage() {
                     </p>
                 </div>
 
-                <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+                <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-violet-200">
                     <p className="text-xs font-bold uppercase text-slate-400">
                         Общая сумма
                     </p>
@@ -217,29 +222,30 @@ export default function ClinicDetailsPage() {
                     </p>
                 </div>
 
-                <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+                <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-violet-200">
                     <p className="text-xs font-bold uppercase text-slate-400">
                         Оплачено
                     </p>
-                    <p className="mt-2 text-2xl font-black text-green-600">
+                    <p className="mt-2 text-2xl font-black text-slate-950">
                         {formatMoney(totalPaidSum)}
                     </p>
                 </div>
 
-                <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+                <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-violet-200">
                     <p className="text-xs font-bold uppercase text-slate-400">
                         Долг
                     </p>
-                    <p className="mt-2 text-2xl font-black text-red-600">
+                    <p className="mt-2 text-2xl font-black text-slate-950">
                         {formatMoney(debt)}
                     </p>
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-                <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6 lg:col-span-2">
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1.45fr)_minmax(300px,.55fr)]">
+                <section className="relative overflow-hidden rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm sm:p-6">
+                    <span className="absolute inset-y-0 left-0 w-1 bg-gradient-to-b from-violet-600 to-fuchsia-500" />
                     <h2 className="text-lg font-bold text-slate-900">
-                        Основные данные
+                        Профиль клиники
                     </h2>
 
                     <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -251,6 +257,13 @@ export default function ClinicDetailsPage() {
                         <InfoItem label="Тип прайса" value={clinic.priceType}/>
                     </div>
                 </section>
+
+                <aside className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm sm:p-6">
+                    <div className="flex items-start justify-between gap-3"><div><h2 className="text-sm font-bold text-slate-900">Состояние оплаты</h2><p className="mt-1 text-xs text-slate-400">По всем заказам клиники</p></div><span className="text-2xl font-black text-violet-600">{paidShare}%</span></div>
+                    <div className="mt-6 h-2.5 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full bg-gradient-to-r from-violet-600 to-fuchsia-500 transition-all" style={{width: `${paidShare}%`}} /></div>
+                    <div className="mt-5 grid grid-cols-2 gap-3"><div className="rounded-xl border border-slate-200 bg-slate-50 p-3"><p className="text-[10px] text-slate-400">Оплачено</p><p className="mt-1 truncate text-sm font-black text-slate-950" title={formatMoney(totalPaidSum)}>{formatMoney(totalPaidSum)}</p></div><div className="rounded-xl border border-slate-200 bg-slate-50 p-3"><p className="text-[10px] text-slate-400">Остаток</p><p className="mt-1 truncate text-sm font-black text-slate-950" title={formatMoney(debt)}>{formatMoney(debt)}</p></div></div>
+                    <div className="mt-5 border-t border-slate-100 pt-4"><div className="flex items-center justify-between text-xs"><span className="text-slate-500">Тип прайса</span><span className="rounded-lg bg-violet-50 px-2.5 py-1 font-bold text-violet-700">{clinic.priceType || 'Не указан'}</span></div></div>
+                </aside>
             </div>
 
             <section className="rounded-2xl border border-slate-200 bg-white shadow-sm">
@@ -272,7 +285,7 @@ export default function ClinicDetailsPage() {
                     />
                 </div>
 
-                <div className="grid grid-cols-1 gap-4 p-4 sm:p-5 md:grid-cols-2">
+                <div className="grid max-h-[420px] grid-cols-1 gap-3 overflow-y-auto p-4 sm:p-5 md:grid-cols-2 [scrollbar-color:#8b5cf6_transparent]">
                     {isDoctorsError && (
                         <QueryErrorNotice
                             className="md:col-span-2"
@@ -297,9 +310,9 @@ export default function ClinicDetailsPage() {
                     {doctors.map((doctor) => (
                         <div
                             key={doctor.fullName}
-                            className="rounded-2xl border border-slate-200 bg-slate-50 p-4"
+                            className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-3 transition hover:border-violet-200 hover:shadow-sm"
                         >
-                            <p className="font-bold text-slate-900">
+                            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-violet-100 text-xs font-black text-violet-700">{doctor.fullName.trim().charAt(0).toLocaleUpperCase('ru-RU')}</span><p className="font-bold text-slate-900">
                                 {doctor.fullName}
                             </p>
                         </div>
@@ -326,7 +339,7 @@ export default function ClinicDetailsPage() {
                     />
                 </div>
 
-                <div className="grid grid-cols-1 gap-4 p-4 sm:p-5 md:grid-cols-2">
+                <div className="grid max-h-[420px] grid-cols-1 gap-3 overflow-y-auto p-4 sm:p-5 md:grid-cols-2 [scrollbar-color:#8b5cf6_transparent]">
                     {isPatientsError && (
                         <QueryErrorNotice
                             className="md:col-span-2"
@@ -351,9 +364,9 @@ export default function ClinicDetailsPage() {
                     {patients.map((patient) => (
                         <div
                             key={patient.fullName}
-                            className="rounded-2xl border border-slate-200 bg-slate-50 p-4"
+                            className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-3 transition hover:border-violet-200 hover:shadow-sm"
                         >
-                            <p className="font-bold text-slate-900">
+                            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-violet-100 text-xs font-black text-violet-700">{patient.fullName.trim().charAt(0).toLocaleUpperCase('ru-RU')}</span><p className="font-bold text-slate-900">
                                 {patient.fullName}
                             </p>
                         </div>
@@ -380,7 +393,7 @@ export default function ClinicDetailsPage() {
                     />
                 </div>
 
-                <div className="overflow-x-auto">
+                <div className="max-h-[520px] overflow-auto [scrollbar-color:#8b5cf6_transparent]">
                     <table className="w-full min-w-[760px] border-collapse text-left lg:min-w-[800px]">
                         <thead
                             className="border-b border-slate-200 bg-slate-50 text-[.7rem] uppercase tracking-widest text-slate-400">
@@ -427,7 +440,7 @@ export default function ClinicDetailsPage() {
                         {clinicOrders.map((order) => (
                             <tr
                                 key={order.id}
-                                className="transition hover:bg-blue-50/30"
+                            className="transition hover:bg-violet-50/50"
                             >
                                 <td className="p-4 font-mono text-sm text-slate-400">
                                     #{order.id}
@@ -485,4 +498,3 @@ export default function ClinicDetailsPage() {
         </div>
     );
 }
-

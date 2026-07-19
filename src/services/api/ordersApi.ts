@@ -11,7 +11,6 @@ import {
     CreateOrderResponse,
     GetOrderKanbanArgs,
     OrderApiListItem,
-    OrderDetails,
     OrderGetApiResponse,
     OrderKanbanColumn,
     UpdateOrderArgs,
@@ -81,20 +80,6 @@ export const ordersApi = teethTechApi.injectEndpoints({
                 }
             }),
             providesTags: ['Orders'],
-        }),
-
-        getOrder: builder.query<OrderDetails, string>({
-            query: (id) => ({
-                url: `/orders/${id}`,
-                method: 'GET',
-            }),
-            providesTags: (_result, _error, id) => [
-                'Orders',
-                {
-                    type: 'Orders',
-                    id,
-                },
-            ],
         }),
 
         createOrder: builder.mutation<CreateOrderResponse, CreateOrderMutationArgs>({
@@ -251,7 +236,6 @@ export const ordersApi = teethTechApi.injectEndpoints({
 
 export const {
     useGetOrdersQuery,
-    useGetOrderQuery,
     useCreateOrderMutation,
     useUpdateOrderMutation,
     useDeleteOrderMutation,
