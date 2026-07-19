@@ -9,26 +9,21 @@ import WarehouseOverview from '@/src/components/warehouse/WarehouseOverview'
 
 type WarehouseTab = 'overview' | 'procurement' | 'nomenclature' | 'inventory'
 
-const tabs: Array<{ id: WarehouseTab; label: string; description: string }> = [
-	{ id: 'overview', label: 'Обзор', description: 'Остатки и движения' },
-	{ id: 'procurement', label: 'Закупки', description: 'Заказы и поставщики' },
-	{
-		id: 'nomenclature',
-		label: 'Номенклатура',
-		description: 'Позиции и приход'
-	},
-	{ id: 'inventory', label: 'Инвентаризации', description: 'Пересчёт склада' }
+const tabs: Array<{ id: WarehouseTab; label: string }> = [
+	{ id: 'overview', label: 'Обзор' },
+	{ id: 'procurement', label: 'Закупки' },
+	{ id: 'nomenclature', label: 'Номенклатура' },
+	{ id: 'inventory', label: 'Инвентаризация' }
 ]
 
 export default function WarehousePage() {
 	const [activeTab, setActiveTab] = useState<WarehouseTab>('overview')
 
 	return (
-		<div className="mx-auto w-full max-w-[1600px] space-y-6 pb-8">
-			<header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-				<div>
-					<div className="flex items-center gap-3">
-						<div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-blue-600 text-white shadow-lg shadow-blue-100">
+		<div className="mx-auto w-full max-w-[1500px] space-y-5 pb-8">
+			<header className="flex flex-col gap-4 border-b border-slate-200 pb-5 lg:flex-row lg:items-end lg:justify-between">
+				<div className="flex items-center gap-3">
+					<div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600 text-white shadow-sm shadow-blue-100">
 							<svg
 								aria-hidden="true"
 								viewBox="0 0 24 24"
@@ -45,11 +40,10 @@ export default function WarehousePage() {
 							</svg>
 						</div>
 						<div>
-							<h1 className="text-2xl font-black text-slate-900">Склад</h1>
+							<h1 className="text-xl font-bold tracking-tight text-slate-900">Склад</h1>
 							<p className="mt-0.5 text-sm text-slate-500">
 								Закупки, остатки, движения и инвентаризации
 							</p>
-						</div>
 					</div>
 				</div>
 
@@ -60,7 +54,7 @@ export default function WarehousePage() {
 
 			<nav
 				aria-label="Разделы склада"
-				className="grid grid-cols-1 gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm sm:grid-cols-2 xl:grid-cols-4"
+				className="flex gap-1 overflow-x-auto border-b border-slate-200"
 			>
 				{tabs.map(tab => {
 					const active = activeTab === tab.id
@@ -69,14 +63,10 @@ export default function WarehousePage() {
 							key={tab.id}
 							type="button"
 							onClick={() => setActiveTab(tab.id)}
-							className={`rounded-xl px-4 py-3 text-left transition ${active ? 'bg-blue-600 text-white shadow-md shadow-blue-100' : 'text-slate-600 hover:bg-slate-50'}`}
+							className={`relative shrink-0 px-4 py-3 text-sm font-semibold transition ${active ? 'text-blue-600' : 'text-slate-500 hover:text-slate-900'}`}
 						>
-							<span className="block text-sm font-black">{tab.label}</span>
-							<span
-								className={`mt-0.5 block text-xs ${active ? 'text-blue-100' : 'text-slate-400'}`}
-							>
-								{tab.description}
-							</span>
+							{tab.label}
+							{active && <span className="absolute inset-x-2 bottom-0 h-0.5 rounded-full bg-blue-600" />}
 						</button>
 					)
 				})}

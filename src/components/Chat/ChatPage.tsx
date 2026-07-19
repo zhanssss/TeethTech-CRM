@@ -1,7 +1,15 @@
 'use client'
 
 import { useParams, useRouter } from 'next/navigation'
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import {
+	useEffect,
+	useLayoutEffect,
+	useMemo,
+	useRef,
+	useState,
+	type KeyboardEvent,
+	type MouseEvent
+} from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 
 import ErrorState from '@/src/components/ui/ErrorState'
@@ -9,6 +17,7 @@ import Modal from '@/src/components/ui/Modal'
 import {
 	appendMessage,
 	appendMessages,
+	markMessageDeleted,
 	removeMessage,
 	replaceMessage,
 	setActiveConversation,
@@ -28,6 +37,7 @@ import {
 	useAddChatMembersMutation,
 	useCreateDirectChatMutation,
 	useCreateGroupChatMutation,
+	useDeleteChatMessageMutation,
 	useGetChatsQuery,
 	useMarkChatReadMutation,
 	useRemoveChatMemberMutation,
@@ -56,6 +66,16 @@ const roleLabels: Record<ChatMemberRole, string> = {
 	ADMIN: 'Администратор',
 	MEMBER: 'Участник'
 }
+
+type MessageContextMenuState = {
+	messageId: string
+	left: number
+	top: number
+}
+
+const CONTEXT_MENU_WIDTH = 224
+const CONTEXT_MENU_HEIGHT = 196
+const CONTEXT_MENU_GAP = 8
 
 export default function ChatPage() {
 	const router = useRouter()
@@ -90,8 +110,15 @@ export default function ChatPage() {
 	const [uploadError, setUploadError] = useState<string | null>(null)
 	const [sendError, setSendError] = useState<string | null>(null)
 	const [isNearBottom, setIsNearBottom] = useState(true)
+	const [messageContextMenu, setMessageContextMenu] =
+		useState<MessageContextMenuState | null>(null)
+	const [forwardMessageId, setForwardMessageId] = useState<string | null>(null)
+	const [forwardSearch, setForwardSearch] = useState('')
+	const [isForwarding, setIsForwarding] = useState(false)
+	const [deletingMessageId, setDeletingMessageId] = useState<string | null>(null)
 	const messageListRef = useRef<HTMLDivElement | null>(null)
 	const composerRef = useRef<HTMLTextAreaElement | null>(null)
+	const contextMenuRef = useRef<HTMLDivElement | null>(null)
 	const shouldLoadMoreRef = useRef(false)
 	const { data: users = [], error: usersError } = useGetUsersQuery()
 	const {
@@ -105,6 +132,7 @@ export default function ChatPage() {
 		useCreateGroupChatMutation()
 	const [sendTextMessage, { isLoading: isSendingRest }] =
 		useSendTextMessageMutation()
+	const [deleteChatMessage] = useDeleteChatMessageMutation()
 	const [uploadChatFile, { isLoading: isUploadingFile }] =
 		useUploadChatFileMutation()
 	const [markChatRead] = useMarkChatReadMutation()
@@ -143,6 +171,23 @@ export default function ChatPage() {
 			)
 			.filter(chat => !term || chat.title.toLocaleLowerCase('ru').includes(term))
 	}, [chats, search])
+	const forwardChats = useMemo(() => {
+		const term = forwardSearch.trim().toLocaleLowerCase('ru')
+		return [...chats]
+			.sort(
+				(left, right) =>
+					Date.parse(right.lastMessageAt ?? '') -
+					Date.parse(left.lastMessageAt ?? '')
+			)
+			.filter(chat => !term || chat.title.toLocaleLowerCase('ru').includes(term))
+	}, [chats, forwardSearch])
+	const contextMessage = messageContextMenu
+		? activeMessages.find(message => message.id === messageContextMenu.messageId) ??
+			null
+		: null
+	const forwardMessage = forwardMessageId
+		? activeMessages.find(message => message.id === forwardMessageId) ?? null
+		: null
 
 	const scrollToBottom = () => {
 		const el = messageListRef.current
@@ -255,6 +300,41 @@ export default function ChatPage() {
 		},
 		[dispatch]
 	)
+
+	useEffect(() => {
+		setMessageContextMenu(null)
+		setForwardMessageId(null)
+		setForwardSearch('')
+	}, [activeConversationId])
+
+	useEffect(() => {
+		if (!messageContextMenu) return
+
+		const closeOnPointerDown = (event: PointerEvent) => {
+			if (
+				contextMenuRef.current &&
+				!contextMenuRef.current.contains(event.target as Node)
+			) {
+				setMessageContextMenu(null)
+			}
+		}
+		const closeOnEscape = (event: globalThis.KeyboardEvent) => {
+			if (event.key === 'Escape') setMessageContextMenu(null)
+		}
+		const closeOnViewportChange = () => setMessageContextMenu(null)
+
+		document.addEventListener('pointerdown', closeOnPointerDown)
+		document.addEventListener('keydown', closeOnEscape)
+		window.addEventListener('resize', closeOnViewportChange)
+		window.addEventListener('scroll', closeOnViewportChange, true)
+
+		return () => {
+			document.removeEventListener('pointerdown', closeOnPointerDown)
+			document.removeEventListener('keydown', closeOnEscape)
+			window.removeEventListener('resize', closeOnViewportChange)
+			window.removeEventListener('scroll', closeOnViewportChange, true)
+		}
+	}, [messageContextMenu])
 
 	useEffect(() => {
 		if (activeConversationId) {
@@ -489,6 +569,149 @@ export default function ChatPage() {
 		}
 	}
 
+	const openMessageContextMenu = (
+		message: ChatMessageDto,
+		clientX: number,
+		clientY: number
+	) => {
+		if (message.deleted || message.id.startsWith('pending-')) return
+
+		const left = Math.max(
+			CONTEXT_MENU_GAP,
+			Math.min(
+				clientX,
+				window.innerWidth - CONTEXT_MENU_WIDTH - CONTEXT_MENU_GAP
+			)
+		)
+		const top = Math.max(
+			CONTEXT_MENU_GAP,
+			Math.min(
+				clientY,
+				window.innerHeight - CONTEXT_MENU_HEIGHT - CONTEXT_MENU_GAP
+			)
+		)
+
+		setMessageContextMenu({ messageId: message.id, left, top })
+	}
+
+	const handleMessageContextMenu = (
+		event: MouseEvent<HTMLDivElement>,
+		message: ChatMessageDto
+	) => {
+		event.preventDefault()
+		openMessageContextMenu(message, event.clientX, event.clientY)
+	}
+
+	const handleMessageContextKeyDown = (
+		event: KeyboardEvent<HTMLDivElement>,
+		message: ChatMessageDto
+	) => {
+		if (event.key !== 'ContextMenu' && !(event.shiftKey && event.key === 'F10')) {
+			return
+		}
+
+		event.preventDefault()
+		const rect = event.currentTarget.getBoundingClientRect()
+		openMessageContextMenu(message, rect.left + rect.width / 2, rect.top + 24)
+	}
+
+	const handleReplyToMessage = (message: ChatMessageDto) => {
+		setReplyToId(message.id)
+		setMessageContextMenu(null)
+		requestAnimationFrame(() => composerRef.current?.focus())
+	}
+
+	const handleCopyMessage = async (message: ChatMessageDto) => {
+		const text =
+			message.text?.trim() ||
+			message.attachments.map(attachment => attachment.fileName).join('\n')
+		if (!text) return
+
+		try {
+			if (navigator.clipboard && window.isSecureContext) {
+				await navigator.clipboard.writeText(text)
+			} else {
+				const textarea = document.createElement('textarea')
+				textarea.value = text
+				textarea.style.position = 'fixed'
+				textarea.style.opacity = '0'
+				document.body.appendChild(textarea)
+				textarea.select()
+				const copied = document.execCommand('copy')
+				textarea.remove()
+				if (!copied) throw new Error('Copy failed')
+			}
+			notifySuccess('Сообщение скопировано')
+		} catch {
+			notifyError('Не удалось скопировать сообщение')
+		} finally {
+			setMessageContextMenu(null)
+		}
+	}
+
+	const openForwardDialog = (message: ChatMessageDto) => {
+		if (!message.text?.trim()) return
+		setForwardMessageId(message.id)
+		setForwardSearch('')
+		setMessageContextMenu(null)
+	}
+
+	const handleForwardMessage = async (conversationId: string) => {
+		const sourceText = forwardMessage?.text?.trim()
+		if (!forwardMessage || !sourceText || isForwarding) return
+
+		setIsForwarding(true)
+		try {
+			const created = await sendTextMessage({
+				conversationId,
+				body: {
+					text: `Переслано от ${forwardMessage.senderName}:\n${sourceText}`,
+					replyToId: null
+				}
+			}).unwrap()
+			dispatch(appendMessage(created))
+			notifySuccess('Сообщение переслано')
+			setForwardMessageId(null)
+			setForwardSearch('')
+		} catch {
+			notifyError('Не удалось переслать сообщение')
+		} finally {
+			setIsForwarding(false)
+		}
+	}
+
+	const handleDeleteMessage = async (message: ChatMessageDto) => {
+		if (
+			!activeConversationId ||
+			message.senderId !== currentUserId ||
+			deletingMessageId
+		) {
+			return
+		}
+		setMessageContextMenu(null)
+		if (!window.confirm('Удалить сообщение? Это действие нельзя отменить.')) return
+
+		setDeletingMessageId(message.id)
+		try {
+			await deleteChatMessage({
+				conversationId: activeConversationId,
+				messageId: message.id
+			}).unwrap()
+			dispatch(
+				markMessageDeleted({
+					conversationId: activeConversationId,
+					messageId: message.id
+				})
+			)
+			if (replyToId === message.id) setReplyToId(null)
+			notifySuccess('Сообщение удалено')
+		} catch {
+			notifyError('Не удалось удалить сообщение')
+		} finally {
+			setDeletingMessageId(null)
+		}
+	}
+
 	const isMobile = typeof window !== 'undefined' && window.innerWidth < 768
 
 	const renderMessage = (message: ChatMessageDto) => {
@@ -498,10 +721,14 @@ export default function ChatPage() {
 		return (
 			<div
 				key={message.id}
+				tabIndex={message.deleted ? -1 : 0}
+				onContextMenu={event => handleMessageContextMenu(event, message)}
+				onKeyDown={event => handleMessageContextKeyDown(event, message)}
+				aria-label={`Сообщение от ${message.senderName}. Откройте контекстное меню для действий.`}
 				className={`flex ${isMine ? 'justify-end' : 'justify-start'} mb-3`}
 			>
 				<div
-					className={`max-w-[80%] rounded-2xl px-4 py-3 shadow-sm ${isMine ? 'bg-blue-600 text-white' : 'bg-white text-slate-800'}`}
+					className={`max-w-[80%] rounded-2xl px-4 py-3 shadow-sm transition-shadow ${messageContextMenu?.messageId === message.id ? 'ring-2 ring-blue-400 ring-offset-2' : ''} ${isMine ? 'bg-blue-600 text-white' : 'bg-white text-slate-800'}`}
 				>
 					{!isMine && activeConversation?.type === 'GROUP' ? (
 						<div className="mb-1 text-xs font-semibold text-slate-500">
@@ -847,6 +1074,121 @@ export default function ChatPage() {
 					</div>
 				)}
 			</section>
+			{messageContextMenu && contextMessage ? (
+				<div
+					ref={contextMenuRef}
+					role="menu"
+					aria-label="Действия с сообщением"
+					className="fixed z-[70] w-56 overflow-hidden rounded-2xl border border-slate-200 bg-white p-1.5 text-sm text-slate-800 shadow-2xl"
+					style={{
+						left: messageContextMenu.left,
+						top: messageContextMenu.top
+					}}
+				>
+					<button
+						type="button"
+						role="menuitem"
+						onClick={() => handleReplyToMessage(contextMessage)}
+						className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left font-medium hover:bg-slate-100 focus:bg-slate-100 focus:outline-none"
+					>
+						<span aria-hidden="true">↩</span>
+						Ответить
+					</button>
+					<button
+						type="button"
+						role="menuitem"
+						onClick={() => openForwardDialog(contextMessage)}
+						disabled={!contextMessage.text?.trim()}
+						title={
+							contextMessage.text?.trim()
+								? undefined
+								: 'Пересылка файлов пока недоступна'
+						}
+						className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left font-medium hover:bg-slate-100 focus:bg-slate-100 focus:outline-none disabled:cursor-not-allowed disabled:opacity-40"
+					>
+						<span aria-hidden="true">➜</span>
+						Переслать
+					</button>
+					<button
+						type="button"
+						role="menuitem"
+						onClick={() => void handleCopyMessage(contextMessage)}
+						className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left font-medium hover:bg-slate-100 focus:bg-slate-100 focus:outline-none"
+					>
+						<span aria-hidden="true">⧉</span>
+						Копировать
+					</button>
+					{contextMessage.senderId === currentUserId ? (
+						<>
+							<div className="my-1 border-t border-slate-100" />
+							<button
+								type="button"
+								role="menuitem"
+								onClick={() => void handleDeleteMessage(contextMessage)}
+								disabled={deletingMessageId === contextMessage.id}
+								className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left font-medium text-red-600 hover:bg-red-50 focus:bg-red-50 focus:outline-none disabled:opacity-50"
+							>
+								<span aria-hidden="true">⌫</span>
+								Удалить
+							</button>
+						</>
+					) : null}
+				</div>
+			) : null}
+			{forwardMessage ? (
+				<Modal>
+					<div className="p-5">
+						<div className="flex items-center justify-between gap-4">
+							<h3 className="text-lg font-black text-slate-900">
+								Переслать сообщение
+							</h3>
+							<button
+								type="button"
+								onClick={() => {
+									setForwardMessageId(null)
+									setForwardSearch('')
+								}}
+								className="text-slate-500"
+								aria-label="Закрыть"
+							>
+								×
+							</button>
+						</div>
+						<div className="mt-4 line-clamp-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">
+							{forwardMessage.text}
+						</div>
+						<input
+							value={forwardSearch}
+							onChange={event => setForwardSearch(event.target.value)}
+							placeholder="Найти чат"
+							className="mt-4 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
+							autoFocus
+						/>
+						<div className="mt-3 max-h-72 space-y-2 overflow-auto">
+							{forwardChats.length ? (
+								forwardChats.map(chat => (
+									<button
+										key={chat.id}
+										type="button"
+										onClick={() => void handleForwardMessage(chat.id)}
+										disabled={isForwarding}
+										className="flex w-full items-center justify-between rounded-xl border border-slate-200 px-3 py-2.5 text-left text-sm hover:border-blue-300 hover:bg-blue-50 disabled:opacity-50"
+									>
+										<span className="font-semibold text-slate-800">{chat.title}</span>
+										<span className="text-xs text-slate-400">
+											{chat.type === 'GROUP' ? 'Группа' : 'Личный чат'}
+										</span>
+									</button>
+								))
+							) : (
+								<p className="py-6 text-center text-sm text-slate-500">
+									Чаты не найдены
+								</p>
+							)}
+						</div>
+					</div>
+				</Modal>
+			) : null}
 			{isCreateDirectOpen ? (
 				<Modal>
 					<div className="p-5">

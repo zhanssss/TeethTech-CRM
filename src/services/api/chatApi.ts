@@ -135,6 +135,19 @@ export const chatApi = createApi({
 			}),
 			invalidatesTags: ['ChatList']
 		}),
+		deleteChatMessage: builder.mutation<
+			void,
+			{ conversationId: string; messageId: string }
+		>({
+			query: ({ conversationId, messageId }) => ({
+				url: `/chats/${conversationId}/messages/${messageId}`,
+				method: 'DELETE'
+			}),
+			invalidatesTags: (_result, _error, { conversationId }) => [
+				'ChatList',
+				{ type: 'ChatMessages', id: conversationId }
+			]
+		}),
 		uploadChatFile: builder.mutation<
 			ChatMessageDto,
 			{ conversationId: string; formData: FormData }
@@ -175,6 +188,7 @@ export const {
 	useRenameGroupChatMutation,
 	useGetChatMessagesQuery,
 	useSendTextMessageMutation,
+	useDeleteChatMessageMutation,
 	useUploadChatFileMutation,
 	useGetAttachmentUrlQuery,
 	useMarkChatReadMutation

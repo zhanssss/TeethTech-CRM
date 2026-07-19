@@ -130,6 +130,19 @@ const chatSlice = createSlice({
 				state.messagesByConversation[conversationId] ?? []
 			).filter(item => item.id !== messageId)
 		},
+		markMessageDeleted: (
+			state,
+			action: PayloadAction<{ conversationId: string; messageId: string }>
+		) => {
+			const { conversationId, messageId } = action.payload
+			state.messagesByConversation[conversationId] = (
+				state.messagesByConversation[conversationId] ?? []
+			).map(message =>
+				message.id === messageId
+					? { ...message, text: null, deleted: true, attachments: [] }
+					: message
+			)
+		},
 		setMembers: (
 			state,
 			action: PayloadAction<{
@@ -298,6 +311,7 @@ export const {
 	appendMessage,
 	replaceMessage,
 	removeMessage,
+	markMessageDeleted,
 	setMembers,
 	setLoadingChats,
 	setLoadingMessages,
