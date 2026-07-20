@@ -49,10 +49,10 @@ export default function CreateClinicModal({
 
 
     return (
-        <Modal>
-            <div className="flex items-start justify-between gap-4 border-b border-slate-200 bg-slate-50 px-4 py-4 sm:px-6">
+        <Modal contentClassName="max-w-2xl overflow-hidden p-0">
+            <div className="flex items-start justify-between gap-4 border-b border-slate-200 bg-gradient-to-r from-violet-50 to-white px-5 py-5 dark:border-slate-700 dark:from-violet-950/30 dark:to-slate-900 sm:px-6">
                 <div className="min-w-0">
-                    <h2 className="text-xl font-bold text-slate-900">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-violet-600">Новая запись</p><h2 className="mt-1 text-xl font-black text-slate-950 dark:text-white">
                         Добавить клинику
                     </h2>
                     <p className="text-xs text-slate-500">
@@ -63,7 +63,7 @@ export default function CreateClinicModal({
                 <button
                     type="button"
                     onClick={onClose}
-                    className="text-2xl font-bold text-slate-400 transition hover:text-slate-700"
+                    className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-xl font-bold text-slate-400 shadow-sm transition hover:bg-slate-100 dark:bg-slate-800"
                 >
                     &times;
                 </button>
@@ -171,7 +171,7 @@ export default function CreateClinicModal({
 
                     <button
                         type="submit"
-                        className="w-full rounded-xl bg-blue-600 px-7 py-2.5 text-sm font-bold text-white shadow-lg shadow-blue-100 transition hover:bg-blue-700 active:scale-95 sm:w-auto"
+                        className="w-full rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-7 py-2.5 text-sm font-bold text-white shadow-lg shadow-violet-500/20 transition hover:-translate-y-0.5 active:scale-95 sm:w-auto"
                     >
                         {isLoading ? 'Создание...' : 'Добавить клинику'}
                     </button>

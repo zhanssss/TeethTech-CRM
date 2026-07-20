@@ -744,13 +744,13 @@ export default function CreateOrderModal({
     };
 
     return (
-        <Modal contentClassName="max-w-6xl p-0">
-            <div className="flex items-start justify-between gap-4 border-b border-slate-200 bg-slate-50 px-4 py-4 sm:px-6">
+        <Modal contentClassName="max-w-6xl overflow-hidden p-0">
+            <div className="flex items-start justify-between gap-4 border-b border-slate-200 bg-gradient-to-r from-violet-50 to-white px-5 py-5 dark:border-slate-700 dark:from-violet-950/30 dark:to-slate-900 sm:px-6">
                 <div className="min-w-0">
-                    <h2 className="text-xl font-bold text-slate-800">Регистрация наряда</h2>
+                    <p className="text-[10px] font-black uppercase tracking-[.18em] text-violet-600">Новый заказ</p><h2 className="mt-1 text-2xl font-black text-slate-950 dark:text-white">Регистрация наряда</h2>
                     <p className="text-xs text-slate-500">Заказ, команда и технические задачи лаборатории</p>
                 </div>
-                <button onClick={onClose} className="shrink-0 text-2xl text-slate-400 hover:text-slate-600">&times;</button>
+                <button onClick={onClose} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-xl text-slate-400 shadow-sm hover:bg-slate-100 dark:bg-slate-800">&times;</button>
             </div>
 
             <form onSubmit={handleSubmit} className="flex-1 space-y-6 overflow-y-auto p-4 sm:space-y-7 sm:p-6">
@@ -769,8 +769,8 @@ export default function CreateOrderModal({
                 )}
 
                 <section>
-                    <h3 className="text-xs font-black text-blue-600 uppercase tracking-widest mb-4 flex items-center gap-2">
-                        <span className="w-2 h-2 bg-blue-600 rounded-full" /> Заказчик и пациент
+                    <h3 className="text-xs font-black text-violet-600 uppercase tracking-widest mb-4 flex items-center gap-2">
+                        <span className="w-2 h-2 bg-violet-600 rounded-full" /> Заказчик и пациент
                     </h3>
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                         <div className="md:col-span-2">
@@ -835,8 +835,8 @@ export default function CreateOrderModal({
                 </section>
 
                 <section className="flex flex-col">
-                    <h3 className="text-xs font-black text-blue-600 uppercase tracking-widest mb-4 flex items-center gap-2">
-                        <span className="w-2 h-2 bg-blue-600 rounded-full" /> Техническое задание
+                    <h3 className="text-xs font-black text-violet-600 uppercase tracking-widest mb-4 flex items-center gap-2">
+                        <span className="w-2 h-2 bg-violet-600 rounded-full" /> Техническое задание
                     </h3>
 
                     {formData.tasks.map((task, index) => {

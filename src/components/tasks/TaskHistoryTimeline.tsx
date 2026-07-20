@@ -66,12 +66,16 @@ type TaskHistoryTimelineProps = {
     taskId?: string | null;
     fallbackItems?: TaskHistoryItem[];
     className?: string;
+    compact?: boolean;
+    onOpenDetails?: () => void;
 };
 
 export default function TaskHistoryTimeline({
                                                 taskId,
                                                 fallbackItems = [],
                                                 className = '',
+                                                compact = false,
+                                                onOpenDetails,
                                             }: TaskHistoryTimelineProps) {
     const activeTaskId = taskId ?? '';
     const [pagination, setPagination] = useState({taskId: '', page: 0});
@@ -122,15 +126,17 @@ export default function TaskHistoryTimeline({
     if (!canLoadHistory) {
         return (
             <section className={className}>
-                <HistoryHeader
+                {compact ? <CompactHistoryHeader eventCount={fallbackItems.length} /> : <HistoryHeader
                     eventCount={fallbackItems.length}
                     participantCount={new Set(
                         fallbackItems
                             .map((event) => event.changedBy?.userId ?? event.changedBy?.fullName)
                             .filter(Boolean)
                     ).size}
-                />
-                {fallbackItems.length ? (
+                />}
+                {fallbackItems.length ? compact ? (
+                    <CompactHistory events={fallbackItems} onOpenDetails={onOpenDetails} />
+                ) : (
                     <div className="mt-5 space-y-4">
                         {fallbackItems.map((event, index) => (
                             <HistoryEventCard
@@ -150,7 +156,7 @@ export default function TaskHistoryTimeline({
     return (
         <section className={className}>
             <div className="flex items-start justify-between gap-3">
-                <HistoryHeader eventCount={events.length} participantCount={participantCount} />
+                {compact ? <CompactHistoryHeader eventCount={events.length} /> : <HistoryHeader eventCount={events.length} participantCount={participantCount} />}
 
                 <button
                     type="button"
@@ -192,7 +198,11 @@ export default function TaskHistoryTimeline({
                 <EmptyState text="По этой задаче пока нет событий." />
             ) : null}
 
-            {!isError && events.length > 0 ? (
+            {!isError && events.length > 0 && compact ? (
+                <CompactHistory events={events} onOpenDetails={onOpenDetails} />
+            ) : null}
+
+            {!isError && events.length > 0 && !compact ? (
                 <>
                     <div className="mt-5 space-y-4">
                         {events.map((event, index) => (
@@ -233,6 +243,31 @@ export default function TaskHistoryTimeline({
     );
 }
 
+function CompactHistory({ events, onOpenDetails }: { events: TaskHistoryItem[]; onOpenDetails?: () => void }) {
+    return (
+        <div className="mt-4">
+            <div className="relative space-y-1 before:absolute before:bottom-4 before:left-[17px] before:top-4 before:w-px before:bg-slate-200 dark:before:bg-slate-700">
+                {events.slice(0, 3).map((event) => {
+                    const { dateLabel, timeLabel } = formatChangedAt(event.changedAt);
+                    const dotClassName = EVENT_DOT_CLASSES[event.eventType] ?? 'border-amber-200 bg-amber-500 ring-amber-100';
+                    return (
+                        <article key={event.id} className="relative flex gap-3 rounded-xl p-2.5 transition hover:bg-slate-50 dark:hover:bg-slate-800/70">
+                            <span className={`relative z-10 mt-1.5 h-3.5 w-3.5 shrink-0 rounded-full border-2 ring-4 ${dotClassName}`} />
+                            <div className="min-w-0 flex-1">
+                                <div className="flex items-start justify-between gap-2"><p className="truncate text-xs font-black text-slate-800 dark:text-slate-100">{getEventTitle(event)}</p><time className="shrink-0 text-[9px] font-bold text-slate-400">{dateLabel} · {timeLabel}</time></div>
+                                <div className="line-clamp-1 text-[11px] text-slate-500"><HistoryValueChange event={event} /></div>
+                            </div>
+                        </article>
+                    );
+                })}
+            </div>
+            <button type="button" onClick={onOpenDetails} className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-violet-200 bg-violet-50 px-4 py-2.5 text-xs font-black text-violet-700 transition hover:border-violet-300 hover:bg-violet-100 dark:border-violet-500/30 dark:bg-violet-500/15 dark:text-violet-300 dark:hover:bg-violet-500/25">
+                Вся история <span aria-hidden="true">→</span>
+            </button>
+        </div>
+    );
+}
+
 function HistoryHeader({
                            eventCount,
                            participantCount,
@@ -252,6 +287,10 @@ function HistoryHeader({
             </div>
         </div>
     );
+}
+
+function CompactHistoryHeader({ eventCount }: { eventCount: number }) {
+    return <div className="min-w-0 flex-1"><div className="flex items-center gap-2"><span className="flex h-9 w-9 items-center justify-center rounded-xl bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4 w-4"><path d="M3 12a9 9 0 1 0 3-6.7" strokeLinecap="round"/><path d="M3 4v5h5M12 7v5l3 2" strokeLinecap="round" strokeLinejoin="round"/></svg></span><div><p className="text-sm font-black text-slate-900 dark:text-white">История изменений</p><p className="text-[11px] font-semibold text-slate-400">{eventCount} событий · последние действия</p></div></div></div>;
 }
 
 function Metric({label, value}: { label: string; value: string | number }) {

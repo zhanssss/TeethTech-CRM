@@ -386,12 +386,12 @@ export default function AccountingPage() {
     };
 
     return (
-        <div className="space-y-6">
+        <div className="mx-auto w-full max-w-[1500px] space-y-6 pb-8">
             {!isPayrollPage && (
                 <>
-            <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+            <header className="relative overflow-hidden rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900 lg:flex lg:items-end lg:justify-between">
                 <div>
-                    <h1 className="text-2xl font-bold text-slate-900">Финансовый отчёт</h1>
+                    <p className="text-[10px] font-black uppercase tracking-[.18em] text-violet-600">Финансовый центр</p><h1 className="mt-1 text-3xl font-black text-slate-950 dark:text-white">Финансовый отчёт</h1>
                     <p className="mt-1 text-sm text-slate-500">
                         Выручка, скидки, фонд оплаты труда и прибыль за выбранный период
                     </p>
@@ -407,7 +407,7 @@ export default function AccountingPage() {
                 </div>
             </header>
 
-            <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+            <section className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
                 <div className="grid gap-3 lg:grid-cols-[1fr_1fr_auto] lg:items-end">
                     <label className="block">
                         <span className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-500">
@@ -477,7 +477,7 @@ export default function AccountingPage() {
             <section className="grid grid-cols-1 gap-6 xl:grid-cols-[0.95fr_1.05fr]">
                 <form
                     onSubmit={handleConfigSubmit}
-                    className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:p-5"
+                    className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-6"
                 >
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                         <div>
@@ -681,7 +681,7 @@ export default function AccountingPage() {
             )}
 
             {statement && (
-                <section className="rounded-lg border border-slate-200 bg-white shadow-sm">
+                <section className="overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
                     <div className="flex flex-col gap-3 border-b border-slate-100 px-5 py-4 md:flex-row md:items-center md:justify-between">
                         <div>
                             <h2 className="font-bold text-slate-900">

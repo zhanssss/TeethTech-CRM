@@ -26,7 +26,7 @@ export default function TeethTechLogo({
                 className={`h-auto w-full ${
                     onDarkBackground
                         ? ''
-                        : '[filter:brightness(0)_saturate(100%)_invert(12%)_sepia(26%)_saturate(2471%)_hue-rotate(177deg)_brightness(89%)_contrast(96%)]'
+                        : '[filter:brightness(0)_saturate(100%)_invert(12%)_sepia(26%)_saturate(2471%)_hue-rotate(177deg)_brightness(89%)_contrast(96%)] dark:[filter:none]'
                 }`}
             />
         </span>

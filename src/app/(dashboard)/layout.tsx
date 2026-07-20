@@ -9,6 +9,7 @@ import Header from '@/src/components/layout/Header';
 import { getAuthRedirectPath } from '@/src/features/auth/authUtils';
 import { RootState } from '@/src/lib/store';
 import ChatNotifications from '@/src/components/Chat/ChatNotifications';
+import ChatButton from '@/src/components/Chat/ChatButton';
 
 export default function DashboardLayout({
                                             children,
@@ -58,8 +59,9 @@ export default function DashboardLayout({
     if (!isInitialized || !isAuthenticated || isAccountingAccessDenied) return null;
 
     return (
-        <div className="relative flex h-dvh w-full overflow-hidden bg-slate-50">
+        <div className="relative flex h-dvh w-full overflow-hidden bg-slate-50 dark:bg-[#09090b]">
             <ChatNotifications />
+            <ChatButton />
             <div
                 onClick={() => setIsSidebarOpen(false)}
                 aria-hidden="true"
@@ -91,7 +93,7 @@ export default function DashboardLayout({
             <div className="flex min-w-0 flex-1 flex-col">
                 <Header onMenuClick={() => setIsSidebarOpen(true)} />
 
-                <main className="flex-1 overflow-x-hidden overflow-y-auto px-4 py-4 sm:px-6 lg:px-8">
+                <main className="app-dashboard-main flex-1 overflow-x-hidden overflow-y-auto px-4 py-4 sm:px-6 lg:px-8">
                     {children}
                 </main>
             </div>

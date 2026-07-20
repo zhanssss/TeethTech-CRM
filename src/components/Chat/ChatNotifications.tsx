@@ -204,12 +204,13 @@ export default function ChatNotifications() {
 	if (permission !== 'default') return null
 
 	return (
-		<aside className="fixed bottom-4 left-1/2 z-[110] flex w-[min(34rem,calc(100vw-2rem))] -translate-x-1/2 items-center gap-3 rounded-2xl border border-blue-200 bg-white p-3 shadow-2xl" role="status">
+		<aside className="fixed bottom-4 left-1/2 z-[110] flex w-[min(36rem,calc(100vw-2rem))] -translate-x-1/2 items-center gap-3 rounded-[22px] border border-violet-200 bg-white p-3.5 shadow-[0_20px_60px_-20px_rgba(15,23,42,.45)] dark:border-violet-500/30 dark:bg-slate-900" role="status">
+			<span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-5 w-5"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4" strokeLinecap="round"/></svg></span>
 			<div className="min-w-0 flex-1">
-				<p className="text-sm font-bold text-slate-900">Не пропускайте сообщения CRM</p>
+				<p className="text-sm font-black text-slate-900 dark:text-white">Не пропускайте сообщения CRM</p>
 				<p className="text-xs text-slate-500">Разрешите уведомления — они появятся, даже когда открыта другая вкладка.</p>
 			</div>
-			<button type="button" onClick={() => void requestPermission()} className="shrink-0 rounded-xl bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700">
+			<button type="button" onClick={() => void requestPermission()} className="shrink-0 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-4 py-2.5 text-sm font-bold text-white shadow-lg shadow-violet-500/20">
 				Разрешить
 			</button>
 		</aside>

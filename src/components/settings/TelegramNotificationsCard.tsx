@@ -140,20 +140,20 @@ export default function TelegramNotificationsCard() {
     return (
         <section
             aria-labelledby="telegram-notifications-title"
-            className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"
+            className="overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900"
         >
-            <div className="flex flex-col gap-4 border-b border-slate-100 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
+            <div className="flex flex-col gap-4 border-b border-slate-100 bg-gradient-to-r from-white to-sky-50/50 p-5 dark:border-slate-800 dark:from-slate-900 dark:to-sky-950/20 sm:flex-row sm:items-center sm:justify-between sm:p-6">
                 <div className="flex items-start gap-3">
-                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-sky-100 text-sky-700">
+                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-sky-500 to-blue-600 text-white shadow-lg shadow-sky-500/20">
                         <svg aria-hidden="true" viewBox="0 0 24 24" fill="currentColor" className="h-6 w-6">
                             <path d="M21.7 3.4a1.3 1.3 0 0 0-1.35-.2L2.9 9.93c-1.19.46-1.17 1.13-.22 1.42l4.48 1.4 1.72 5.3c.2.55.1.77.68.77.45 0 .65-.2.9-.44l2.16-2.1 4.5 3.33c.83.46 1.43.22 1.64-.77l2.97-14c.3-1.2-.46-1.74-.03-1.44ZM8.2 12.43l10.4-6.56c.52-.31 1-.14.6.22l-8.58 7.74-.33 3.55-2.09-4.95Z" />
                         </svg>
                     </div>
                     <div>
-                        <h2 id="telegram-notifications-title" className="text-lg font-extrabold text-slate-900">
+                        <h2 id="telegram-notifications-title" className="text-lg font-black text-slate-950 dark:text-white">
                             Telegram-уведомления
                         </h2>
-                        <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-500">
+                        <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-500 dark:text-slate-400">
                             Получайте уведомления CRM в личном чате с ботом TeethTech.
                         </p>
                     </div>
@@ -181,7 +181,7 @@ export default function TelegramNotificationsCard() {
                     />
                 ) : status?.connected ? (
                     <div className="space-y-5">
-                        <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+                        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 dark:border-emerald-500/20 dark:bg-emerald-500/10">
                             <p className="font-bold text-emerald-900">Telegram подключён</p>
                             {chatIdMask ? (
                                 <p className="mt-1 text-sm text-emerald-700">
@@ -193,7 +193,7 @@ export default function TelegramNotificationsCard() {
                             type="button"
                             onClick={() => setShowUnlinkConfirmation(true)}
                             disabled={isUnlinking}
-                            className="min-h-11 rounded-xl border border-red-200 px-4 text-sm font-bold text-red-700 transition hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 disabled:cursor-wait disabled:opacity-60"
+                            className="min-h-11 rounded-xl border border-red-200 bg-red-50/50 px-4 text-sm font-bold text-red-700 transition hover:bg-red-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 disabled:cursor-wait disabled:opacity-60 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-300"
                         >
                             Отключить
                         </button>
@@ -229,7 +229,7 @@ export default function TelegramNotificationsCard() {
                                     type="button"
                                     onClick={handleCreateLink}
                                     disabled={isCreatingLink || status?.enabled === false}
-                                    className="min-h-11 rounded-xl bg-sky-600 px-5 text-sm font-bold text-white transition hover:bg-sky-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-slate-300"
+                                    className="min-h-11 rounded-xl bg-gradient-to-r from-sky-500 to-blue-600 px-5 text-sm font-bold text-white shadow-lg shadow-sky-500/20 transition hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:translate-y-0 disabled:bg-slate-300"
                                 >
                                     {isCreatingLink ? 'Создаём ссылку...' : linkExpired ? 'Создать новую ссылку' : 'Подключить Telegram'}
                                 </button>
@@ -257,11 +257,11 @@ export default function TelegramNotificationsCard() {
                     aria-labelledby="unlink-telegram-title"
                     className="fixed inset-0 z-[90] flex items-end justify-center bg-slate-900/60 p-0 backdrop-blur-sm sm:items-center sm:p-4"
                 >
-                    <div className="w-full rounded-t-2xl bg-white p-5 shadow-2xl sm:max-w-md sm:rounded-2xl sm:p-6">
-                        <h3 id="unlink-telegram-title" className="text-lg font-extrabold text-slate-900">
+                    <div className="w-full rounded-t-[28px] border border-slate-200 bg-white p-5 shadow-2xl dark:border-slate-700 dark:bg-slate-900 sm:max-w-md sm:rounded-[28px] sm:p-6">
+                        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-red-50 text-red-600 dark:bg-red-500/10 dark:text-red-300"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-6 w-6"><path d="M12 9v4M12 17h.01" strokeLinecap="round"/><path d="M10.3 3.8 2.6 17.1A2 2 0 0 0 4.3 20h15.4a2 2 0 0 0 1.7-2.9L13.7 3.8a2 2 0 0 0-3.4 0Z" strokeLinejoin="round"/></svg></div><h3 id="unlink-telegram-title" className="mt-4 text-xl font-black text-slate-950 dark:text-white">
                             Отключить Telegram?
                         </h3>
-                        <p className="mt-2 text-sm leading-6 text-slate-600">
+                        <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-400">
                             Уведомления CRM больше не будут приходить в этот чат.
                         </p>
                         <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">

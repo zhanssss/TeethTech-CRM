@@ -196,12 +196,12 @@ export default function ReturnTaskForReworkModal({
                 aria-labelledby={titleId}
                 className="flex min-h-0 flex-col"
             >
-                <header className="flex items-start justify-between gap-4 border-b border-slate-200 p-5 sm:p-6">
+                <header className="flex items-start justify-between gap-4 border-b border-slate-200 bg-gradient-to-r from-amber-50 to-white p-5 dark:border-slate-700 dark:from-amber-950/20 dark:to-slate-900 sm:p-6">
                     <div>
                         <p className="text-[10px] font-black uppercase tracking-[0.18em] text-amber-600">
                             Контроль качества
                         </p>
-                        <h2 id={titleId} className="mt-1 text-xl font-black text-slate-900">
+                        <h2 id={titleId} className="mt-1 text-xl font-black text-slate-950 dark:text-white">
                             Вернуть задачу на переделку
                         </h2>
                         <p className="mt-1 text-sm text-slate-500">
@@ -214,7 +214,7 @@ export default function ReturnTaskForReworkModal({
                         onClick={onClose}
                         disabled={isSubmitting}
                         aria-label="Закрыть"
-                        className="text-2xl font-bold leading-none text-slate-400 transition hover:text-slate-700 disabled:cursor-wait"
+                        className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-xl font-bold leading-none text-slate-400 shadow-sm transition hover:bg-slate-100 disabled:cursor-wait dark:bg-slate-800"
                     >
                         &times;
                     </button>
