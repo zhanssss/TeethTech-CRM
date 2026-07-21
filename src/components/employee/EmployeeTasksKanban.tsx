@@ -192,13 +192,6 @@ function EmployeeTaskCard({
                         {task.dentalTechnicianFullName || 'Не назначен'}
                     </p>
                 </div>
-                <Link
-                    href={`/orders/${task.orderId}`}
-                    onClick={(event) => event.stopPropagation()}
-					className="shrink-0 rounded-lg bg-slate-100 px-2 py-1 text-[10px] font-black text-slate-600 transition hover:bg-violet-100 hover:text-violet-700 dark:bg-slate-800 dark:text-slate-300"
-                >
-                    Заказ →
-                </Link>
             </div>
 
             {canMoveNext && (
