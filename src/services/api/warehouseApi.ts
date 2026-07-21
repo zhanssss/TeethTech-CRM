@@ -18,8 +18,10 @@ import type {
     ReceiveProcurementOrderRequest,
     StockMovement,
     StockOverview,
-    UpdateInventoryItemRequest,
-    UpsertProcurementSupplierRequest,
+    UpdateInventoryItemRequest, UpdateProcurementSupplierRequest, CreateProcurementSupplierRequest,
+    Warehouse,
+    WarehousesPage,
+    WarehousesQueryParams,
 } from '@/src/types/warehouse.types';
 import {formatPhoneNumber} from '@/src/utils/phone';
 
@@ -317,20 +319,58 @@ export const warehouseApi = teethTechApi.injectEndpoints({
             ],
         }),
 
-        upsertProcurementSupplier: builder.mutation<
+        createProcurementSupplier: builder.mutation<
             ProcurementSupplier,
-            UpsertProcurementSupplierRequest
+            CreateProcurementSupplierRequest
         >({
             query: (body) => ({
                 url: '/warehouse/procurement/suppliers',
                 method: 'POST',
-                body: {...body, phone: formatPhoneNumber(body.phone)},
+                body: {
+                    ...body,
+                    phone: body.phone
+                        ? formatPhoneNumber(body.phone)
+                        : '',
+                },
             }),
-            invalidatesTags: (_result, _error, body) => [
-                { type: 'ProcurementSuppliers', id: body.id },
-                { type: 'ProcurementSuppliers', id: 'LIST' },
+            invalidatesTags: [
+                {
+                    type: 'ProcurementSuppliers',
+                    id: 'LIST',
+                },
             ],
         }),
+
+        updateProcurementSupplier: builder.mutation<
+            ProcurementSupplier,
+            {
+                id: string;
+                body: UpdateProcurementSupplierRequest;
+            }
+        >({
+            query: ({id, body}) => ({
+                url: `/warehouse/procurement/suppliers/${id}`,
+                method: 'PUT',
+                body: {
+                    ...body,
+                    phone: body.phone
+                        ? formatPhoneNumber(body.phone)
+                        : '',
+                },
+            }),
+            invalidatesTags: (_result, _error, {id}) => [
+                {
+                    type: 'ProcurementSuppliers',
+                    id,
+                },
+                {
+                    type: 'ProcurementSuppliers',
+                    id: 'LIST',
+                },
+            ],
+        }),
+
+
 
         getInventoryStatusRules: builder.query<InventoryStatusRule[], void>({
             query: () => '/warehouse/rules/inventory-statuses',
@@ -448,6 +488,28 @@ export const warehouseApi = teethTechApi.injectEndpoints({
                 }
             },
         }),
+        getWarehouses: builder.query<
+            WarehousesPage,
+            WarehousesQueryParams | void
+        >({
+            query: (params) => ({
+                url: '/warehouses',
+                params: params
+                    ? Object.fromEntries(
+                        Object.entries(params).filter(
+                            ([, value]) => value !== undefined
+                        )
+                    )
+                    : undefined,
+            }),
+            providesTags: (result) => [
+                { type: 'Warehouses', id: 'LIST' },
+                ...(result?.content ?? []).map(({ id }) => ({
+                    type: 'Warehouses' as const,
+                    id,
+                })),
+            ],
+        }),
     }),
 });
 
@@ -466,7 +528,6 @@ export const {
     useSubmitProcurementOrderMutation,
     useReceiveProcurementOrderMutation,
     useGetProcurementSuppliersQuery,
-    useUpsertProcurementSupplierMutation,
     useGetInventoryStatusRulesQuery,
     useGetInventoryChecksQuery,
     useGetInventoryCheckQuery,
@@ -476,4 +537,7 @@ export const {
     useCancelInventoryCheckMutation,
     useCompleteInventoryCheckMutation,
     useUpdateInventoryItemMutation,
+    useCreateProcurementSupplierMutation,
+    useUpdateProcurementSupplierMutation,
+    useGetWarehousesQuery,
 } = warehouseApi;

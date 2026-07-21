@@ -126,7 +126,21 @@ export type ProcurementSupplier = {
     active: boolean;
 };
 
-export type UpsertProcurementSupplierRequest = ProcurementSupplier;
+export type CreateProcurementSupplierRequest = {
+    name: string;
+    bin: string;
+    phone: string;
+    email: string;
+    active: boolean;
+};
+
+export type UpdateProcurementSupplierRequest = {
+    name: string;
+    bin: string;
+    phone: string;
+    email: string;
+    active: boolean;
+};
 
 export type ProcurementOrderItem = {
     id: string;
@@ -186,4 +200,30 @@ export type ReceiveProcurementOrderRequest = {
         lotNumber: string;
         expiresAt: string;
     }>;
+};
+
+export type Warehouse = {
+    id: string;
+    name: string;
+    address: string;
+    active: boolean;
+};
+
+export type WarehousesQueryParams = {
+    activeOnly?: boolean;
+    page?: number;
+    size?: number;
+    sort?: string | string[];
+};
+
+export type WarehousesPage = {
+    content: Warehouse[];
+    number: number;
+    size: number;
+    numberOfElements: number;
+    totalPages: number;
+    totalElements: number;
+    first: boolean;
+    last: boolean;
+    empty: boolean;
 };

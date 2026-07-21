@@ -1,25 +1,28 @@
 'use client';
 
-import { type FormEvent, useMemo, useState } from 'react';
+import {type FormEvent, useMemo, useState} from 'react';
 
 import Modal from '@/src/components/ui/Modal';
 import PhoneInput from '@/src/components/ui/PhoneInput';
 import {
     useCreateProcurementOrderMutation,
+    useCreateProcurementSupplierMutation,
     useGetNomenclatureQuery,
     useGetProcurementOrdersQuery,
     useGetProcurementSuppliersQuery,
     useReceiveProcurementOrderMutation,
     useSubmitProcurementOrderMutation,
-    useUpsertProcurementSupplierMutation,
+    useUpdateProcurementSupplierMutation,
+    useGetWarehousesQuery,
 } from '@/src/services/api/warehouseApi';
 import type {
     NomenclatureItem,
     ProcurementOrder,
     ProcurementOrderItem,
     ProcurementSupplier,
+    Warehouse,
 } from '@/src/types/warehouse.types';
-import { formatDateTime, formatQuantity, getApiErrorMessage, shortId } from './warehouseUtils';
+import {formatDateTime, formatQuantity, getApiErrorMessage, shortId} from './warehouseUtils';
 
 type ProcurementView = 'orders' | 'suppliers';
 
@@ -109,23 +112,25 @@ function getDefaultExpectedAt() {
 }
 
 function CreateOrderModal({
-    suppliers,
-    nomenclature,
-    defaultWarehouseId,
-    onClose,
-    onCreated,
-}: {
+                              suppliers,
+                              nomenclature,
+                              warehouses,
+                              onClose,
+                              onCreated,
+                          }: {
     suppliers: ProcurementSupplier[];
     nomenclature: NomenclatureItem[];
-    defaultWarehouseId: string;
+    warehouses: Warehouse[];
     onClose: () => void;
     onCreated: (order: ProcurementOrder) => void;
 }) {
+    const [warehouseId, setWarehouseId] = useState(
+        () => warehouses.find((warehouse) => warehouse.active)?.id ?? ''
+    );
     const [supplierId, setSupplierId] = useState('');
-    const [warehouseId, setWarehouseId] = useState(defaultWarehouseId);
     const [expectedAt, setExpectedAt] = useState(getDefaultExpectedAt);
     const [items, setItems] = useState<OrderItemDraft[]>([
-        { key: 'item-0', nomenclatureId: '', quantity: '', unitPrice: '0' },
+        {key: 'item-0', nomenclatureId: '', quantity: '', unitPrice: '0'},
     ]);
     const [nextItemKey, setNextItemKey] = useState(1);
     const [error, setError] = useState('');
@@ -138,13 +143,13 @@ function CreateOrderModal({
     }, 0);
 
     const updateItem = (key: string, field: keyof Omit<OrderItemDraft, 'key'>, value: string) => {
-        setItems((current) => current.map((item) => item.key === key ? { ...item, [field]: value } : item));
+        setItems((current) => current.map((item) => item.key === key ? {...item, [field]: value} : item));
     };
 
     const addItem = () => {
         setItems((current) => [
             ...current,
-            { key: `item-${nextItemKey}`, nomenclatureId: '', quantity: '', unitPrice: '0' },
+            {key: `item-${nextItemKey}`, nomenclatureId: '', quantity: '', unitPrice: '0'},
         ]);
         setNextItemKey((current) => current + 1);
     };
@@ -153,8 +158,10 @@ function CreateOrderModal({
         event.preventDefault();
         setError('');
 
-        if (!supplierId || !warehouseId.trim() || !expectedAt) {
-            setError('Выберите поставщика и заполните склад и ожидаемую дату');
+        if (!supplierId || !warehouseId || !expectedAt) {
+            setError(
+                'Выберите поставщика, склад и ожидаемую дату'
+            );
             return;
         }
 
@@ -186,7 +193,7 @@ function CreateOrderModal({
         try {
             const created = await createOrder({
                 supplierId,
-                warehouseId: warehouseId.trim(),
+                warehouseId,
                 expectedAt: expectedDate.toISOString(),
                 items: parsedItems,
             }).unwrap();
@@ -203,17 +210,21 @@ function CreateOrderModal({
                     <h2 className="text-lg font-black text-slate-900">Новый заказ поставщику</h2>
                     <p className="mt-1 text-xs text-slate-500">После создания заказ сохранится как черновик</p>
                 </div>
-                <button type="button" onClick={onClose} disabled={createState.isLoading} className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700">✕</button>
+                <button type="button" onClick={onClose} disabled={createState.isLoading}
+                        className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700">✕
+                </button>
             </div>
 
             <form onSubmit={handleSubmit} className="min-h-0 overflow-y-auto">
                 <div className="space-y-5 p-5 sm:p-6">
-                    {error && <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
+                    {error && <div
+                        className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
 
                     <div className="grid gap-4 md:grid-cols-3">
                         <label className="space-y-1.5 text-sm font-bold text-slate-700">
                             <span>Поставщик</span>
-                            <select required value={supplierId} onChange={(event) => setSupplierId(event.target.value)} className={fieldClassName}>
+                            <select required value={supplierId} onChange={(event) => setSupplierId(event.target.value)}
+                                    className={fieldClassName}>
                                 <option value="">Выберите поставщика</option>
                                 {suppliers.filter((supplier) => supplier.active).map((supplier) => (
                                     <option key={supplier.id} value={supplier.id}>{supplier.name}</option>
@@ -221,55 +232,99 @@ function CreateOrderModal({
                             </select>
                         </label>
                         <label className="space-y-1.5 text-sm font-bold text-slate-700">
-                            <span>UUID склада</span>
-                            <input required value={warehouseId} onChange={(event) => setWarehouseId(event.target.value)} placeholder="3fa85f64-…" className={fieldClassName} />
+                            <span>Склад</span>
+
+                            <select
+                                required
+                                value={warehouseId}
+                                onChange={(event) => setWarehouseId(event.target.value)}
+                                className={fieldClassName}
+                            >
+                                <option value="">Выберите склад</option>
+
+                                {warehouses
+                                    .filter((warehouse) => warehouse.active)
+                                    .map((warehouse) => (
+                                        <option
+                                            key={warehouse.id}
+                                            value={warehouse.id}
+                                        >
+                                            {warehouse.name}
+                                            {warehouse.address
+                                                ? ` — ${warehouse.address}`
+                                                : ''}
+                                        </option>
+                                    ))}
+                            </select>
                         </label>
                         <label className="space-y-1.5 text-sm font-bold text-slate-700">
                             <span>Ожидаемая поставка</span>
-                            <input required type="datetime-local" value={expectedAt} onChange={(event) => setExpectedAt(event.target.value)} className={fieldClassName} />
+                            <input required type="datetime-local" value={expectedAt}
+                                   onChange={(event) => setExpectedAt(event.target.value)} className={fieldClassName}/>
                         </label>
                     </div>
 
                     <section className="overflow-hidden rounded-2xl border border-slate-200">
-                        <div className="flex items-center justify-between gap-3 border-b border-slate-200 bg-slate-50 px-4 py-3">
+                        <div
+                            className="flex items-center justify-between gap-3 border-b border-slate-200 bg-slate-50 px-4 py-3">
                             <div>
                                 <h3 className="text-sm font-black text-slate-900">Позиции заказа</h3>
-                                <p className="mt-0.5 text-xs text-slate-500">Количество поддерживает дробные значения</p>
+                                <p className="mt-0.5 text-xs text-slate-500">Количество поддерживает дробные
+                                    значения</p>
                             </div>
-                            <button type="button" onClick={addItem} className="rounded-xl bg-white px-3 py-2 text-xs font-bold text-blue-700 shadow-sm ring-1 ring-slate-200 hover:bg-blue-50">+ Добавить</button>
+                            <button type="button" onClick={addItem}
+                                    className="rounded-xl bg-white px-3 py-2 text-xs font-bold text-blue-700 shadow-sm ring-1 ring-slate-200 hover:bg-blue-50">+
+                                Добавить
+                            </button>
                         </div>
                         <div className="divide-y divide-slate-100">
                             {items.map((item, index) => (
-                                <div key={item.key} className="grid gap-3 p-4 md:grid-cols-[minmax(260px,1fr)_150px_170px_40px] md:items-end">
+                                <div key={item.key}
+                                     className="grid gap-3 p-4 md:grid-cols-[minmax(260px,1fr)_150px_170px_40px] md:items-end">
                                     <label className="space-y-1.5 text-xs font-bold text-slate-600">
                                         <span>Номенклатура {index + 1}</span>
-                                        <select required value={item.nomenclatureId} onChange={(event) => updateItem(item.key, 'nomenclatureId', event.target.value)} className={fieldClassName}>
+                                        <select required value={item.nomenclatureId}
+                                                onChange={(event) => updateItem(item.key, 'nomenclatureId', event.target.value)}
+                                                className={fieldClassName}>
                                             <option value="">Выберите позицию</option>
                                             {nomenclature.map((position) => (
-                                                <option key={position.id} value={position.id}>{position.code} · {position.name}</option>
+                                                <option key={position.id}
+                                                        value={position.id}>{position.code} · {position.name}</option>
                                             ))}
                                         </select>
                                     </label>
                                     <label className="space-y-1.5 text-xs font-bold text-slate-600">
                                         <span>Количество</span>
-                                        <input required type="number" min="0.0001" step="0.0001" value={item.quantity} onChange={(event) => updateItem(item.key, 'quantity', event.target.value)} className={fieldClassName} />
+                                        <input required type="number" min="0.0001" step="0.0001" value={item.quantity}
+                                               onChange={(event) => updateItem(item.key, 'quantity', event.target.value)}
+                                               className={fieldClassName}/>
                                     </label>
                                     <label className="space-y-1.5 text-xs font-bold text-slate-600">
                                         <span>Цена за единицу</span>
-                                        <input required type="number" min="0" step="0.01" value={item.unitPrice} onChange={(event) => updateItem(item.key, 'unitPrice', event.target.value)} className={fieldClassName} />
+                                        <input required type="number" min="0" step="0.01" value={item.unitPrice}
+                                               onChange={(event) => updateItem(item.key, 'unitPrice', event.target.value)}
+                                               className={fieldClassName}/>
                                     </label>
-                                    <button type="button" aria-label="Удалить позицию" disabled={items.length === 1} onClick={() => setItems((current) => current.filter((currentItem) => currentItem.key !== item.key))} className="h-10 rounded-xl text-lg text-slate-400 hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-30">×</button>
+                                    <button type="button" aria-label="Удалить позицию" disabled={items.length === 1}
+                                            onClick={() => setItems((current) => current.filter((currentItem) => currentItem.key !== item.key))}
+                                            className="h-10 rounded-xl text-lg text-slate-400 hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-30">×
+                                    </button>
                                 </div>
                             ))}
                         </div>
                     </section>
                 </div>
 
-                <div className="flex flex-col-reverse gap-3 border-t border-slate-200 bg-slate-50 px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
-                    <p className="text-sm text-slate-500">Предварительная сумма: <strong className="text-slate-900">{formatMoney(estimatedTotal)}</strong></p>
+                <div
+                    className="flex flex-col-reverse gap-3 border-t border-slate-200 bg-slate-50 px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+                    <p className="text-sm text-slate-500">Предварительная сумма: <strong
+                        className="text-slate-900">{formatMoney(estimatedTotal)}</strong></p>
                     <div className="flex gap-2">
-                        <button type="button" onClick={onClose} disabled={createState.isLoading} className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-100">Отмена</button>
-                        <button type="submit" disabled={createState.isLoading} className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-blue-700 disabled:opacity-60">{createState.isLoading ? 'Создаём…' : 'Создать заказ'}</button>
+                        <button type="button" onClick={onClose} disabled={createState.isLoading}
+                                className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-100">Отмена
+                        </button>
+                        <button type="submit" disabled={createState.isLoading}
+                                className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-blue-700 disabled:opacity-60">{createState.isLoading ? 'Создаём…' : 'Создать заказ'}</button>
                     </div>
                 </div>
             </form>
@@ -278,42 +333,81 @@ function CreateOrderModal({
 }
 
 function SupplierModal({
-    supplier,
-    onClose,
-    onSaved,
-}: {
+                           supplier,
+                           onClose,
+                           onSaved,
+                       }: {
     supplier?: ProcurementSupplier;
     onClose: () => void;
     onSaved: (supplier: ProcurementSupplier) => void;
 }) {
-    const [id] = useState(() => supplier?.id ?? crypto.randomUUID());
+
     const [name, setName] = useState(supplier?.name ?? '');
     const [bin, setBin] = useState(supplier?.bin ?? '');
     const [phone, setPhone] = useState(supplier?.phone ?? '');
     const [email, setEmail] = useState(supplier?.email ?? '');
     const [active, setActive] = useState(supplier?.active ?? true);
     const [error, setError] = useState('');
-    const [upsertSupplier, upsertState] = useUpsertProcurementSupplierMutation();
 
-    const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    const [createSupplier, createState] =
+        useCreateProcurementSupplierMutation();
+
+    const [updateSupplier, updateState] =
+        useUpdateProcurementSupplierMutation();
+
+    const isSaving =
+        createState.isLoading ||
+        updateState.isLoading;
+
+    const handleSubmit = async (
+        event: FormEvent<HTMLFormElement>,
+    ) => {
         event.preventDefault();
         setError('');
-        if (!name.trim() || !bin.trim()) {
-            setError('Заполните название поставщика и БИН');
+
+        const normalizedBin = bin.replace(/\D/g, '');
+
+        if (!name.trim()) {
+            setError('Укажите название поставщика');
             return;
         }
+
+        if (normalizedBin.length !== 12) {
+            setError('БИН должен состоять из 12 цифр');
+            return;
+        }
+
+        const body = {
+            name: name.trim(),
+            bin: normalizedBin,
+            phone: phone.trim(),
+            email: email.trim(),
+            active,
+        };
+
         try {
-            const saved = await upsertSupplier({
-                id,
-                name: name.trim(),
-                bin: bin.trim(),
-                phone: phone.trim(),
-                email: email.trim(),
-                active,
-            }).unwrap();
+            const saved = supplier
+                ? await updateSupplier({
+                    id: supplier.id,
+                    body,
+                }).unwrap()
+                : await createSupplier(body).unwrap();
+
             onSaved(saved);
-        } catch {
-            // API errors are displayed by the global notification handler.
+        } catch (requestError) {
+            console.error(
+                'Supplier request failed:',
+                requestError,
+            );
+
+            setError(
+                getApiErrorMessage(
+                    requestError,
+                    supplier
+                        ? 'Не удалось обновить поставщика'
+                        : 'Не удалось создать поставщика',
+                ),
+            );
         }
     };
 
@@ -324,35 +418,61 @@ function SupplierModal({
                     <h2 className="text-lg font-black text-slate-900">{supplier ? 'Редактировать поставщика' : 'Новый поставщик'}</h2>
                     <p className="mt-1 text-xs text-slate-500">Контактные данные для закупок и поставок</p>
                 </div>
-                <button type="button" onClick={onClose} disabled={upsertState.isLoading} className="rounded-lg p-2 text-slate-400 hover:bg-slate-100">✕</button>
+                <button
+                    type="button"
+                    onClick={onClose}
+                    disabled={isSaving}
+                    className="rounded-lg p-2 text-slate-400 hover:bg-slate-100"
+                >
+                    ✕
+                </button>
             </div>
             <form onSubmit={handleSubmit} className="mt-5 space-y-4">
-                {error && <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
+                {error && <div
+                    className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
                 <label className="block space-y-1.5 text-sm font-bold text-slate-700">
                     <span>Название</span>
-                    <input required value={name} onChange={(event) => setName(event.target.value)} placeholder="ТОО МедСнаб" className={fieldClassName} />
+                    <input required value={name} onChange={(event) => setName(event.target.value)}
+                           placeholder="ТОО МедСнаб" className={fieldClassName}/>
                 </label>
                 <label className="block space-y-1.5 text-sm font-bold text-slate-700">
                     <span>БИН</span>
-                    <input required value={bin} onChange={(event) => setBin(event.target.value)} placeholder="12 цифр" inputMode="numeric" className={fieldClassName} />
+                    <input required value={bin} onChange={(event) => setBin(event.target.value)} placeholder="12 цифр"
+                           inputMode="numeric" className={fieldClassName}/>
                 </label>
                 <div className="grid gap-4 sm:grid-cols-2">
                     <label className="block space-y-1.5 text-sm font-bold text-slate-700">
                         <span>Телефон</span>
-                        <PhoneInput value={phone} onValueChange={setPhone} className={fieldClassName} />
+                        <PhoneInput value={phone} onValueChange={setPhone} className={fieldClassName}/>
                     </label>
                     <label className="block space-y-1.5 text-sm font-bold text-slate-700">
                         <span>Email</span>
-                        <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="orders@example.kz" className={fieldClassName} />
+                        <input type="email" value={email} onChange={(event) => setEmail(event.target.value)}
+                               placeholder="orders@example.kz" className={fieldClassName}/>
                     </label>
                 </div>
-                <label className="flex cursor-pointer items-center gap-3 rounded-xl bg-slate-50 px-4 py-3 text-sm font-bold text-slate-700">
-                    <input type="checkbox" checked={active} onChange={(event) => setActive(event.target.checked)} className="h-4 w-4 accent-blue-600" />
+                <label
+                    className="flex cursor-pointer items-center gap-3 rounded-xl bg-slate-50 px-4 py-3 text-sm font-bold text-slate-700">
+                    <input type="checkbox" checked={active} onChange={(event) => setActive(event.target.checked)}
+                           className="h-4 w-4 accent-blue-600"/>
                     Поставщик активен
                 </label>
                 <div className="flex justify-end gap-2 border-t border-slate-100 pt-4">
-                    <button type="button" onClick={onClose} disabled={upsertState.isLoading} className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-50">Отмена</button>
-                    <button type="submit" disabled={upsertState.isLoading} className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-blue-700 disabled:opacity-60">{upsertState.isLoading ? 'Сохраняем…' : 'Сохранить'}</button>
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        disabled={isSaving}
+                        className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                        Отмена
+                    </button>
+                    <button
+                        type="submit"
+                        disabled={isSaving}
+                        className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                        {isSaving ? 'Сохраняем…' : 'Сохранить'}
+                    </button>
                 </div>
             </form>
         </Modal>
@@ -360,10 +480,10 @@ function SupplierModal({
 }
 
 function ReceiptModal({
-    order,
-    onClose,
-    onReceived,
-}: {
+                          order,
+                          onClose,
+                          onReceived,
+                      }: {
     order: ProcurementOrder;
     onClose: () => void;
     onReceived: (order: ProcurementOrder) => void;
@@ -371,7 +491,7 @@ function ReceiptModal({
     const [items, setItems] = useState<Record<string, ReceiptItemDraft>>(() =>
         Object.fromEntries(order.items.map((item) => [
             item.id,
-            { quantity: '', lotNumber: '', expiresAt: '' },
+            {quantity: '', lotNumber: '', expiresAt: ''},
         ]))
     );
     const [error, setError] = useState('');
@@ -380,7 +500,7 @@ function ReceiptModal({
     const updateItem = (itemId: string, field: keyof ReceiptItemDraft, value: string) => {
         setItems((current) => ({
             ...current,
-            [itemId]: { ...current[itemId], [field]: value },
+            [itemId]: {...current[itemId], [field]: value},
         }));
     };
 
@@ -418,7 +538,7 @@ function ReceiptModal({
             const received = await receiveOrder({
                 id: order.id,
                 body: {
-                    items: selectedItems.map(({ itemId, quantity, lotNumber, expiresAt }) => ({
+                    items: selectedItems.map(({itemId, quantity, lotNumber, expiresAt}) => ({
                         itemId,
                         quantity,
                         lotNumber,
@@ -436,39 +556,54 @@ function ReceiptModal({
         <Modal contentClassName="max-w-5xl p-0">
             <div className="flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-4 sm:px-6">
                 <div>
-                    <h2 className="text-lg font-black text-slate-900">Приёмка заказа {order.number || `#${shortId(order.id)}`}</h2>
+                    <h2 className="text-lg font-black text-slate-900">Приёмка
+                        заказа {order.number || `#${shortId(order.id)}`}</h2>
                     <p className="mt-1 text-xs text-slate-500">Можно принять весь заказ или только часть позиций</p>
                 </div>
-                <button type="button" onClick={onClose} disabled={receiveState.isLoading} className="rounded-lg p-2 text-slate-400 hover:bg-slate-100">✕</button>
+                <button type="button" onClick={onClose} disabled={receiveState.isLoading}
+                        className="rounded-lg p-2 text-slate-400 hover:bg-slate-100">✕
+                </button>
             </div>
             <form onSubmit={handleSubmit} className="min-h-0 overflow-y-auto">
                 <div className="space-y-4 p-5 sm:p-6">
-                    {error && <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
+                    {error && <div
+                        className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
                     <div className="space-y-3">
                         {order.items.map((item) => {
                             const remaining = getRemainingQuantity(item);
                             const disabled = remaining <= 0;
                             return (
-                                <article key={item.id} className={`rounded-2xl border p-4 ${disabled ? 'border-slate-100 bg-slate-50 opacity-65' : 'border-slate-200'}`}>
-                                    <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                                <article key={item.id}
+                                         className={`rounded-2xl border p-4 ${disabled ? 'border-slate-100 bg-slate-50 opacity-65' : 'border-slate-200'}`}>
+                                    <div
+                                        className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                                         <div>
                                             <h3 className="text-sm font-black text-slate-900">{item.name}</h3>
                                             <p className="mt-0.5 font-mono text-[10px] text-slate-400">#{shortId(item.id)}</p>
                                         </div>
-                                        <p className="text-xs text-slate-500">Заказано {formatQuantity(item.orderedQuantity)} · принято {formatQuantity(item.receivedQuantity)} · осталось <strong className="text-slate-900">{formatQuantity(remaining)}</strong></p>
+                                        <p className="text-xs text-slate-500">Заказано {formatQuantity(item.orderedQuantity)} ·
+                                            принято {formatQuantity(item.receivedQuantity)} · осталось <strong
+                                                className="text-slate-900">{formatQuantity(remaining)}</strong></p>
                                     </div>
                                     <div className="grid gap-3 md:grid-cols-3">
                                         <label className="space-y-1.5 text-xs font-bold text-slate-600">
                                             <span>Принято сейчас</span>
-                                            <input disabled={disabled} type="number" min="0" max={remaining} step="0.0001" value={items[item.id].quantity} onChange={(event) => updateItem(item.id, 'quantity', event.target.value)} placeholder="0" className={fieldClassName} />
+                                            <input disabled={disabled} type="number" min="0" max={remaining}
+                                                   step="0.0001" value={items[item.id].quantity}
+                                                   onChange={(event) => updateItem(item.id, 'quantity', event.target.value)}
+                                                   placeholder="0" className={fieldClassName}/>
                                         </label>
                                         <label className="space-y-1.5 text-xs font-bold text-slate-600">
                                             <span>Номер партии</span>
-                                            <input disabled={disabled} value={items[item.id].lotNumber} onChange={(event) => updateItem(item.id, 'lotNumber', event.target.value)} placeholder="LOT-2026-001" className={fieldClassName} />
+                                            <input disabled={disabled} value={items[item.id].lotNumber}
+                                                   onChange={(event) => updateItem(item.id, 'lotNumber', event.target.value)}
+                                                   placeholder="LOT-2026-001" className={fieldClassName}/>
                                         </label>
                                         <label className="space-y-1.5 text-xs font-bold text-slate-600">
                                             <span>Срок годности</span>
-                                            <input disabled={disabled} type="date" value={items[item.id].expiresAt} onChange={(event) => updateItem(item.id, 'expiresAt', event.target.value)} className={fieldClassName} />
+                                            <input disabled={disabled} type="date" value={items[item.id].expiresAt}
+                                                   onChange={(event) => updateItem(item.id, 'expiresAt', event.target.value)}
+                                                   className={fieldClassName}/>
                                         </label>
                                     </div>
                                 </article>
@@ -477,8 +612,11 @@ function ReceiptModal({
                     </div>
                 </div>
                 <div className="flex justify-end gap-2 border-t border-slate-200 bg-slate-50 px-5 py-4 sm:px-6">
-                    <button type="button" onClick={onClose} disabled={receiveState.isLoading} className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-100">Отмена</button>
-                    <button type="submit" disabled={receiveState.isLoading} className="rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-emerald-700 disabled:opacity-60">{receiveState.isLoading ? 'Принимаем…' : 'Провести приёмку'}</button>
+                    <button type="button" onClick={onClose} disabled={receiveState.isLoading}
+                            className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-100">Отмена
+                    </button>
+                    <button type="submit" disabled={receiveState.isLoading}
+                            className="rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-emerald-700 disabled:opacity-60">{receiveState.isLoading ? 'Принимаем…' : 'Провести приёмку'}</button>
                 </div>
             </form>
         </Modal>
@@ -486,12 +624,12 @@ function ReceiptModal({
 }
 
 function OrderDetailModal({
-    order,
-    actionLoading,
-    onClose,
-    onSubmit,
-    onReceive,
-}: {
+                              order,
+                              actionLoading,
+                              onClose,
+                              onSubmit,
+                              onReceive,
+                          }: {
     order: ProcurementOrder;
     actionLoading: boolean;
     onClose: () => void;
@@ -508,11 +646,14 @@ function OrderDetailModal({
                 <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
                         <h2 className="text-lg font-black text-slate-900">Заказ {order.number || `#${shortId(order.id)}`}</h2>
-                        <span className={`rounded-full border px-2.5 py-1 text-xs font-bold ${getOrderStatusClasses(order.status)}`}>{getOrderStatusLabel(order.status)}</span>
+                        <span
+                            className={`rounded-full border px-2.5 py-1 text-xs font-bold ${getOrderStatusClasses(order.status)}`}>{getOrderStatusLabel(order.status)}</span>
                     </div>
                     <p className="mt-1 text-xs text-slate-500">Поставщик: {order.supplierName || `#${shortId(order.supplierId)}`}</p>
                 </div>
-                <button type="button" onClick={onClose} disabled={actionLoading} className="rounded-lg p-2 text-slate-400 hover:bg-slate-100">✕</button>
+                <button type="button" onClick={onClose} disabled={actionLoading}
+                        className="rounded-lg p-2 text-slate-400 hover:bg-slate-100">✕
+                </button>
             </div>
             <div className="min-h-0 overflow-y-auto p-5 sm:p-6">
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -531,33 +672,39 @@ function OrderDetailModal({
 
                 <div className="mt-5 overflow-x-auto rounded-2xl border border-slate-200">
                     <table className="w-full min-w-[720px] text-left">
-                        <thead className="border-b border-slate-200 bg-slate-50 text-[11px] uppercase tracking-wider text-slate-400">
-                            <tr>
-                                <th className="px-4 py-3 font-bold">Позиция</th>
-                                <th className="px-4 py-3 font-bold">Заказано</th>
-                                <th className="px-4 py-3 font-bold">Принято</th>
-                                <th className="px-4 py-3 font-bold">Осталось</th>
-                                <th className="px-4 py-3 text-right font-bold">Цена</th>
-                            </tr>
+                        <thead
+                            className="border-b border-slate-200 bg-slate-50 text-[11px] uppercase tracking-wider text-slate-400">
+                        <tr>
+                            <th className="px-4 py-3 font-bold">Позиция</th>
+                            <th className="px-4 py-3 font-bold">Заказано</th>
+                            <th className="px-4 py-3 font-bold">Принято</th>
+                            <th className="px-4 py-3 font-bold">Осталось</th>
+                            <th className="px-4 py-3 text-right font-bold">Цена</th>
+                        </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
-                            {order.items.map((item) => (
-                                <tr key={item.id}>
-                                    <td className="px-4 py-3 text-sm font-bold text-slate-900">{item.name}</td>
-                                    <td className="px-4 py-3 text-sm text-slate-600">{formatQuantity(item.orderedQuantity)}</td>
-                                    <td className="px-4 py-3 text-sm text-slate-600">{formatQuantity(item.receivedQuantity)}</td>
-                                    <td className="px-4 py-3 text-sm font-bold text-slate-800">{formatQuantity(getRemainingQuantity(item))}</td>
-                                    <td className="px-4 py-3 text-right text-sm text-slate-600">{formatMoney(item.unitPrice)}</td>
-                                </tr>
-                            ))}
+                        {order.items.map((item) => (
+                            <tr key={item.id}>
+                                <td className="px-4 py-3 text-sm font-bold text-slate-900">{item.name}</td>
+                                <td className="px-4 py-3 text-sm text-slate-600">{formatQuantity(item.orderedQuantity)}</td>
+                                <td className="px-4 py-3 text-sm text-slate-600">{formatQuantity(item.receivedQuantity)}</td>
+                                <td className="px-4 py-3 text-sm font-bold text-slate-800">{formatQuantity(getRemainingQuantity(item))}</td>
+                                <td className="px-4 py-3 text-right text-sm text-slate-600">{formatMoney(item.unitPrice)}</td>
+                            </tr>
+                        ))}
                         </tbody>
                     </table>
                 </div>
             </div>
             <div className="flex flex-wrap justify-end gap-2 border-t border-slate-200 bg-slate-50 px-5 py-4 sm:px-6">
-                <button type="button" onClick={onClose} disabled={actionLoading} className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-100">Закрыть</button>
-                {canSubmit && <button type="button" onClick={onSubmit} disabled={actionLoading} className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-blue-700 disabled:opacity-60">{actionLoading ? 'Отправляем…' : 'Отправить в работу'}</button>}
-                {canReceive && <button type="button" onClick={onReceive} disabled={actionLoading} className="rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-emerald-700 disabled:opacity-60">Принять поставку</button>}
+                <button type="button" onClick={onClose} disabled={actionLoading}
+                        className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-100">Закрыть
+                </button>
+                {canSubmit && <button type="button" onClick={onSubmit} disabled={actionLoading}
+                                      className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-blue-700 disabled:opacity-60">{actionLoading ? 'Отправляем…' : 'Отправить в работу'}</button>}
+                {canReceive && <button type="button" onClick={onReceive} disabled={actionLoading}
+                                       className="rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-emerald-700 disabled:opacity-60">Принять
+                    поставку</button>}
             </div>
         </Modal>
     );
@@ -573,18 +720,24 @@ export default function ProcurementPanel() {
     const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
     const [receiptOrder, setReceiptOrder] = useState<ProcurementOrder | null>(null);
 
-    const ordersQuery = useGetProcurementOrdersQuery({ page, size: PAGE_SIZE });
+    const ordersQuery = useGetProcurementOrdersQuery({page, size: PAGE_SIZE});
     const suppliersQuery = useGetProcurementSuppliersQuery();
-    const nomenclatureQuery = useGetNomenclatureQuery({ activeOnly: true, page: 0, size: 1000 });
+    const nomenclatureQuery = useGetNomenclatureQuery({activeOnly: true, page: 0, size: 1000});
     const [submitOrder, submitState] = useSubmitProcurementOrderMutation();
+    const warehousesQuery = useGetWarehousesQuery({
+        activeOnly: true,
+        page: 0,
+        size: 100,
+        sort: 'name,ASC',
+    });
 
     const orders = useMemo(
         () => ordersQuery.data?.content ?? [],
         [ordersQuery.data?.content]
     );
     const suppliers = suppliersQuery.data ?? [];
+    const warehouses = warehousesQuery.data?.content ?? [];
     const selectedOrder = orders.find((order) => order.id === selectedOrderId);
-    const defaultWarehouseId = orders.find((order) => order.warehouseId)?.warehouseId ?? '';
     const filteredOrders = useMemo(() => {
         const needle = search.trim().toLocaleLowerCase('ru-RU');
         if (!needle) return orders;
@@ -594,8 +747,11 @@ export default function ProcurementPanel() {
     }, [orders, search]);
     const draftCount = orders.filter(isDraftOrder).length;
     const receivableCount = orders.filter((order) => !isDraftOrder(order) && !isTerminalOrder(order)).length;
-    const loadError = ordersQuery.error ?? suppliersQuery.error ?? nomenclatureQuery.error;
-
+    const loadError =
+        ordersQuery.error
+        ?? suppliersQuery.error
+        ?? nomenclatureQuery.error
+        ?? warehousesQuery.error;
     const handleSubmitOrder = async () => {
         if (!selectedOrder) return;
         try {
@@ -604,6 +760,11 @@ export default function ProcurementPanel() {
         } catch {
             // API errors are displayed by the global notification handler.
         }
+    };
+
+    const closeSupplierModal = () => {
+        setSupplierModalOpen(false);
+        setEditingSupplier(undefined);
     };
 
     return (
@@ -620,8 +781,11 @@ export default function ProcurementPanel() {
                     ['Ожидают приёмки', receivableCount, 'В работе сейчас'],
                     ['Поставщики', suppliers.length, `${suppliers.filter((supplier) => supplier.active).length} активных`],
                 ].map(([label, value, note]) => (
-                    <article key={label} className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-[0_1px_2px_rgba(15,23,42,0.03)] transition hover:-translate-y-0.5 hover:border-violet-200 hover:shadow-lg hover:shadow-violet-950/5">
-                        <div className="flex items-center justify-between"><p className="text-xs font-bold text-slate-500">{label}</p><span className="h-2.5 w-2.5 rounded-full bg-violet-500" /></div>
+                    <article key={label}
+                             className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-[0_1px_2px_rgba(15,23,42,0.03)] transition hover:-translate-y-0.5 hover:border-violet-200 hover:shadow-lg hover:shadow-violet-950/5">
+                        <div className="flex items-center justify-between"><p
+                            className="text-xs font-bold text-slate-500">{label}</p><span
+                            className="h-2.5 w-2.5 rounded-full bg-violet-500"/></div>
                         <p className="mt-5 text-2xl font-black tracking-tight text-slate-950">{value}</p>
                         <p className="mt-2 text-[11px] text-slate-400">{note}</p>
                     </article>
@@ -629,23 +793,48 @@ export default function ProcurementPanel() {
             </section>
 
             <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-                <div className="flex flex-col gap-4 border-b border-slate-200 p-4 sm:p-5 lg:flex-row lg:items-center lg:justify-between">
+                <div
+                    className="flex flex-col gap-4 border-b border-slate-200 p-4 sm:p-5 lg:flex-row lg:items-center lg:justify-between">
                     <div className="inline-flex w-fit rounded-xl bg-slate-100 p-1">
                         {([
                             ['orders', 'Заказы'],
                             ['suppliers', 'Поставщики'],
                         ] as Array<[ProcurementView, string]>).map(([id, label]) => (
-                            <button key={id} type="button" onClick={() => setView(id)} className={`rounded-lg px-4 py-2 text-sm font-bold transition ${view === id ? 'bg-white text-violet-700 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}>{label}</button>
+                            <button key={id} type="button" onClick={() => setView(id)}
+                                    className={`rounded-lg px-4 py-2 text-sm font-bold transition ${view === id ? 'bg-white text-violet-700 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}>{label}</button>
                         ))}
                     </div>
 
                     {view === 'orders' ? (
                         <div className="flex flex-col gap-2 sm:flex-row">
-                            <input type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Номер, поставщик или статус" className={`${fieldClassName} sm:w-64`} />
-                            <button type="button" onClick={() => setCreateOrderOpen(true)} disabled={suppliers.length === 0 || (nomenclatureQuery.data?.length ?? 0) === 0} title={suppliers.length === 0 ? 'Сначала добавьте поставщика' : undefined} className="rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-bold text-white shadow-lg shadow-violet-950/15 hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-50">+ Новый заказ</button>
+                            <input type="search" value={search} onChange={(event) => setSearch(event.target.value)}
+                                   placeholder="Номер, поставщик или статус" className={`${fieldClassName} sm:w-64`}/>
+                            <button type="button" onClick={() => setCreateOrderOpen(true)} disabled={
+                                suppliersQuery.isLoading
+                                || nomenclatureQuery.isLoading
+                                || warehousesQuery.isLoading
+                                || suppliers.filter((supplier) => supplier.active).length === 0
+                                || (nomenclatureQuery.data?.length ?? 0) === 0
+                                || warehouses.length === 0
+                            }
+                                    title={
+                                        suppliers.filter((supplier) => supplier.active).length === 0
+                                            ? 'Сначала добавьте активного поставщика'
+                                            : warehouses.length === 0
+                                                ? 'Нет доступных складов'
+                                                : undefined
+                                    }
+                                    className="rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-bold text-white shadow-lg shadow-violet-950/15 hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-50">+
+                                Новый заказ
+                            </button>
                         </div>
                     ) : (
-                        <button type="button" onClick={() => { setEditingSupplier(undefined); setSupplierModalOpen(true); }} className="rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-bold text-white shadow-lg shadow-violet-950/15 hover:bg-violet-700">+ Новый поставщик</button>
+                        <button type="button" onClick={() => {
+                            setEditingSupplier(undefined);
+                            setSupplierModalOpen(true);
+                        }}
+                                className="rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-bold text-white shadow-lg shadow-violet-950/15 hover:bg-violet-700">+
+                            Новый поставщик</button>
                     )}
                 </div>
 
@@ -653,53 +842,71 @@ export default function ProcurementPanel() {
                     <>
                         <div className="overflow-x-auto">
                             <table className="w-full min-w-[900px] text-left">
-                                <thead className="border-b border-slate-200 bg-slate-50 text-[11px] uppercase tracking-wider text-slate-400">
-                                    <tr>
-                                        <th className="px-5 py-3 font-bold">Заказ</th>
-                                        <th className="px-5 py-3 font-bold">Поставщик</th>
-                                        <th className="px-5 py-3 font-bold">Поставка</th>
-                                        <th className="px-5 py-3 font-bold">Прогресс</th>
-                                        <th className="px-5 py-3 font-bold">Сумма</th>
-                                        <th className="px-5 py-3 text-right font-bold">Статус</th>
-                                    </tr>
+                                <thead
+                                    className="border-b border-slate-200 bg-slate-50 text-[11px] uppercase tracking-wider text-slate-400">
+                                <tr>
+                                    <th className="px-5 py-3 font-bold">Заказ</th>
+                                    <th className="px-5 py-3 font-bold">Поставщик</th>
+                                    <th className="px-5 py-3 font-bold">Поставка</th>
+                                    <th className="px-5 py-3 font-bold">Прогресс</th>
+                                    <th className="px-5 py-3 font-bold">Сумма</th>
+                                    <th className="px-5 py-3 text-right font-bold">Статус</th>
+                                </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100">
-                                    {filteredOrders.map((order) => {
-                                        const ordered = order.items.reduce((sum, item) => sum + item.orderedQuantity, 0);
-                                        const received = order.items.reduce((sum, item) => sum + item.receivedQuantity, 0);
-                                        const progress = ordered > 0 ? Math.min(100, Math.round((received / ordered) * 100)) : 0;
-                                        return (
-                                            <tr key={order.id} onClick={() => setSelectedOrderId(order.id)} className="cursor-pointer transition hover:bg-violet-50/50">
-                                                <td className="px-5 py-4">
-                                                    <p className="text-sm font-black text-slate-900">{order.number || `#${shortId(order.id)}`}</p>
-                                                    <p className="mt-1 text-[10px] font-bold text-slate-400">{order.items.length} позиций</p>
-                                                </td>
-                                                <td className="px-5 py-4 text-sm font-bold text-slate-700">{order.supplierName || `#${shortId(order.supplierId)}`}</td>
-                                                <td className="px-5 py-4 text-sm text-slate-600">{formatDateTime(order.expectedAt)}</td>
-                                                <td className="px-5 py-4">
-                                                    <div className="w-32">
-                                                        <div className="mb-1 flex justify-between text-[10px] text-slate-400"><span>{formatQuantity(received)} / {formatQuantity(ordered)}</span><span>{progress}%</span></div>
-                                                        <div className="h-1.5 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full bg-emerald-500" style={{ width: `${progress}%` }} /></div>
+                                {filteredOrders.map((order) => {
+                                    const ordered = order.items.reduce((sum, item) => sum + item.orderedQuantity, 0);
+                                    const received = order.items.reduce((sum, item) => sum + item.receivedQuantity, 0);
+                                    const progress = ordered > 0 ? Math.min(100, Math.round((received / ordered) * 100)) : 0;
+                                    return (
+                                        <tr key={order.id} onClick={() => setSelectedOrderId(order.id)}
+                                            className="cursor-pointer transition hover:bg-violet-50/50">
+                                            <td className="px-5 py-4">
+                                                <p className="text-sm font-black text-slate-900">{order.number || `#${shortId(order.id)}`}</p>
+                                                <p className="mt-1 text-[10px] font-bold text-slate-400">{order.items.length} позиций</p>
+                                            </td>
+                                            <td className="px-5 py-4 text-sm font-bold text-slate-700">{order.supplierName || `#${shortId(order.supplierId)}`}</td>
+                                            <td className="px-5 py-4 text-sm text-slate-600">{formatDateTime(order.expectedAt)}</td>
+                                            <td className="px-5 py-4">
+                                                <div className="w-32">
+                                                    <div
+                                                        className="mb-1 flex justify-between text-[10px] text-slate-400">
+                                                        <span>{formatQuantity(received)} / {formatQuantity(ordered)}</span><span>{progress}%</span>
                                                     </div>
-                                                </td>
-                                                <td className="px-5 py-4 text-sm font-bold text-slate-700">{formatMoney(order.totalAmount)}</td>
-                                                <td className="px-5 py-4 text-right"><span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-bold ${getOrderStatusClasses(order.status)}`}>{getOrderStatusLabel(order.status)}</span></td>
-                                            </tr>
-                                        );
-                                    })}
+                                                    <div className="h-1.5 overflow-hidden rounded-full bg-slate-100">
+                                                        <div className="h-full rounded-full bg-emerald-500"
+                                                             style={{width: `${progress}%`}}/>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td className="px-5 py-4 text-sm font-bold text-slate-700">{formatMoney(order.totalAmount)}</td>
+                                            <td className="px-5 py-4 text-right"><span
+                                                className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-bold ${getOrderStatusClasses(order.status)}`}>{getOrderStatusLabel(order.status)}</span>
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
                                 </tbody>
                             </table>
                         </div>
 
-                        {ordersQuery.isLoading && <div className="px-5 py-16 text-center text-sm text-slate-500">Загружаем заказы…</div>}
-                        {!ordersQuery.isLoading && filteredOrders.length === 0 && <div className="px-5 py-16 text-center text-sm text-slate-500">{search ? 'Заказы по запросу не найдены' : 'Заказов поставщикам пока нет'}</div>}
+                        {ordersQuery.isLoading &&
+                            <div className="px-5 py-16 text-center text-sm text-slate-500">Загружаем заказы…</div>}
+                        {!ordersQuery.isLoading && filteredOrders.length === 0 && <div
+                            className="px-5 py-16 text-center text-sm text-slate-500">{search ? 'Заказы по запросу не найдены' : 'Заказов поставщикам пока нет'}</div>}
 
                         {(ordersQuery.data?.totalPages ?? 0) > 1 && (
                             <div className="flex items-center justify-between border-t border-slate-200 px-5 py-4">
                                 <p className="text-xs text-slate-500">Страница {page + 1} из {ordersQuery.data?.totalPages}</p>
                                 <div className="flex gap-2">
-                                    <button type="button" disabled={ordersQuery.data?.first || ordersQuery.isFetching} onClick={() => setPage((current) => Math.max(0, current - 1))} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-700 disabled:opacity-40">Назад</button>
-                                    <button type="button" disabled={ordersQuery.data?.last || ordersQuery.isFetching} onClick={() => setPage((current) => current + 1)} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-700 disabled:opacity-40">Далее</button>
+                                    <button type="button" disabled={ordersQuery.data?.first || ordersQuery.isFetching}
+                                            onClick={() => setPage((current) => Math.max(0, current - 1))}
+                                            className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-700 disabled:opacity-40">Назад
+                                    </button>
+                                    <button type="button" disabled={ordersQuery.data?.last || ordersQuery.isFetching}
+                                            onClick={() => setPage((current) => current + 1)}
+                                            className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-700 disabled:opacity-40">Далее
+                                    </button>
                                 </div>
                             </div>
                         )}
@@ -708,16 +915,23 @@ export default function ProcurementPanel() {
                     <>
                         <div className="grid gap-4 p-4 sm:grid-cols-2 sm:p-5 xl:grid-cols-3">
                             {suppliers.map((supplier) => (
-                                <article key={supplier.id} className="rounded-2xl border border-slate-200 p-4 transition hover:-translate-y-0.5 hover:border-violet-200 hover:shadow-md">
+                                <article key={supplier.id}
+                                         className="rounded-2xl border border-slate-200 p-4 transition hover:-translate-y-0.5 hover:border-violet-200 hover:shadow-md">
                                     <div className="flex items-start justify-between gap-3">
                                         <div className="min-w-0">
                                             <div className="flex flex-wrap items-center gap-2">
                                                 <h3 className="truncate text-sm font-black text-slate-900">{supplier.name}</h3>
-                                                <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${supplier.active ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>{supplier.active ? 'Активен' : 'Неактивен'}</span>
+                                                <span
+                                                    className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${supplier.active ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>{supplier.active ? 'Активен' : 'Неактивен'}</span>
                                             </div>
                                             <p className="mt-1 text-xs text-slate-500">БИН {supplier.bin || '—'}</p>
                                         </div>
-                                        <button type="button" onClick={() => { setEditingSupplier(supplier); setSupplierModalOpen(true); }} className="shrink-0 rounded-lg bg-slate-100 px-2.5 py-1.5 text-xs font-bold text-slate-600 hover:bg-blue-50 hover:text-blue-700">Изменить</button>
+                                        <button type="button" onClick={() => {
+                                            setEditingSupplier(supplier);
+                                            setSupplierModalOpen(true);
+                                        }}
+                                                className="shrink-0 rounded-lg bg-slate-100 px-2.5 py-1.5 text-xs font-bold text-slate-600 hover:bg-blue-50 hover:text-blue-700">Изменить
+                                        </button>
                                     </div>
                                     <div className="mt-4 space-y-1.5 text-xs text-slate-500">
                                         <p>{supplier.phone || 'Телефон не указан'}</p>
@@ -726,8 +940,11 @@ export default function ProcurementPanel() {
                                 </article>
                             ))}
                         </div>
-                        {suppliersQuery.isLoading && <div className="px-5 py-16 text-center text-sm text-slate-500">Загружаем поставщиков…</div>}
-                        {!suppliersQuery.isLoading && suppliers.length === 0 && <div className="px-5 py-16 text-center text-sm text-slate-500">Поставщиков пока нет. Добавьте первого, чтобы создать заказ.</div>}
+                        {suppliersQuery.isLoading &&
+                            <div className="px-5 py-16 text-center text-sm text-slate-500">Загружаем поставщиков…</div>}
+                        {!suppliersQuery.isLoading && suppliers.length === 0 &&
+                            <div className="px-5 py-16 text-center text-sm text-slate-500">Поставщиков пока нет.
+                                Добавьте первого, чтобы создать заказ.</div>}
                     </>
                 )}
             </section>
@@ -736,7 +953,7 @@ export default function ProcurementPanel() {
                 <CreateOrderModal
                     suppliers={suppliers}
                     nomenclature={nomenclatureQuery.data ?? []}
-                    defaultWarehouseId={defaultWarehouseId}
+                    warehouses={warehouses}
                     onClose={() => setCreateOrderOpen(false)}
                     onCreated={() => {
                         setCreateOrderOpen(false);
@@ -747,10 +964,8 @@ export default function ProcurementPanel() {
                 <SupplierModal
                     key={editingSupplier?.id ?? 'new'}
                     supplier={editingSupplier}
-                    onClose={() => setSupplierModalOpen(false)}
-                    onSaved={() => {
-                        setSupplierModalOpen(false);
-                    }}
+                    onClose={closeSupplierModal}
+                    onSaved={closeSupplierModal}
                 />
             )}
             {selectedOrder && (
