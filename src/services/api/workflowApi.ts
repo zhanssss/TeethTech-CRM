@@ -1,7 +1,7 @@
 import { teethTechApi } from '@/src/services/teethTechApi';
 
-import type {
-    CreateWorkflowStepRequest,
+import {
+    CreateWorkflowStepRequest, CreateWorkflowWorkTypesDTO, CreateWorkflowWorkTypesResponseDTO,
     GetAvailableWorkflowTransitionsArgs,
     GetWorkflowStepsArgs,
     OrderStatus,
@@ -83,6 +83,13 @@ export const workflowApi = teethTechApi.injectEndpoints({
             }),
             invalidatesTags: ['OrderStatuses'],
         }),
+        createWorkflowWorkTypes: builder.mutation<CreateWorkflowWorkTypesResponseDTO, CreateWorkflowWorkTypesDTO>({
+            query: () =>({
+                url: '/admin/workflow/work-types',
+                method: 'POST'
+            }),
+            invalidatesTags: ['Workflow']
+        })
     }),
 });
 
@@ -96,4 +103,5 @@ export const {
     useCreateOrderStatusMutation,
     useUpdateOrderStatusConfigMutation,
     useDeleteOrderStatusMutation,
+    useCreateWorkflowWorkTypesMutation
 } = workflowApi;

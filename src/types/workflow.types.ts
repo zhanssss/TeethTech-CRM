@@ -9,6 +9,45 @@ export interface WorkflowTransition {
     colorHex?: string;
 }
 
+type StagesWorkflowWorkTypesDTO = {
+    code: string,
+    name: string,
+    description: string,
+    colorHex: string,
+    initial: boolean,
+    terminal: boolean,
+    review: boolean,
+    requiredRole: string
+}
+
+export type CreateWorkflowWorkTypesDTO = {
+    workTypeCode: string,
+    workTypeName: string,
+    description: string,
+    stages: StagesWorkflowWorkTypesDTO[]
+}
+
+export type CreateWorkflowWorkTypesResponseDTO = {
+    workTypeId: string,
+    workTypeCode: string,
+    workTypeName: string,
+    steps: [
+        {
+            id: string,
+            workTypeId: string,
+            workTypeName: string,
+            fromStatusId: string,
+            fromStatusCode: string,
+            fromStatusName: string,
+            toStatusId: string,
+            toStatusCode: string,
+            toStatusName: string,
+            requiredRole: string,
+            sortOrder: number
+        }
+    ]
+}
+
 export interface GetAvailableWorkflowTransitionsArgs {
     workType: string;
     currentStatusId: string;

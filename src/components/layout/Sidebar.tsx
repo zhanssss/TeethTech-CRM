@@ -74,7 +74,10 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 
 		const items: MenuItem[] = [
 			{ name: 'Дэшборд', href: '/' },
-			{ name: 'Заказы', href: '/orders', children: [{ name: 'Реестр', href: '/orders' }, { name: 'Производственная доска', href: '/tasks' }] },
+			{ name: 'Заказы', href: '/orders',
+                children:
+                    [{ name: 'Реестр', href: '/orders' }]},
+                    // [{ name: 'Производственная доска', href: '/tasks' }] },
 			{ name: 'Аналитика', href: '/analytics' },
 			{ name: 'Склад', href: '/warehouse', children: [{ name: 'Обзор', href: '/warehouse?tab=overview' }, { name: 'Закупки', href: '/warehouse?tab=procurement' }, { name: 'Номенклатура', href: '/warehouse?tab=nomenclature' }, { name: 'Инвентаризация', href: '/warehouse?tab=inventory' }] },
 			{

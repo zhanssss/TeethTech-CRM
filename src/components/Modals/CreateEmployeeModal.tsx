@@ -114,30 +114,6 @@ export default function CreateEmployeeModal({ onClose }: CreateEmployeeModalProp
                         </option>
                     ))}
                 </select>
-
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                    <select
-                        value={salaryType}
-                        onChange={(e) => setSalaryType(e.target.value as SalaryType)}
-                        required
-                        className="w-full rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm outline-none transition focus:border-blue-500 focus:bg-white"
-                    >
-                        <option value="FIXED">Фиксированная зарплата</option>
-                        <option value="PER_UNIT">Оплата за единицу</option>
-                    </select>
-
-                    <input
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value={salary}
-                        onChange={(e) => setSalary(e.target.value)}
-                        placeholder={salaryType === 'FIXED' ? 'Зарплата' : 'Оплата за единицу'}
-                        required
-                        className="w-full rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm outline-none transition focus:border-blue-500 focus:bg-white"
-                    />
-                </div>
-
                 <input
                     type="text"
                     value={tempPassword}
