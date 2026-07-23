@@ -114,6 +114,8 @@ export const teethTechApi = createApi({
         "ProcurementSuppliers",
         "FinanceReport",
         "SalaryConfig",
+        "SalaryPlans",
+        "SalaryPreview",
         "SalaryStatements",
         "Invoices",
         "InvoicePayments",
@@ -123,7 +125,8 @@ export const teethTechApi = createApi({
         "OrderStatuses",
         "TelegramLink",
         "TelegramIntegration",
-        "Warehouses"
+        "Warehouses",
+        "PersonalNotes"
     ],
     endpoints: () => ({}),
 });

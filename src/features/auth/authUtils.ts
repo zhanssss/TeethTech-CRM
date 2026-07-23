@@ -6,6 +6,7 @@ export function normalizeAuthRole(roles: string[] = []): AuthRole {
     );
 
     if (normalizedRoles.includes('ADMIN')) return 'ADMIN';
+    if (normalizedRoles.includes('CHIEF_TECHNICIAN')) return 'CHIEF_TECHNICIAN';
     if (normalizedRoles.includes('DISPATCHER')) return 'DISPATCHER';
     if (normalizedRoles.includes('FINANCIER')) return 'FINANCIER';
 
@@ -15,6 +16,7 @@ export function normalizeAuthRole(roles: string[] = []): AuthRole {
 export function getAuthRedirectPath(role: AuthRole) {
     if (role === 'TECHNICIAN') return '/employee';
     if (role === 'FINANCIER') return '/accounting';
+    if (role === 'CHIEF_TECHNICIAN') return '/laboratory/workflows';
 
     return '/orders';
 }

@@ -2,10 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
-import {
-    EmployeeRoleFilter,
-    employeeRoleOptions,
-} from '@/src/types/employee.types';
+import { useSelector } from 'react-redux';
 
 import {
     getKpiColor,
@@ -15,6 +12,8 @@ import {
 import CreateEmployeeModal from '@/src/components/Modals/CreateEmployeeModal';
 import { useDeleteUserMutation, useGetUsersQuery } from "@/src/services/api/usersApi";
 import ErrorState from '@/src/components/ui/ErrorState';
+import { useGetRolesQuery } from '@/src/services/api/rolesApi';
+import type { RootState } from '@/src/lib/store';
 
 
 function StatCard({
@@ -37,7 +36,7 @@ function StatCard({
 
 export default function EmployeesPage() {
     const [search, setSearch] = useState('');
-    const [selectedRole, setSelectedRole] = useState<EmployeeRoleFilter>('ALL');
+    const [selectedRole, setSelectedRole] = useState('ALL');
     const [showFiredEmployees, setShowFiredEmployees] = useState(false);
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
@@ -46,13 +45,22 @@ export default function EmployeesPage() {
         isLoading,
         isError,
     } = useGetUsersQuery();
+    const jwtRoles = useSelector((state: RootState) => state.auth.roles);
+    const isAdmin = jwtRoles.some(
+        (role) => role.toUpperCase().replace(/^ROLE_/u, '') === 'ADMIN'
+    );
+    const { data: availableRoles = [] } = useGetRolesQuery(undefined, {
+        skip: !isAdmin,
+    });
     const [deleteUser, { isLoading: isDeletingUser }] = useDeleteUserMutation();
     const filteredEmployees = useMemo(() => {
         const normalizedSearch = search.trim().toLowerCase();
 
         return users.filter((employee) => {
             const matchesRole =
-                selectedRole === 'ALL' || employee.role === selectedRole;
+                selectedRole === 'ALL'
+                || employee.roles?.includes(selectedRole)
+                || employee.role === selectedRole;
 
             const matchesSearch =
                 employee.fullName.toLowerCase().includes(normalizedSearch) ||
@@ -128,12 +136,14 @@ export default function EmployeesPage() {
                     </p>
                 </div>
 
-                <button
-                    onClick={() => setIsCreateModalOpen(true)}
-                    className="w-full rounded-xl bg-violet-600 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-violet-950/15 transition-all hover:bg-violet-700 active:scale-95 md:w-auto"
-                >
-                    + Добавить сотрудника
-                </button>
+                {isAdmin && (
+                    <button
+                        onClick={() => setIsCreateModalOpen(true)}
+                        className="w-full rounded-xl bg-violet-600 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-violet-950/15 transition-all hover:bg-violet-700 active:scale-95 md:w-auto"
+                    >
+                        + Добавить сотрудника
+                    </button>
+                )}
             </header>
             <section className="grid grid-cols-1 gap-4 md:grid-cols-4">
                 <StatCard
@@ -170,12 +180,13 @@ export default function EmployeesPage() {
 
                         <select
                             value={selectedRole}
-                            onChange={(e) => setSelectedRole(e.target.value as EmployeeRoleFilter)}
+                            onChange={(e) => setSelectedRole(e.target.value)}
                             className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-violet-500 focus:bg-white sm:w-56"
                         >
-                            {employeeRoleOptions.map((option) => (
-                                <option key={option.id} value={option.value}>
-                                    {option.label}
+                            <option value="ALL">Все роли</option>
+                            {availableRoles.map((option) => (
+                                <option key={option.id} value={option.code}>
+                                    {option.name} — {option.code}
                                 </option>
                             ))}
                         </select>
@@ -232,14 +243,16 @@ export default function EmployeesPage() {
                                         >
                                             Открыть
                                         </Link>
-                                        <button
-                                            type="button"
-                                            onClick={() => handleDeleteUser(employee.id, employee.fullName)}
-                                            disabled={isDeletingUser}
-                                            className="rounded-lg px-2 py-1.5 text-[10px] font-bold text-slate-400 transition hover:bg-red-50 hover:text-red-600 disabled:opacity-40"
-                                        >
-                                            Удалить
-                                        </button>
+                                        {isAdmin && (
+                                            <button
+                                                type="button"
+                                                onClick={() => handleDeleteUser(employee.id, employee.fullName)}
+                                                disabled={isDeletingUser}
+                                                className="rounded-lg px-2 py-1.5 text-[10px] font-bold text-slate-400 transition hover:bg-red-50 hover:text-red-600 disabled:opacity-40"
+                                            >
+                                                Удалить
+                                            </button>
+                                        )}
                                     </div></div>
                             </article>
                         ))}
@@ -251,7 +264,7 @@ export default function EmployeesPage() {
                         )}
                 </div>
             </section>
-            {isCreateModalOpen && (
+            {isAdmin && isCreateModalOpen && (
                 <CreateEmployeeModal onClose={() => setIsCreateModalOpen(false)} />
             )}
         </div>

@@ -16,9 +16,14 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { type CSSProperties, type FormEvent, useEffect, useState } from 'react';
+import { useSelector } from 'react-redux';
 
 import { useGetWorkTypesQuery } from '@/src/services/api/laboratory/workTypesApi';
 import QueryErrorNotice from '@/src/components/ui/QueryErrorNotice';
+import RoleCreateModal from '@/src/components/roles/RoleCreateModal';
+import RoleSelect from '@/src/components/roles/RoleSelect';
+import type { RootState } from '@/src/lib/store';
+import { useGetRolesQuery } from '@/src/services/api/rolesApi';
 import {
     useCreateAdminWorkflowStepMutation,
     useCreateOrderStatusMutation,
@@ -135,6 +140,14 @@ export default function LaboratoryWorkflowsPage() {
     const [statusDescription, setStatusDescription] = useState('');
     const [statusSortOrder, setStatusSortOrder] = useState('0');
     const [statusColorHex, setStatusColorHex] = useState('#2563eb');
+    const [isRoleCreateOpen, setIsRoleCreateOpen] = useState(false);
+    const jwtRoles = useSelector((state: RootState) => state.auth.roles);
+    const isAdmin = jwtRoles.some(
+        (role) => role.toUpperCase().replace(/^ROLE_/u, '') === 'ADMIN'
+    );
+    const canViewRoles = isAdmin || jwtRoles.some(
+        (role) => role.toUpperCase().replace(/^ROLE_/u, '') === 'CHIEF_TECHNICIAN'
+    );
 
     const {
         data: workTypes = [],
@@ -143,6 +156,13 @@ export default function LaboratoryWorkflowsPage() {
         isError: isWorkTypesError,
         refetch: refetchWorkTypes,
     } = useGetWorkTypesQuery();
+    const {
+        data: availableRoles = [],
+        isLoading: isRolesLoading,
+        isFetching: isRolesFetching,
+        isError: isRolesError,
+        refetch: refetchRoles,
+    } = useGetRolesQuery(undefined, { skip: !canViewRoles });
     const serverWorkTypeId = selectedWorkTypeId || workTypes[0]?.id || '';
     const {
         data: workflowStatuses = [],
@@ -389,17 +409,19 @@ export default function LaboratoryWorkflowsPage() {
                 </div><span className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-semibold text-slate-500">{workTypes.length} типов работ · {workflowStatuses.length} статусов</span>
             </header>
 
-            {(isWorkTypesError || isWorkflowStatusesError) && (
+            {(isWorkTypesError || isWorkflowStatusesError || isRolesError) && (
                 <QueryErrorNotice
                     message={`Не удалось загрузить ${[
                         isWorkTypesError ? 'типы работ' : '',
                         isWorkflowStatusesError ? 'статусы workflow' : '',
+                        isRolesError ? 'роли' : '',
                     ].filter(Boolean).join(' и ')}.`}
                     onRetry={() => {
                         if (isWorkTypesError) void refetchWorkTypes();
                         if (isWorkflowStatusesError) void refetchWorkflowStatuses();
+                        if (isRolesError) void refetchRoles();
                     }}
-                    isRetrying={isWorkTypesFetching || isWorkflowStatusesFetching}
+                    isRetrying={isWorkTypesFetching || isWorkflowStatusesFetching || isRolesFetching}
                 />
             )}
 
@@ -472,15 +494,16 @@ export default function LaboratoryWorkflowsPage() {
 
                         <label>
                             <span className="mb-1.5 block text-sm font-semibold text-slate-700">Ответственная роль</span>
-                            <input
+                            <RoleSelect
                                 required
                                 value={requiredRole}
-                                onChange={(event) => setRequiredRole(event.target.value)}
-                                placeholder="Например: TECHNICIAN"
-                                list="workflow-role-options"
-                                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-violet-500 focus:bg-white focus:ring-2 focus:ring-violet-100"
+                                onChange={setRequiredRole}
+                                roles={availableRoles}
+                                isLoading={isRolesLoading}
+                                disabled={isRolesError}
+                                canCreate={isAdmin}
+                                onCreateRequest={() => setIsRoleCreateOpen(true)}
                             />
-                            <datalist id="workflow-role-options"><option value="TECHNICIAN" /><option value="ADMIN" /><option value="DISPATCHER" /><option value="QUALITY_CONTROLLER" /></datalist>
                         </label>
 
                         <label>
@@ -506,7 +529,7 @@ export default function LaboratoryWorkflowsPage() {
 
                     <button
                         type="submit"
-                        disabled={isCreatingServerStep || !serverWorkTypeId}
+                        disabled={isCreatingServerStep || !serverWorkTypeId || !requiredRole || isRolesError}
                         className="mt-4 w-full rounded-xl bg-violet-600 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-violet-950/15 transition hover:bg-violet-700 disabled:cursor-not-allowed disabled:bg-slate-300 sm:w-auto"
                     >
                         {isCreatingServerStep ? 'Добавляем...' : '+ Добавить переход'}
@@ -915,6 +938,12 @@ export default function LaboratoryWorkflowsPage() {
             </section>
                 </div>
             </details>
+            {isRoleCreateOpen && isAdmin && (
+                <RoleCreateModal
+                    onClose={() => setIsRoleCreateOpen(false)}
+                    onCreated={(role) => setRequiredRole(role.code)}
+                />
+            )}
         </div>
     );
 }

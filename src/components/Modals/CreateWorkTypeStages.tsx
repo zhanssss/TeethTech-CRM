@@ -1,6 +1,7 @@
 'use client';
 
 import {useState} from 'react';
+import {useSelector} from 'react-redux';
 
 import {
     closestCenter,
@@ -23,6 +24,10 @@ import {
 import {CSS} from '@dnd-kit/utilities';
 
 import Modal from '@/src/components/ui/Modal';
+import RoleCreateModal from '@/src/components/roles/RoleCreateModal';
+import RolePicker from '@/src/components/roles/RoleSelect';
+import type {RootState} from '@/src/lib/store';
+import type {Role} from '@/src/types/role.types';
 
 import {
     useCreateWorkflowWorkTypesMutation,
@@ -62,6 +67,9 @@ type SystemStageType =
     | 'DONE';
 
 type SystemRoles = Record<SystemStageType, string>;
+type RoleCreationTarget =
+    | { kind: 'system'; type: SystemStageType }
+    | { kind: 'intermediate'; id: string };
 
 const initialFormData: WorkTypeForm = {
     workTypeCode: '',
@@ -128,13 +136,11 @@ function createIntermediateStage(): IntermediateStage {
 type RoleSelectProps = {
     value: string;
     disabled?: boolean;
-    roles: {
-        id: string;
-        code: string;
-        description: string;
-    }[];
+    roles: Role[];
     isLoading: boolean;
     onChange: (value: string) => void;
+    canCreate: boolean;
+    onCreateRequest: () => void;
 };
 
 function RoleSelect({
@@ -143,44 +149,30 @@ function RoleSelect({
                         roles,
                         isLoading,
                         onChange,
+                        canCreate,
+                        onCreateRequest,
                     }: RoleSelectProps) {
     return (
-        <select
+        <RolePicker
             value={value}
             disabled={disabled || isLoading}
-            onChange={(event) =>
-                onChange(event.target.value)
-            }
-            className="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-xs font-medium text-slate-700 outline-none transition focus:border-violet-500 focus:bg-white disabled:opacity-50"
-        >
-            <option value="">
-                {isLoading
-                    ? 'Загрузка ролей...'
-                    : 'Без роли'}
-            </option>
-
-            {roles.map((role) => (
-                <option
-                    key={role.id}
-                    value={role.code}
-                >
-                    {role.description || role.code}
-                </option>
-            ))}
-        </select>
+            roles={roles}
+            isLoading={isLoading}
+            onChange={onChange}
+            canCreate={canCreate}
+            onCreateRequest={onCreateRequest}
+        />
     );
 }
 
 type SystemStageRowProps = {
     type: SystemStageType;
     requiredRole: string;
-    roles: {
-        id: string;
-        code: string;
-        description: string;
-    }[];
+    roles: Role[];
     rolesLoading: boolean;
     onRoleChange: (role: string) => void;
+    canCreate: boolean;
+    onCreateRequest: () => void;
 };
 
 function SystemStageRow({
@@ -189,6 +181,8 @@ function SystemStageRow({
                             roles,
                             rolesLoading,
                             onRoleChange,
+                            canCreate,
+                            onCreateRequest,
                         }: SystemStageRowProps) {
     const stage = SYSTEM_STAGES[type];
 
@@ -235,6 +229,8 @@ function SystemStageRow({
                 roles={roles}
                 isLoading={rolesLoading}
                 onChange={onRoleChange}
+                canCreate={canCreate}
+                onCreateRequest={onCreateRequest}
             />
 
             <span className="hidden text-right text-[10px] font-bold uppercase text-slate-400 md:block">
@@ -247,17 +243,15 @@ function SystemStageRow({
 type SortableStageRowProps = {
     stage: IntermediateStage;
     index: number;
-    roles: {
-        id: string;
-        code: string;
-        description: string;
-    }[];
+    roles: Role[];
     rolesLoading: boolean;
     onChange: (
         id: string,
         patch: Partial<IntermediateStage>,
     ) => void;
     onDelete: (id: string) => void;
+    canCreate: boolean;
+    onCreateRequest: () => void;
 };
 
 function SortableStageRow({
@@ -267,6 +261,8 @@ function SortableStageRow({
                               rolesLoading,
                               onChange,
                               onDelete,
+                              canCreate,
+                              onCreateRequest,
                           }: SortableStageRowProps) {
     const {
         attributes,
@@ -345,6 +341,8 @@ function SortableStageRow({
                             requiredRole,
                         })
                     }
+                    canCreate={canCreate}
+                    onCreateRequest={onCreateRequest}
                 />
 
                 <input
@@ -410,12 +408,21 @@ export default function CreateWorkTypeStages({
 
     const [formError, setFormError] =
         useState('');
+    const [roleCreationTarget, setRoleCreationTarget] =
+        useState<RoleCreationTarget | null>(null);
+    const jwtRoles = useSelector((state: RootState) => state.auth.roles);
+    const isAdmin = jwtRoles.some(
+        (role) => role.toUpperCase().replace(/^ROLE_/u, '') === 'ADMIN'
+    );
+    const canViewRoles = isAdmin || jwtRoles.some(
+        (role) => role.toUpperCase().replace(/^ROLE_/u, '') === 'CHIEF_TECHNICIAN'
+    );
 
     const {
         data: roles = [],
         isLoading: rolesLoading,
         isError: rolesError,
-    } = useGetRolesQuery();
+    } = useGetRolesQuery(undefined, {skip: !canViewRoles});
 
     const [
         createWorkflowWorkTypes,
@@ -583,6 +590,7 @@ export default function CreateWorkTypeStages({
     };
 
     return (
+        <>
         <Modal contentClassName="max-h-[90vh] max-w-4xl overflow-hidden p-0">
             <header className="flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-4">
                 <div>
@@ -714,6 +722,13 @@ export default function CreateWorkTypeStages({
                                 rolesLoading={
                                     rolesLoading
                                 }
+                                canCreate={isAdmin}
+                                onCreateRequest={() =>
+                                    setRoleCreationTarget({
+                                        kind: 'system',
+                                        type: 'TODO',
+                                    })
+                                }
                                 onRoleChange={(
                                     requiredRole,
                                 ) =>
@@ -768,6 +783,15 @@ export default function CreateWorkTypeStages({
                                                         rolesLoading={
                                                             rolesLoading
                                                         }
+                                                        canCreate={
+                                                            isAdmin
+                                                        }
+                                                        onCreateRequest={() =>
+                                                            setRoleCreationTarget({
+                                                                kind: 'intermediate',
+                                                                id: stage.clientId,
+                                                            })
+                                                        }
                                                         onChange={
                                                             updateIntermediateStage
                                                         }
@@ -801,6 +825,13 @@ export default function CreateWorkTypeStages({
                                 rolesLoading={
                                     rolesLoading
                                 }
+                                canCreate={isAdmin}
+                                onCreateRequest={() =>
+                                    setRoleCreationTarget({
+                                        kind: 'system',
+                                        type: 'REVIEW',
+                                    })
+                                }
                                 onRoleChange={(
                                     requiredRole,
                                 ) =>
@@ -822,6 +853,13 @@ export default function CreateWorkTypeStages({
                                 roles={roles}
                                 rolesLoading={
                                     rolesLoading
+                                }
+                                canCreate={isAdmin}
+                                onCreateRequest={() =>
+                                    setRoleCreationTarget({
+                                        kind: 'system',
+                                        type: 'DONE',
+                                    })
                                 }
                                 onRoleChange={(
                                     requiredRole,
@@ -880,5 +918,25 @@ export default function CreateWorkTypeStages({
                 </footer>
             </form>
         </Modal>
+        {roleCreationTarget && isAdmin && (
+            <RoleCreateModal
+                onClose={() => setRoleCreationTarget(null)}
+                onCreated={(role) => {
+                    if (roleCreationTarget.kind === 'system') {
+                        const type = roleCreationTarget.type;
+                        setSystemRoles((current) => ({
+                            ...current,
+                            [type]: role.code,
+                        }));
+                    } else {
+                        updateIntermediateStage(roleCreationTarget.id, {
+                            requiredRole: role.code,
+                        });
+                    }
+                    setRoleCreationTarget(null);
+                }}
+            />
+        )}
+        </>
     );
 }

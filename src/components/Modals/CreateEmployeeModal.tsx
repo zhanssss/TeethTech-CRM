@@ -2,6 +2,7 @@ import { FormEvent, useState } from 'react';
 import Modal from '@/src/components/ui/Modal';
 import PhoneInput from '@/src/components/ui/PhoneInput';
 import QueryErrorNotice from '@/src/components/ui/QueryErrorNotice';
+import RoleSelect from '@/src/components/roles/RoleSelect';
 import { useRegisterUserMutation } from '@/src/services/api/authApi';
 import { useGetRolesQuery } from '@/src/services/api/rolesApi';
 import type { Register, SalaryType } from '@/src/types/auth.types';
@@ -33,7 +34,8 @@ export default function CreateEmployeeModal({ onClose }: CreateEmployeeModalProp
             fullName: name,
             email,
             phone,
-            role,
+            roles: [role],
+            status: 'ACTIVE',
             password: tempPassword,
             salaryType,
             salary: Number(salary) || 0,
@@ -95,25 +97,15 @@ export default function CreateEmployeeModal({ onClose }: CreateEmployeeModalProp
                     className="w-full rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm outline-none transition focus:border-blue-500 focus:bg-white"
                 />
 
-                <select
+                <RoleSelect
                     value={role}
-                    onChange={(e) => setRole(e.target.value)}
+                    onChange={setRole}
                     required
-                    className="w-full rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm outline-none transition focus:border-blue-500 focus:bg-white"
-                >
-                    <option value="">
-                        {isRolesLoading
-                            ? 'Загрузка ролей...'
-                            : isRolesError
-                                ? 'Роли недоступны'
-                                : 'Выберите роль'}
-                    </option>
-                    {roles.map((option) => (
-                        <option key={option.id} value={option.code}>
-                            {option.description || option.code}
-                        </option>
-                    ))}
-                </select>
+                    roles={roles}
+                    isLoading={isRolesLoading}
+                    disabled={isRolesError}
+                    placeholder={isRolesError ? 'Роли недоступны' : 'Выберите роль'}
+                />
                 <input
                     type="text"
                     value={tempPassword}
@@ -125,7 +117,7 @@ export default function CreateEmployeeModal({ onClose }: CreateEmployeeModalProp
 
                 <button
                     type="submit"
-                    disabled={isLoading || isRolesError}
+                    disabled={isLoading || isRolesError || !role}
                     className="cursor-pointer rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 py-3 text-sm font-bold text-white shadow-lg shadow-violet-500/20 transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:bg-slate-300"
                 >
                     {isLoading ? 'Создание...' : 'Добавить'}

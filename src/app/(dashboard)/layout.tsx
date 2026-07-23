@@ -10,6 +10,7 @@ import { getAuthRedirectPath } from '@/src/features/auth/authUtils';
 import { RootState } from '@/src/lib/store';
 import ChatNotifications from '@/src/components/Chat/ChatNotifications';
 import ChatButton from '@/src/components/Chat/ChatButton';
+import PersonalNotesWidget from '@/src/components/personal-notes/PersonalNotesWidget';
 
 export default function DashboardLayout({
                                             children,
@@ -18,7 +19,14 @@ export default function DashboardLayout({
 }) {
     const router = useRouter();
     const pathname = usePathname();
-    const { isAuthenticated, isInitialized, role } = useSelector((state: RootState) => state.auth);
+    const { isAuthenticated, isInitialized, role, roles } = useSelector((state: RootState) => state.auth);
+    const normalizedJwtRoles = roles.map((item) =>
+        item.toUpperCase().replace(/^ROLE_/u, '')
+    );
+    const isPayrollPage = pathname.startsWith('/accounting/payroll');
+    const canViewRoles =
+        normalizedJwtRoles.includes('ADMIN')
+        || normalizedJwtRoles.includes('CHIEF_TECHNICIAN');
 
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
@@ -44,24 +52,43 @@ export default function DashboardLayout({
             isAuthenticated &&
             role &&
             role !== 'FINANCIER' &&
-            pathname.startsWith('/accounting')
+            pathname.startsWith('/accounting') &&
+            !isPayrollPage
         ) {
             router.replace(getAuthRedirectPath(role));
         }
-    }, [isAuthenticated, isInitialized, pathname, role, router]);
+    }, [isAuthenticated, isInitialized, isPayrollPage, pathname, role, router]);
+
+    useEffect(() => {
+        if (
+            isInitialized
+            && isAuthenticated
+            && role
+            && pathname.startsWith('/settings/employees-roles')
+            && !canViewRoles
+        ) {
+            router.replace(getAuthRedirectPath(role));
+        }
+    }, [canViewRoles, isAuthenticated, isInitialized, pathname, role, router]);
 
     const isAccountingAccessDenied =
         isAuthenticated &&
         role !== null &&
         role !== 'FINANCIER' &&
-        pathname.startsWith('/accounting');
+        pathname.startsWith('/accounting') &&
+        !isPayrollPage;
+    const isRolesAccessDenied =
+        isAuthenticated
+        && pathname.startsWith('/settings/employees-roles')
+        && !canViewRoles;
 
-    if (!isInitialized || !isAuthenticated || isAccountingAccessDenied) return null;
+    if (!isInitialized || !isAuthenticated || isAccountingAccessDenied || isRolesAccessDenied) return null;
 
     return (
         <div className="relative flex h-dvh w-full overflow-hidden bg-slate-50 dark:bg-[#09090b]">
             <ChatNotifications />
             <ChatButton />
+            <PersonalNotesWidget />
             <div
                 onClick={() => setIsSidebarOpen(false)}
                 aria-hidden="true"

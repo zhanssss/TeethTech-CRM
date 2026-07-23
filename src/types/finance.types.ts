@@ -70,3 +70,103 @@ export type SalaryStatementsHistoryRequest = {
     start: string;
     end: string;
 };
+
+export type SalaryCapMode = 'TOTAL' | 'VARIABLE_ONLY';
+export type SalaryRuleTreatment =
+    | 'INCLUDED_IN_BASE'
+    | 'PAID_EXTRA'
+    | 'NOT_PAYABLE'
+    | 'REQUIRES_REVIEW';
+export type SalaryCalculationType =
+    | 'ONCE_PER_STAGE'
+    | 'TASK_QUANTITY'
+    | 'TEETH_COUNT'
+    | 'PERCENT_OF_TASK';
+
+export type SalaryPlanRule = {
+    id: string;
+    name: string;
+    workTypeId: string | null;
+    workTypeName?: string | null;
+    statusId: string | null;
+    statusName?: string | null;
+    treatment: SalaryRuleTreatment;
+    calculationType: SalaryCalculationType;
+    rate: number;
+    priority: number;
+    effectiveFrom: string;
+    effectiveTo: string | null;
+    active: boolean;
+};
+
+export type SalaryPlan = {
+    id: string;
+    userId: string;
+    name: string;
+    baseSalary: number;
+    monthlyCap: number | null;
+    capMode: SalaryCapMode;
+    carryForward: boolean;
+    effectiveFrom: string;
+    effectiveTo: string | null;
+    active: boolean;
+    rules?: SalaryPlanRule[];
+};
+
+export type UpsertSalaryPlanRequest = Omit<SalaryPlan, 'id' | 'rules'>;
+export type UpsertSalaryRuleRequest = Omit<
+    SalaryPlanRule,
+    'id' | 'workTypeName' | 'statusName'
+>;
+
+export type SalaryPreviewRequest = {
+    employeeId: string;
+    start: string;
+    end: string;
+};
+
+export type SalaryAccrual = {
+    id?: string;
+    taskId?: string;
+    orderNumber?: string;
+    ruleId?: string;
+    ruleName?: string;
+    statusId?: string | null;
+    statusName?: string | null;
+    workTypeId?: string | null;
+    workTypeName?: string | null;
+    treatment: SalaryRuleTreatment;
+    calculationType?: SalaryCalculationType;
+    quantity?: number | null;
+    rate?: number | null;
+    amount: number;
+    completedAt?: string | null;
+    comment?: string | null;
+};
+
+export type SalaryCalculationPreview = {
+    employeeId: string;
+    start: string;
+    end: string;
+    baseSalary: number;
+    extraAccrued: number;
+    grossAccrued: number;
+    carryIn: number;
+    available: number;
+    monthlyCap: number | null;
+    payable: number;
+    carryOut: number;
+    accruals: SalaryAccrual[];
+};
+
+export type CreateFlexibleSalaryStatementRequest = {
+    employeeId: string;
+    start: string;
+    end: string;
+    comment: string | null;
+};
+
+export type FlexibleSalaryStatementResult = {
+    statementId: string;
+    status: string;
+};

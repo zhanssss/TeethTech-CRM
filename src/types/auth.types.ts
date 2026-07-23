@@ -18,7 +18,8 @@ export type Register = {
     fullName: string;
     email: string;
     phone: string;
-    role: string;
+    roles: string[];
+    status: 'ACTIVE';
     password: string;
     salaryType: SalaryType;
     salary: number;

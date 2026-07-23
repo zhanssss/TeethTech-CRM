@@ -2,12 +2,20 @@ import { teethTechApi } from '@/src/services/teethTechApi';
 
 import type {
     SalaryConfig,
+    SalaryCalculationPreview,
+    SalaryPlan,
+    SalaryPlanRule,
+    SalaryPreviewRequest,
     SalaryEmployee,
+    CreateFlexibleSalaryStatementRequest,
+    FlexibleSalaryStatementResult,
     SalaryStatement,
     SalaryStatementRequest,
     SalaryStatementsHistoryRequest,
     SalaryStatementTask,
     UpsertSalaryConfigRequest,
+    UpsertSalaryPlanRequest,
+    UpsertSalaryRuleRequest,
 } from '@/src/types/finance.types';
 
 export const salariesApi = teethTechApi.injectEndpoints({
@@ -34,6 +42,101 @@ export const salariesApi = teethTechApi.injectEndpoints({
                 method: 'GET',
             }),
             providesTags: ['SalaryConfig'],
+        }),
+        getSalaryPlan: builder.query<SalaryPlan, string>({
+            query: (userId) => ({
+                url: `/salaries/plans/${userId}`,
+                method: 'GET',
+                notification: { error: false },
+            }),
+            providesTags: (_result, _error, userId) => [
+                { type: 'SalaryPlans', id: userId },
+            ],
+        }),
+        upsertSalaryPlan: builder.mutation<
+            SalaryPlan,
+            { userId: string; body: UpsertSalaryPlanRequest }
+        >({
+            query: ({ userId, body }) => ({
+                url: `/salaries/plans/${userId}`,
+                method: 'PUT',
+                body,
+            }),
+            invalidatesTags: (_result, _error, { userId }) => [
+                { type: 'SalaryPlans', id: userId },
+                { type: 'SalaryPreview', id: userId },
+            ],
+        }),
+        createSalaryPlanRule: builder.mutation<
+            SalaryPlanRule,
+            { planId: string; userId: string; body: UpsertSalaryRuleRequest }
+        >({
+            query: ({ planId, body }) => ({
+                url: `/salaries/plans/${planId}/rules`,
+                method: 'POST',
+                body,
+            }),
+            invalidatesTags: (_result, _error, { userId }) => [
+                { type: 'SalaryPlans', id: userId },
+                { type: 'SalaryPreview', id: userId },
+            ],
+        }),
+        updateSalaryRule: builder.mutation<
+            SalaryPlanRule,
+            { ruleId: string; userId: string; body: UpsertSalaryRuleRequest }
+        >({
+            query: ({ ruleId, body }) => ({
+                url: `/salaries/rules/${ruleId}`,
+                method: 'PUT',
+                body,
+            }),
+            invalidatesTags: (_result, _error, { userId }) => [
+                { type: 'SalaryPlans', id: userId },
+                { type: 'SalaryPreview', id: userId },
+            ],
+        }),
+        deleteSalaryRule: builder.mutation<
+            void,
+            { ruleId: string; userId: string }
+        >({
+            query: ({ ruleId }) => ({
+                url: `/salaries/rules/${ruleId}`,
+                method: 'DELETE',
+            }),
+            invalidatesTags: (_result, _error, { userId }) => [
+                { type: 'SalaryPlans', id: userId },
+                { type: 'SalaryPreview', id: userId },
+            ],
+        }),
+        getSalaryCalculationPreview: builder.query<
+            SalaryCalculationPreview,
+            SalaryPreviewRequest
+        >({
+            query: ({ employeeId, start, end }) => ({
+                url: '/salaries/calculations/preview',
+                method: 'GET',
+                params: { employeeId, start, end },
+                notification: { error: false },
+            }),
+            providesTags: (_result, _error, { employeeId }) => [
+                { type: 'SalaryPreview', id: employeeId },
+            ],
+        }),
+        createFlexibleSalaryStatement: builder.mutation<
+            FlexibleSalaryStatementResult,
+            CreateFlexibleSalaryStatementRequest
+        >({
+            query: (body) => ({
+                url: '/salaries/calculations/statements',
+                method: 'POST',
+                body,
+                notification: { error: false },
+            }),
+            invalidatesTags: (_result, _error, { employeeId }) => [
+                { type: 'SalaryPreview', id: employeeId },
+                'SalaryStatements',
+                'FinanceReport',
+            ],
         }),
         createSalaryStatement: builder.mutation<SalaryStatement, SalaryStatementRequest>({
             query: (body) => ({
@@ -83,6 +186,13 @@ export const {
     useUpsertSalaryConfigMutation,
     useGetSalaryConfigQuery,
     useGetSalaryEmployeesQuery,
+    useGetSalaryPlanQuery,
+    useUpsertSalaryPlanMutation,
+    useCreateSalaryPlanRuleMutation,
+    useUpdateSalaryRuleMutation,
+    useDeleteSalaryRuleMutation,
+    useLazyGetSalaryCalculationPreviewQuery,
+    useCreateFlexibleSalaryStatementMutation,
     useCreateSalaryStatementMutation,
     useDeleteSalaryStatementMutation,
     useConfirmSalaryStatementMutation,

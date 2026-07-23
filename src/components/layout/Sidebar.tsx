@@ -56,6 +56,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 	const menuItems: MenuItem[] = (() => {
 		if (role === 'TECHNICIAN') {
 			return [
+				{ name: 'Моя зарплата', href: '/accounting/payroll', exact: true },
 				{ name: 'Рабочая зона', href: '/employee', exact: true },
 				{ name: 'Календарь', href: '/employee/calendar' },
 				{ name: 'Аналитика', href: '/employee/analytics' },
@@ -68,6 +69,21 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 				{ name: 'Финансовый отчёт', href: '/accounting', exact: true },
 				{ name: 'Зарплаты', href: '/accounting/payroll', exact: true },
 				{ name: 'Счета', href: '/accounting/invoices' },
+				{ name: 'Личный кабинет', href: '/settings', exact: true }
+			]
+		}
+
+		if (role === 'CHIEF_TECHNICIAN') {
+			return [
+				{ name: 'Зарплатные планы', href: '/accounting/payroll', exact: true },
+				{
+					name: 'Лаборатория',
+					href: '/laboratory',
+					children: [
+						{ name: 'Workflow', href: '/laboratory/workflows' },
+						{ name: 'Роли', href: '/settings/employees-roles/roles' }
+					]
+				},
 				{ name: 'Личный кабинет', href: '/settings', exact: true }
 			]
 		}
@@ -103,6 +119,19 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 		]
 
 		if (role === 'ADMIN') {
+			items.push({
+				name: 'Зарплатные планы',
+				href: '/accounting/payroll',
+				exact: true
+			})
+			items.push({
+				name: 'Настройки',
+				href: '/settings/employees-roles/roles',
+				exact: true,
+				children: [
+					{ name: 'Сотрудники и роли · Роли', href: '/settings/employees-roles/roles' }
+				]
+			})
 			items.push({
 				name: 'Интеграции',
 				href: '/settings/integrations',

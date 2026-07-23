@@ -75,10 +75,19 @@ const SUCCESS_MESSAGES: Record<string, string | null> = {
     regenerateTelegramWebhookSecret: 'Webhook secret обновлён',
     connectTelegramIntegration: 'Webhook Telegram зарегистрирован',
     disconnectTelegramIntegration: 'Webhook Telegram отключён',
+    createRole: 'Роль создана',
+    updateRole: 'Название роли изменено',
+    deleteRole: 'Роль удалена',
 };
 
 const SILENT_ERROR_ENDPOINTS = new Set([
     'abortMultipartTaskFileUpload',
+]);
+const ROLE_ENDPOINTS = new Set([
+    'getRoles',
+    'createRole',
+    'updateRole',
+    'deleteRole',
 ]);
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -122,6 +131,12 @@ export function getApiErrorMessage(error: unknown, endpoint = '') {
     }
 
     if (status === 401) return 'Сессия истекла. Войдите в систему повторно';
+    if (status === 403 && ROLE_ENDPOINTS.has(endpoint)) {
+        return 'Недостаточно прав для управления ролями';
+    }
+    if (status === 404 && ['updateRole', 'deleteRole'].includes(endpoint)) {
+        return 'Роль не найдена. Возможно, она была удалена другим администратором';
+    }
     if (status === 403) return serverMessage || 'Недостаточно прав для этой операции';
     if (status === 404) return serverMessage || 'Запрашиваемые данные не найдены';
     if (status === 409) return serverMessage || 'Данные изменились. Обновите страницу и повторите попытку';
@@ -131,6 +146,9 @@ export function getApiErrorMessage(error: unknown, endpoint = '') {
     }
     if (status === 502) return serverMessage || 'Не удалось подключиться к серверу';
     if (typeof status === 'number' && status >= 500) {
+        if (ROLE_ENDPOINTS.has(endpoint)) {
+            return 'Не удалось выполнить операцию. Попробуйте ещё раз';
+        }
         return serverMessage || 'Сервис временно недоступен. Попробуйте позже';
     }
     if (status === 'FETCH_ERROR' || status === 'TIMEOUT_ERROR') {

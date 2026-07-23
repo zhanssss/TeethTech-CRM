@@ -84,9 +84,10 @@ export const workflowApi = teethTechApi.injectEndpoints({
             invalidatesTags: ['OrderStatuses'],
         }),
         createWorkflowWorkTypes: builder.mutation<CreateWorkflowWorkTypesResponseDTO, CreateWorkflowWorkTypesDTO>({
-            query: () =>({
+            query: (body) =>({
                 url: '/admin/workflow/work-types',
-                method: 'POST'
+                method: 'POST',
+                body,
             }),
             invalidatesTags: ['Workflow']
         })
