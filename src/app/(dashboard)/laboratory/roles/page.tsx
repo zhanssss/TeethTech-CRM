@@ -162,7 +162,7 @@ export default function RolesManagementPage() {
         <div className="mx-auto max-w-6xl space-y-6 pb-10">
             <header className="flex flex-col gap-4 rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm sm:flex-row sm:items-end sm:justify-between sm:p-6">
                 <div>
-                    <p className="text-xs font-black uppercase tracking-[0.16em] text-violet-600">Настройки → Сотрудники и роли</p>
+                    <p className="text-xs font-black uppercase tracking-[0.16em] text-violet-600">Лаборатория → Роли</p>
                     <h1 className="mt-1 text-3xl font-black text-slate-950">Роли</h1>
                     <p className="mt-2 max-w-2xl text-sm text-slate-500">Системные права защищены backend. Производственные роли можно назначать сотрудникам и переходам workflow.</p>
                 </div>

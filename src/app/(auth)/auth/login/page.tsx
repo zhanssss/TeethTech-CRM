@@ -3,13 +3,20 @@
 import { type FormEvent, useState } from 'react';
 import { useDispatch } from 'react-redux';
 import { useRouter } from 'next/navigation';
+
+import TeethTechLogo from '@/src/components/branding/TeethTechLogo';
+import ThemeToggle from '@/src/components/layout/ThemeToggle';
 import { setUser } from '@/src/features/auth/authSlice';
 import { getAuthRedirectPath, normalizeAuthRole } from '@/src/features/auth/authUtils';
+import { useNotifications } from '@/src/features/notifications/useNotifications';
 import type { AppDispatch } from '@/src/lib/store';
 import { useLoginUserMutation } from '@/src/services/api/authApi';
-import { useNotifications } from '@/src/features/notifications/useNotifications';
-import TeethTechLogo from '@/src/components/branding/TeethTechLogo';
-import logo from '@/public/teethtech-logo-full-v3.svg'
+
+const platformFeatures = [
+    'Заказы и производственные этапы',
+    'Команда, задачи и коммуникации',
+    'Склад, финансы и аналитика',
+];
 
 export default function LoginPage() {
     const dispatch = useDispatch<AppDispatch>();
@@ -19,6 +26,8 @@ export default function LoginPage() {
 
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
+
     const handleLogin = async (e: FormEvent<HTMLFormElement>) => {
         e.preventDefault();
 
@@ -53,88 +62,257 @@ export default function LoginPage() {
             console.error('Ошибка входа:', requestError);
         }
     };
+
     return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-100 via-white to-blue-50">
-            <div className="mx-auto flex min-h-screen max-w-7xl items-center justify-center px-4 py-10">
-                <div className="grid w-full max-w-5xl overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl lg:grid-cols-2">
-                    <div className="hidden flex-col justify-between bg-slate-900 p-10 text-white lg:flex">
-                        <div>
-                            <h1 className="w-full">
-                                <TeethTechLogo onDarkBackground priority  />
+        <main className="relative min-h-screen overflow-hidden bg-slate-50 px-4 py-6 dark:bg-[#09090b] sm:px-6 sm:py-8 lg:p-10">
+            <div
+                aria-hidden="true"
+                className="pointer-events-none absolute -left-32 -top-32 h-80 w-80 rounded-full bg-violet-300/25 blur-3xl dark:bg-violet-600/10"
+            />
+            <div
+                aria-hidden="true"
+                className="pointer-events-none absolute -bottom-40 -right-28 h-96 w-96 rounded-full bg-indigo-300/25 blur-3xl dark:bg-indigo-600/10"
+            />
+
+            <div className="absolute right-4 top-4 z-20 sm:right-6 sm:top-6 lg:right-10 lg:top-10">
+                <ThemeToggle />
+            </div>
+
+            <div className="relative mx-auto flex min-h-[calc(100vh-3rem)] max-w-6xl items-center sm:min-h-[calc(100vh-4rem)] lg:min-h-[calc(100vh-5rem)]">
+                <div className="grid w-full overflow-hidden rounded-[2rem] border border-slate-200/80 bg-white shadow-[0_24px_80px_-32px_rgba(15,23,42,0.28)] dark:border-slate-800 dark:bg-[#18181b] dark:shadow-black/40 lg:grid-cols-[1.05fr_0.95fr]">
+                    <section className="relative hidden min-h-[650px] overflow-hidden bg-gradient-to-br from-violet-600 via-violet-700 to-indigo-800 p-10 text-white lg:flex lg:flex-col lg:justify-between xl:p-12">
+                        <div
+                            aria-hidden="true"
+                            className="absolute -right-20 -top-24 h-80 w-80 rounded-full border-[48px] border-white/[0.06]"
+                        />
+                        <div
+                            aria-hidden="true"
+                            className="absolute -bottom-32 -left-24 h-96 w-96 rounded-full bg-white/[0.05]"
+                        />
+                        <div
+                            aria-hidden="true"
+                            className="absolute bottom-20 right-14 h-24 w-24 rounded-3xl border border-white/10 bg-white/[0.04] rotate-12"
+                        />
+
+                        <div className="relative">
+                            <TeethTechLogo
+                                className="w-64"
+                                onDarkBackground
+                                priority
+                            />
+                        </div>
+
+                        <div className="relative max-w-lg">
+                            <span className="inline-flex rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-xs font-semibold tracking-wide text-violet-100 backdrop-blur-sm">
+                                Единое рабочее пространство
+                            </span>
+                            <h1 className="mt-6 text-4xl font-black leading-[1.12] tracking-tight xl:text-[2.75rem]">
+                                Управляйте лабораторией без лишней рутины
                             </h1>
-
-                        </div>
-                        <p className="mt-6 max-w-md text-sm leading-6 text-slate-300">
-                            Управление заказами, задачами и производственными этапами
-                            зуботехнической лаборатории в одном интерфейсе.
-                        </p>
-
-                        <div className="space-y-4">
-                            <p className="text-xs text-slate-400">
-                                © 2026 TeethTech.
+                            <p className="mt-5 max-w-md text-sm leading-6 text-violet-100/80">
+                                Все ключевые процессы TeethTech собраны в одном понятном интерфейсе.
                             </p>
-                        </div>
-                    </div>
 
-                    <div className="flex items-center justify-center p-6 sm:p-10">
-                        <div className="w-full max-w-md">
-                            <div className="mb-8 lg:hidden">
-                                <h1 className="w-64 max-w-full">
-                                    <TeethTechLogo priority />
-                                </h1>
-                                <p className="mt-4 text-sm text-slate-500">
-                                    Вход в систему лаборатории
+                            <ul className="mt-8 space-y-3">
+                                {platformFeatures.map((feature) => (
+                                    <li
+                                        key={feature}
+                                        className="flex items-center gap-3 text-sm font-medium text-white/90"
+                                    >
+                                        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-white/10">
+                                            <svg
+                                                aria-hidden="true"
+                                                viewBox="0 0 20 20"
+                                                fill="none"
+                                                stroke="currentColor"
+                                                className="h-3.5 w-3.5"
+                                            >
+                                                <path
+                                                    d="m5 10 3 3 7-7"
+                                                    strokeWidth="2"
+                                                    strokeLinecap="round"
+                                                    strokeLinejoin="round"
+                                                />
+                                            </svg>
+                                        </span>
+                                        {feature}
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+
+                        <p className="relative text-xs text-violet-200/70">
+                            © 2026 TeethTech CRM
+                        </p>
+                    </section>
+
+                    <section className="flex min-h-[620px] items-center justify-center p-6 sm:p-10 lg:min-h-[650px] lg:p-12 xl:p-16">
+                        <div className="w-full max-w-sm">
+                            <div className="mb-10 pr-12 lg:hidden">
+                                <TeethTechLogo className="w-52" priority />
+                                <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">
+                                    Система управления лабораторией
                                 </p>
                             </div>
 
                             <div className="mb-8">
-                                <h2 className="text-2xl font-black text-slate-900">
+                                <span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-violet-50 text-violet-600 dark:bg-violet-500/15 dark:text-violet-300">
+                                    <svg
+                                        aria-hidden="true"
+                                        viewBox="0 0 24 24"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        className="h-5 w-5"
+                                    >
+                                        <path
+                                            d="M8 10V8a4 4 0 0 1 8 0v2m-9 0h10a2 2 0 0 1 2 2v7H5v-7a2 2 0 0 1 2-2Z"
+                                            strokeWidth="1.8"
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                        />
+                                    </svg>
+                                </span>
+                                <h2 className="mt-5 text-3xl font-black tracking-tight text-slate-950 dark:text-white">
                                     Добро пожаловать
                                 </h2>
-                                <p className="mt-2 text-sm text-slate-500">
-                                    Введите email и пароль для входа в рабочую панель
+                                <p className="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">
+                                    Введите данные своей учётной записи, чтобы продолжить работу.
                                 </p>
                             </div>
 
                             <form onSubmit={handleLogin} className="space-y-5">
                                 <div>
-                                    <label className="mb-2 block text-sm font-semibold text-slate-700">
+                                    <label
+                                        htmlFor="email"
+                                        className="mb-2 block text-sm font-semibold text-slate-700 dark:text-slate-200"
+                                    >
                                         Email
                                     </label>
-                                    <input
-                                        type="text"
-                                        value={email}
-                                        onChange={(e) => setEmail(e.target.value)}
-                                        placeholder="email@example.com"
-                                        className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-500 focus:bg-white"
-                                    />
+                                    <div className="relative">
+                                        <svg
+                                            aria-hidden="true"
+                                            viewBox="0 0 24 24"
+                                            fill="none"
+                                            stroke="currentColor"
+                                            className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400"
+                                        >
+                                            <rect x="3" y="5" width="18" height="14" rx="3" strokeWidth="1.7" />
+                                            <path d="m5 7 7 6 7-6" strokeWidth="1.7" strokeLinejoin="round" />
+                                        </svg>
+                                        <input
+                                            id="email"
+                                            type="email"
+                                            value={email}
+                                            onChange={(e) => setEmail(e.target.value)}
+                                            placeholder="email@example.com"
+                                            autoComplete="email"
+                                            disabled={isLoading}
+                                            className="h-12 w-full rounded-xl border border-slate-200 bg-slate-50/80 pl-12 pr-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 hover:border-slate-300 focus:border-violet-500 focus:bg-white focus:ring-4 focus:ring-violet-500/10 disabled:cursor-wait disabled:opacity-70 dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:hover:border-slate-600 dark:focus:border-violet-500 dark:focus:bg-slate-900"
+                                        />
+                                    </div>
                                 </div>
 
                                 <div>
-                                    <label className="mb-2 block text-sm font-semibold text-slate-700">
+                                    <label
+                                        htmlFor="password"
+                                        className="mb-2 block text-sm font-semibold text-slate-700 dark:text-slate-200"
+                                    >
                                         Пароль
                                     </label>
-                                    <input
-                                        type="password"
-                                        value={password}
-                                        onChange={(e) => setPassword(e.target.value)}
-                                        placeholder="••••••••"
-                                        className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-500 focus:bg-white"
-                                    />
+                                    <div className="relative">
+                                        <svg
+                                            aria-hidden="true"
+                                            viewBox="0 0 24 24"
+                                            fill="none"
+                                            stroke="currentColor"
+                                            className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400"
+                                        >
+                                            <rect x="4" y="10" width="16" height="11" rx="3" strokeWidth="1.7" />
+                                            <path d="M8 10V7a4 4 0 0 1 8 0v3" strokeWidth="1.7" strokeLinecap="round" />
+                                        </svg>
+                                        <input
+                                            id="password"
+                                            type={showPassword ? 'text' : 'password'}
+                                            value={password}
+                                            onChange={(e) => setPassword(e.target.value)}
+                                            placeholder="Введите пароль"
+                                            autoComplete="current-password"
+                                            disabled={isLoading}
+                                            className="h-12 w-full rounded-xl border border-slate-200 bg-slate-50/80 pl-12 pr-12 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 hover:border-slate-300 focus:border-violet-500 focus:bg-white focus:ring-4 focus:ring-violet-500/10 disabled:cursor-wait disabled:opacity-70 dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:hover:border-slate-600 dark:focus:border-violet-500 dark:focus:bg-slate-900"
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowPassword((current) => !current)}
+                                            className="absolute right-2 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-200/70 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+                                            aria-label={showPassword ? 'Скрыть пароль' : 'Показать пароль'}
+                                            aria-pressed={showPassword}
+                                        >
+                                            <svg
+                                                aria-hidden="true"
+                                                viewBox="0 0 24 24"
+                                                fill="none"
+                                                stroke="currentColor"
+                                                className="h-5 w-5"
+                                            >
+                                                {showPassword ? (
+                                                    <>
+                                                        <path d="M3 3l18 18" strokeWidth="1.8" strokeLinecap="round" />
+                                                        <path d="M10.7 10.8a2 2 0 0 0 2.5 2.5M9.5 5.4A10.5 10.5 0 0 1 12 5c5.5 0 9 7 9 7a15 15 0 0 1-2.2 3.2M6.1 6.1C4.2 7.5 3 9.6 3 12c0 0 3.5 7 9 7 1.2 0 2.3-.3 3.3-.8" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <path d="M3 12s3.5-7 9-7 9 7 9 7-3.5 7-9 7-9-7-9-7Z" strokeWidth="1.8" strokeLinejoin="round" />
+                                                        <circle cx="12" cy="12" r="2.5" strokeWidth="1.8" />
+                                                    </>
+                                                )}
+                                            </svg>
+                                        </button>
+                                    </div>
                                 </div>
 
                                 <button
                                     type="submit"
                                     disabled={isLoading}
-                                    className="w-full rounded-2xl bg-slate-900 px-4 py-3 text-sm font-bold text-white transition hover:bg-blue-600 active:scale-[0.99] disabled:cursor-not-allowed disabled:bg-slate-400"
+                                    className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-violet-600 px-4 text-sm font-bold text-white shadow-lg shadow-violet-600/20 transition hover:bg-violet-700 hover:shadow-violet-600/30 active:scale-[0.99] disabled:cursor-wait disabled:bg-violet-400 disabled:shadow-none dark:bg-violet-600 dark:hover:bg-violet-500"
                                 >
-                                    {isLoading ? 'Вход...' : 'Войти'}
+                                    {isLoading ? (
+                                        <>
+                                            <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                                            Входим…
+                                        </>
+                                    ) : (
+                                        <>
+                                            Войти в систему
+                                            <svg
+                                                aria-hidden="true"
+                                                viewBox="0 0 20 20"
+                                                fill="none"
+                                                stroke="currentColor"
+                                                className="h-4 w-4"
+                                            >
+                                                <path d="M4 10h12m-4-4 4 4-4 4" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                                            </svg>
+                                        </>
+                                    )}
                                 </button>
                             </form>
+
+                            <div className="mt-8 flex items-center justify-center gap-2 text-xs text-slate-400 dark:text-slate-500">
+                                <svg
+                                    aria-hidden="true"
+                                    viewBox="0 0 20 20"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    className="h-4 w-4"
+                                >
+                                    <path d="M6 8V6a4 4 0 0 1 8 0v2m-9 0h10v8H5V8Z" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                                </svg>
+                                Защищённый вход в рабочую систему
+                            </div>
                         </div>
-                    </div>
+                    </section>
                 </div>
             </div>
-        </div>
+        </main>
     );
 }

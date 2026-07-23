@@ -10,7 +10,10 @@ import { getAuthRedirectPath } from '@/src/features/auth/authUtils';
 import { RootState } from '@/src/lib/store';
 import ChatNotifications from '@/src/components/Chat/ChatNotifications';
 import ChatButton from '@/src/components/Chat/ChatButton';
-import PersonalNotesWidget from '@/src/components/personal-notes/PersonalNotesWidget';
+import PersonalNotesModal from '@/src/components/personal-notes/PersonalNotesModal';
+import QuickActionsMenu from '@/src/components/layout/QuickActionsMenu';
+
+const SIDEBAR_STORAGE_KEY = 'teeth-tech-sidebar-open';
 
 export default function DashboardLayout({
                                             children,
@@ -24,6 +27,13 @@ export default function DashboardLayout({
         item.toUpperCase().replace(/^ROLE_/u, '')
     );
     const isPayrollPage = pathname.startsWith('/accounting/payroll');
+    const canViewPayroll =
+        role === 'ADMIN'
+        || role === 'FINANCIER'
+        || role === 'CHIEF_TECHNICIAN'
+        || normalizedJwtRoles.some((item) =>
+            ['ADMIN', 'FINANCIER', 'CHIEF_TECHNICIAN', 'HEAD_TECHNICIAN'].includes(item)
+        );
     const canViewRoles =
         normalizedJwtRoles.includes('ADMIN')
         || normalizedJwtRoles.includes('CHIEF_TECHNICIAN');
@@ -32,13 +42,29 @@ export default function DashboardLayout({
 
     useEffect(() => {
         const mediaQuery = window.matchMedia('(min-width: 1024px)');
-        const syncSidebarState = () => setIsSidebarOpen(mediaQuery.matches);
+        const syncSidebarState = () => {
+            if (!mediaQuery.matches) {
+                setIsSidebarOpen(false);
+                return;
+            }
+
+            setIsSidebarOpen(
+                window.localStorage.getItem(SIDEBAR_STORAGE_KEY) !== 'false'
+            );
+        };
 
         syncSidebarState();
         mediaQuery.addEventListener('change', syncSidebarState);
 
         return () => mediaQuery.removeEventListener('change', syncSidebarState);
     }, []);
+
+    const setSidebarOpen = (nextOpen: boolean) => {
+        setIsSidebarOpen(nextOpen);
+        if (window.matchMedia('(min-width: 1024px)').matches) {
+            window.localStorage.setItem(SIDEBAR_STORAGE_KEY, String(nextOpen));
+        }
+    };
 
     useEffect(() => {
         if (isInitialized && !isAuthenticated) {
@@ -51,20 +77,22 @@ export default function DashboardLayout({
             isInitialized &&
             isAuthenticated &&
             role &&
-            role !== 'FINANCIER' &&
             pathname.startsWith('/accounting') &&
-            !isPayrollPage
+            (
+                (isPayrollPage && !canViewPayroll)
+                || (!isPayrollPage && role !== 'FINANCIER')
+            )
         ) {
             router.replace(getAuthRedirectPath(role));
         }
-    }, [isAuthenticated, isInitialized, isPayrollPage, pathname, role, router]);
+    }, [canViewPayroll, isAuthenticated, isInitialized, isPayrollPage, pathname, role, router]);
 
     useEffect(() => {
         if (
             isInitialized
             && isAuthenticated
             && role
-            && pathname.startsWith('/settings/employees-roles')
+            && pathname.startsWith('/laboratory/roles')
             && !canViewRoles
         ) {
             router.replace(getAuthRedirectPath(role));
@@ -74,12 +102,14 @@ export default function DashboardLayout({
     const isAccountingAccessDenied =
         isAuthenticated &&
         role !== null &&
-        role !== 'FINANCIER' &&
         pathname.startsWith('/accounting') &&
-        !isPayrollPage;
+        (
+            (isPayrollPage && !canViewPayroll)
+            || (!isPayrollPage && role !== 'FINANCIER')
+        );
     const isRolesAccessDenied =
         isAuthenticated
-        && pathname.startsWith('/settings/employees-roles')
+        && pathname.startsWith('/laboratory/roles')
         && !canViewRoles;
 
     if (!isInitialized || !isAuthenticated || isAccountingAccessDenied || isRolesAccessDenied) return null;
@@ -88,9 +118,10 @@ export default function DashboardLayout({
         <div className="relative flex h-dvh w-full overflow-hidden bg-slate-50 dark:bg-[#09090b]">
             <ChatNotifications />
             <ChatButton />
-            <PersonalNotesWidget />
+            <PersonalNotesModal />
+            <QuickActionsMenu />
             <div
-                onClick={() => setIsSidebarOpen(false)}
+                onClick={() => setSidebarOpen(false)}
                 aria-hidden="true"
                 className={`fixed inset-0 z-40 bg-slate-900/40 backdrop-blur-[1px] transition-opacity duration-300 ease-out motion-reduce:transition-none lg:hidden ${
                     isSidebarOpen ? 'opacity-100' : 'pointer-events-none opacity-0'
@@ -99,26 +130,14 @@ export default function DashboardLayout({
 
             <Sidebar
                 isOpen={isSidebarOpen}
-                onClose={() => setIsSidebarOpen(false)}
+                onClose={() => setSidebarOpen(false)}
             />
 
-            <button
-                onClick={() => setIsSidebarOpen(true)}
-                disabled={isSidebarOpen}
-                className={`absolute left-4 top-4 z-50 hidden h-10 w-10 items-center justify-center rounded-lg bg-slate-900 text-white shadow-lg transition-[opacity,transform,background-color] duration-200 hover:bg-slate-800 motion-reduce:transition-none lg:flex ${
-                    isSidebarOpen
-                        ? 'pointer-events-none scale-90 opacity-0'
-                        : 'scale-100 opacity-100 delay-150'
-                }`}
-                aria-label="Открыть навигацию"
-            >
-                <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" className="h-5 w-5">
-                    <path strokeLinecap="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" />
-                </svg>
-            </button>
-
-            <div className="flex min-w-0 flex-1 flex-col">
-                <Header onMenuClick={() => setIsSidebarOpen(true)} />
+            <div className="flex min-w-0 flex-1 flex-col transition-[width] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none">
+                <Header
+                    isMenuOpen={isSidebarOpen}
+                    onMenuClick={() => setSidebarOpen(true)}
+                />
 
                 <main className="app-dashboard-main flex-1 overflow-x-hidden overflow-y-auto px-4 py-4 sm:px-6 lg:px-8">
                     {children}

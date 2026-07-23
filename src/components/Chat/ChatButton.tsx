@@ -32,7 +32,6 @@ export default function ChatButton() {
 	const { chats, messagesByConversation, totalUnreadCount } = useSelector((state: RootState) => state.chat)
 	const { id: currentUserId } = useSelector((state: RootState) => state.auth)
 	const [isOpen, setIsOpen] = useState(false)
-	const [isHidden, setIsHidden] = useState(false)
 	const [selectedId, setSelectedId] = useState<string | null>(null)
 	const [composer, setComposer] = useState('')
 	const listRef = useRef<HTMLDivElement | null>(null)
@@ -56,6 +55,19 @@ export default function ChatButton() {
 		listRef.current.scrollTop = listRef.current.scrollHeight
 	}, [isOpen, messages.length, selectedId])
 
+	useEffect(() => {
+		const toggleChat = () => setIsOpen(current => !current)
+		const closeChat = () => setIsOpen(false)
+
+		window.addEventListener('teethtech:toggle-chat', toggleChat)
+		window.addEventListener('teethtech:close-chat', closeChat)
+
+		return () => {
+			window.removeEventListener('teethtech:toggle-chat', toggleChat)
+			window.removeEventListener('teethtech:close-chat', closeChat)
+		}
+	}, [])
+
 	if (pathname.startsWith('/chats')) return null
 
 	const openConversation = (conversationId: string) => {
@@ -76,16 +88,8 @@ export default function ChatButton() {
 		}
 	}
 
-	if (isHidden) {
-		return (
-			<button type="button" onClick={() => setIsHidden(false)} className="fixed bottom-4 right-4 z-[80] flex h-10 items-center gap-2 rounded-full border border-slate-200 bg-white px-3 text-xs font-bold text-slate-600 shadow-lg dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300" aria-label="Вернуть мини-чат">
-				<Icon name="chat" className="h-4 w-4" /> Чат
-			</button>
-		)
-	}
-
 	return (
-		<div className="fixed bottom-5 right-4 z-[80] sm:right-6">
+		<div className="fixed bottom-24 right-4 z-[80] sm:right-6">
 			{isOpen ? (
 				<section className="mb-3 flex h-[min(610px,calc(100dvh-7rem))] w-[min(390px,calc(100vw-2rem))] flex-col overflow-hidden rounded-[28px] border border-slate-200/80 bg-white shadow-[0_28px_80px_-22px_rgba(15,23,42,.55)] dark:border-slate-700 dark:bg-slate-900">
 					<header className="flex min-h-[72px] items-center gap-3 bg-gradient-to-r from-violet-600 to-indigo-600 px-4 text-white">
@@ -93,7 +97,7 @@ export default function ChatButton() {
 						<div className="min-w-0 flex-1"><p className="truncate text-sm font-black">{selectedChat?.title ?? 'Быстрый чат'}</p><p className="mt-0.5 text-[11px] text-violet-100">{selectedChat ? 'В сети · сообщения в реальном времени' : `${totalUnreadCount} непрочитанных`}</p></div>
 						{selectedChat ? <button type="button" onClick={() => router.push(`/chats/${selectedChat.id}`)} className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/10 hover:bg-white/20" aria-label="Открыть полный чат"><Icon name="expand" className="h-4 w-4" /></button> : null}
 						<button type="button" onClick={() => setIsOpen(false)} className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/10 hover:bg-white/20" aria-label="Свернуть"><Icon name="minimize" /></button>
-						<button type="button" onClick={() => { setIsOpen(false); setIsHidden(true) }} className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/10 hover:bg-white/20" aria-label="Убрать мини-чат"><Icon name="close" /></button>
+						<button type="button" onClick={() => setIsOpen(false)} className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/10 hover:bg-white/20" aria-label="Закрыть мини-чат"><Icon name="close" /></button>
 					</header>
 
 					{selectedChat ? (
@@ -115,8 +119,6 @@ export default function ChatButton() {
 					)}
 				</section>
 			) : null}
-
-			{!isOpen ? <button type="button" onClick={() => setIsOpen(true)} className="relative ml-auto flex h-15 w-15 items-center justify-center rounded-[22px] bg-gradient-to-br from-violet-600 to-indigo-600 text-white shadow-[0_16px_35px_-10px_rgba(124,58,237,.65)] transition hover:-translate-y-1 hover:scale-105" aria-label="Открыть мини-чат"><Icon name="chat" className="h-7 w-7" />{totalUnreadCount > 0 ? <span className="absolute -right-2 -top-2 flex h-6 min-w-6 items-center justify-center rounded-full border-2 border-white bg-rose-500 px-1 text-[10px] font-black dark:border-slate-900">{totalUnreadCount > 99 ? '99+' : totalUnreadCount}</span> : null}<span className="absolute inset-0 -z-10 animate-ping rounded-[22px] bg-violet-500/20" /></button> : null}
 		</div>
 	)
 }

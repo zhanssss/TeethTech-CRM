@@ -16,6 +16,7 @@ import {
     getPersonalNoteError,
     hasPersonalNoteText,
     isSamePersonalNote,
+    normalizePersonalNote,
     PERSONAL_NOTE_AUTOSAVE_DELAY_MS,
     PERSONAL_NOTE_CONTENT_LIMIT,
     PERSONAL_NOTE_TITLE_LIMIT,
@@ -25,6 +26,11 @@ type NoteDraft = PersonalNotePayload &
     Partial<Pick<PersonalNote, 'id' | 'createdAt' | 'updatedAt' | 'expiresAt'>>;
 
 type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
+type PersonalNotesCardProps = {
+    variant?: 'card' | 'modal';
+    onRequestClose?: () => void;
+    closeRequestId?: number;
+};
 
 const EMPTY_DRAFT: NoteDraft = {
     title: '',
@@ -98,16 +104,22 @@ function formatDateTime(value?: string) {
 }
 
 function getNoteLabel(note: PersonalNote) {
-    return note.title.trim() || note.content.trim().split(/\r?\n/u)[0] || 'Без названия';
+    const normalized = normalizePersonalNote(note);
+    return normalized.title.trim() ||
+        normalized.content.trim().split(/\r?\n/u)[0] ||
+        'Без названия';
 }
 
 function getNotePreview(note: PersonalNote) {
-    const preview = note.content.trim().replace(/\s+/gu, ' ');
+    const preview = normalizePersonalNote(note).content.trim().replace(/\s+/gu, ' ');
     return preview || 'Текст заметки пока пуст';
 }
 
-export default function PersonalNotesWidget() {
-    const [isOpen, setIsOpen] = useState(false);
+export default function PersonalNotesCard({
+    variant = 'card',
+    onRequestClose,
+    closeRequestId = 0,
+}: PersonalNotesCardProps) {
     const [search, setSearch] = useState('');
     const [debouncedSearch, setDebouncedSearch] = useState('');
     const [page, setPage] = useState(0);
@@ -119,13 +131,13 @@ export default function PersonalNotesWidget() {
 
     const draftRef = useRef<NoteDraft>(EMPTY_DRAFT);
     const persistedRef = useRef<(PersonalNotePayload & { id?: string }) | null>(null);
-    const statusRef = useRef<SaveStatus>('idle');
     const generationRef = useRef(0);
     const saveTimerRef = useRef<number | null>(null);
     const saveInFlightRef = useRef<Promise<boolean> | null>(null);
     const saveQueuedRef = useRef(false);
     const saveLatestRef = useRef<() => Promise<boolean>>(async () => true);
     const initializedSelectionRef = useRef(false);
+    const handledCloseRequestRef = useRef(closeRequestId);
 
     const {
         data,
@@ -142,7 +154,6 @@ export default function PersonalNotesWidget() {
     const [deleteNote] = useDeletePersonalNoteMutation();
 
     const setSaveStatus = useCallback((nextStatus: SaveStatus) => {
-        statusRef.current = nextStatus;
         setStatus(nextStatus);
     }, []);
 
@@ -164,14 +175,17 @@ export default function PersonalNotesWidget() {
         (note?: PersonalNote) => {
             clearSaveTimer();
             generationRef.current += 1;
-            const nextDraft: NoteDraft = note ? { ...note } : { ...EMPTY_DRAFT };
+            const normalizedNote = note ? normalizePersonalNote(note) : undefined;
+            const nextDraft: NoteDraft = normalizedNote
+                ? { ...normalizedNote }
+                : { ...EMPTY_DRAFT };
 
             draftRef.current = nextDraft;
-            persistedRef.current = note
+            persistedRef.current = normalizedNote
                 ? {
-                    id: note.id,
-                    title: note.title,
-                    content: note.content,
+                    id: normalizedNote.id,
+                    title: normalizedNote.title,
+                    content: normalizedNote.content,
                 }
                 : null;
             setDraft(nextDraft);
@@ -212,8 +226,8 @@ export default function PersonalNotesWidget() {
         const operation = (async () => {
             try {
                 const body: PersonalNotePayload = {
-                    title: snapshot.title,
-                    content: snapshot.content,
+                    title: snapshot.title ?? '',
+                    content: snapshot.content ?? '',
                 };
                 const savedNote = snapshot.id
                     ? await updateNote({
@@ -313,11 +327,38 @@ export default function PersonalNotesWidget() {
     }, [search]);
 
     useEffect(() => {
-        if (initializedSelectionRef.current || !data) return;
+        if (!data) return;
 
-        initializedSelectionRef.current = true;
-        applySelectedNote(data.content[0]);
-    }, [applySelectedNote, data]);
+        if (!initializedSelectionRef.current) {
+            initializedSelectionRef.current = true;
+            applySelectedNote(data.content[0]);
+            return;
+        }
+
+        if (isDirty()) return;
+
+        const currentDraft = draftRef.current;
+        const refreshedNote = currentDraft.id
+            ? data.content.find((note) => note.id === currentDraft.id)
+            : undefined;
+
+        if (refreshedNote) {
+            const normalized = normalizePersonalNote(refreshedNote);
+            const serverChanged =
+                normalized.title !== currentDraft.title ||
+                normalized.content !== currentDraft.content ||
+                normalized.updatedAt !== currentDraft.updatedAt;
+
+            if (serverChanged) {
+                applySelectedNote(normalized);
+            }
+            return;
+        }
+
+        if (currentDraft.id || !hasPersonalNoteText(currentDraft)) {
+            applySelectedNote(data.content[0]);
+        }
+    }, [applySelectedNote, data, isDirty]);
 
     useEffect(() => {
         const handleBeforeUnload = (event: BeforeUnloadEvent) => {
@@ -346,7 +387,10 @@ export default function PersonalNotesWidget() {
 
     useEffect(() => () => {
         clearSaveTimer();
-    }, [clearSaveTimer]);
+        if (isDirty()) {
+            void saveLatestRef.current();
+        }
+    }, [clearSaveTimer, isDirty]);
 
     const updateDraft = (
         field: keyof Pick<NoteDraft, 'title' | 'content'>,
@@ -394,12 +438,25 @@ export default function PersonalNotesWidget() {
         applySelectedNote(note);
     };
 
-    const closeWidget = async () => {
+    const closeNotes = useCallback(async () => {
         const saved = await saveLatestRef.current();
-        if (saved && statusRef.current !== 'error') {
-            setIsOpen(false);
+
+        if (saved) {
+            onRequestClose?.();
         }
-    };
+    }, [onRequestClose]);
+
+    useEffect(() => {
+        if (
+            variant !== 'modal' ||
+            closeRequestId === handledCloseRequestRef.current
+        ) {
+            return;
+        }
+
+        handledCloseRequestRef.current = closeRequestId;
+        void closeNotes();
+    }, [closeNotes, closeRequestId, variant]);
 
     const retrySave = () => {
         setIsExpired(false);
@@ -457,6 +514,8 @@ export default function PersonalNotesWidget() {
     };
 
     const notes = data?.content ?? [];
+    const draftTitle = draft.title ?? '';
+    const draftContent = draft.content ?? '';
     const totalPages = Math.max(data?.totalPages ?? 1, 1);
     const statusLabel = useMemo(() => {
         if (status === 'saving') return 'Сохранение…';
@@ -464,14 +523,15 @@ export default function PersonalNotesWidget() {
         if (status === 'error') return 'Ошибка сохранения';
         return hasPersonalNoteText(draft) ? 'Ожидает сохранения' : 'Новая заметка';
     }, [draft, status]);
+    const containerClassName = variant === 'modal'
+        ? 'fixed bottom-24 right-4 z-[80] flex h-[min(640px,calc(100dvh-7rem))] w-[min(760px,calc(100vw-2rem))] flex-col overflow-hidden rounded-[28px] border border-amber-200/80 bg-white shadow-[0_28px_80px_-22px_rgba(15,23,42,.55)] dark:border-amber-500/25 dark:bg-slate-900 sm:right-6'
+        : 'flex h-[min(680px,calc(100dvh-10rem))] min-h-[560px] w-full flex-col overflow-hidden rounded-[24px] border border-amber-200/80 bg-white shadow-sm dark:border-amber-500/25 dark:bg-slate-900';
 
     return (
-        <>
-            {isOpen ? (
-                <section
-                    aria-label="Личные заметки"
-                    className="fixed bottom-24 right-4 z-[75] flex h-[min(640px,calc(100dvh-7rem))] w-[min(760px,calc(100vw-2rem))] flex-col overflow-hidden rounded-[28px] border border-amber-200/80 bg-white shadow-[0_28px_80px_-22px_rgba(15,23,42,.55)] dark:border-amber-500/25 dark:bg-slate-900 sm:right-6"
-                >
+        <section
+            aria-label="Личные заметки"
+            className={containerClassName}
+        >
                     <header className="flex min-h-[72px] items-center gap-3 bg-gradient-to-r from-amber-500 to-orange-500 px-4 text-white">
                         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white/15">
                             <NoteIcon name="note" />
@@ -491,14 +551,16 @@ export default function PersonalNotesWidget() {
                             <NoteIcon name="plus" className="h-4 w-4" />
                             Новая
                         </button>
-                        <button
-                            type="button"
-                            onClick={() => void closeWidget()}
-                            className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/10 transition hover:bg-white/20"
-                            aria-label="Закрыть личные заметки"
-                        >
-                            <NoteIcon name="close" />
-                        </button>
+                        {variant === 'modal' ? (
+                            <button
+                                type="button"
+                                onClick={() => void closeNotes()}
+                                className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/10 transition hover:bg-white/20"
+                                aria-label="Закрыть личные заметки"
+                            >
+                                <NoteIcon name="close" />
+                            </button>
+                        ) : null}
                     </header>
 
                     <div className="grid min-h-0 flex-1 grid-cols-1 md:grid-cols-[17rem_minmax(0,1fr)]">
@@ -654,7 +716,7 @@ export default function PersonalNotesWidget() {
 
                             <div className="flex min-h-0 flex-1 flex-col p-4">
                                 <input
-                                    value={draft.title}
+                                    value={draftTitle}
                                     onChange={(event) => updateDraft('title', event.target.value)}
                                     maxLength={PERSONAL_NOTE_TITLE_LIMIT}
                                     placeholder="Заголовок"
@@ -662,10 +724,10 @@ export default function PersonalNotesWidget() {
                                     className="w-full border-0 bg-transparent px-0 text-lg font-black text-slate-900 outline-none placeholder:text-slate-300 dark:text-white"
                                 />
                                 <div className="mt-1 text-right text-[9px] text-slate-400">
-                                    {draft.title.length} / {PERSONAL_NOTE_TITLE_LIMIT}
+                                    {draftTitle.length} / {PERSONAL_NOTE_TITLE_LIMIT}
                                 </div>
                                 <textarea
-                                    value={draft.content}
+                                    value={draftContent}
                                     onChange={(event) => updateDraft('content', event.target.value)}
                                     maxLength={PERSONAL_NOTE_CONTENT_LIMIT}
                                     placeholder="Напишите заметку…"
@@ -679,7 +741,7 @@ export default function PersonalNotesWidget() {
                                             : 'После сохранения хранится 30 дней'}
                                     </span>
                                     <span>
-                                        {draft.content.length} / {PERSONAL_NOTE_CONTENT_LIMIT}
+                                        {draftContent.length} / {PERSONAL_NOTE_CONTENT_LIMIT}
                                     </span>
                                 </div>
                             </div>
@@ -689,24 +751,6 @@ export default function PersonalNotesWidget() {
                             </footer>
                         </div>
                     </div>
-                </section>
-            ) : null}
-
-            <button
-                type="button"
-                onClick={() => {
-                    if (isOpen) {
-                        void closeWidget();
-                    } else {
-                        setIsOpen(true);
-                    }
-                }}
-                className="fixed bottom-5 right-[5.75rem] z-[75] flex h-15 w-15 items-center justify-center rounded-[22px] bg-gradient-to-br from-amber-500 to-orange-500 text-white shadow-[0_16px_35px_-10px_rgba(245,158,11,.65)] transition hover:-translate-y-1 hover:scale-105 sm:right-[6.5rem]"
-                aria-label={isOpen ? 'Закрыть личные заметки' : 'Открыть личные заметки'}
-                aria-expanded={isOpen}
-            >
-                <NoteIcon name={isOpen ? 'close' : 'note'} className="h-7 w-7" />
-            </button>
-        </>
+        </section>
     );
 }

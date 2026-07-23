@@ -701,13 +701,13 @@ function ServerKanbanBoard({
                     return (
                     <section
                         key={`${column.statusName}-${column.title}`}
-                        className={`flex max-h-[680px] min-h-[300px] w-[16.5rem] shrink-0 snap-start flex-col overflow-hidden rounded-2xl border bg-slate-50/60 shadow-sm 2xl:w-[17rem] ${theme.border}`}
+                        className={`flex max-h-[680px] min-h-[300px] w-[16.5rem] shrink-0 snap-start flex-col overflow-hidden rounded-2xl border bg-slate-50/60 shadow-sm dark:bg-slate-950/70 2xl:w-[17rem] ${theme.border}`}
                     >
-                        <div className={`sticky top-0 z-10 border-b border-slate-200 bg-gradient-to-br ${theme.glow} to-white p-3 backdrop-blur`}>
+                        <div className={`sticky top-0 z-10 border-b border-slate-200 bg-gradient-to-br ${theme.glow} to-white p-3 backdrop-blur dark:border-slate-700 dark:to-slate-900`}>
                             <div className="flex items-center justify-between gap-3">
                                 <div className="flex min-w-0 items-center gap-3">
-                                    <span className={`h-3 w-3 shrink-0 rounded-full shadow-sm ring-4 ring-white ${theme.dot}`} />
-                                    <h2 className="truncate text-xs font-bold uppercase tracking-wider text-slate-800">
+                                    <span className={`h-3 w-3 shrink-0 rounded-full shadow-sm ring-4 ring-white dark:ring-slate-800 ${theme.dot}`} />
+                                    <h2 className="truncate text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-slate-100">
                                         {column.title || column.statusName}
                                     </h2>
                                 </div>
@@ -723,7 +723,7 @@ function ServerKanbanBoard({
                                     <button
                                         type="button"
                                         onClick={() => setSelectedTask(task)}
-                                        className="group relative flex w-full flex-col gap-2.5 overflow-hidden rounded-xl border border-slate-200 bg-white p-3 text-left shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-violet-300 hover:shadow-lg hover:shadow-violet-950/10 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                                        className="group relative flex w-full flex-col gap-2.5 overflow-hidden rounded-xl border border-slate-200 bg-white p-3 text-left shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-violet-300 hover:shadow-lg hover:shadow-violet-950/10 focus:outline-none focus:ring-2 focus:ring-violet-500 dark:border-slate-700 dark:bg-slate-900 dark:hover:border-violet-500"
                                     >
                                     <span className="absolute inset-y-0 left-0 w-1 bg-violet-500 opacity-0 transition group-hover:opacity-100" />
                                     <div className="flex justify-between items-center text-[10px]">
@@ -792,7 +792,7 @@ function ServerKanbanBoard({
                             ))}
 
                             {column.tasks.length === 0 && (
-                                <div className="flex min-h-40 items-center justify-center rounded-xl border border-dashed border-slate-300 bg-white/50 px-4 text-center text-xs text-slate-400">
+                                <div className="flex min-h-40 items-center justify-center rounded-xl border border-dashed border-slate-300 bg-white/50 px-4 text-center text-xs text-slate-400 dark:border-slate-700 dark:bg-slate-900/50 dark:text-slate-500">
                                     На этом этапе задач нет
                                 </div>
                             )}

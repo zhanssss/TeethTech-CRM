@@ -5,6 +5,10 @@ import type {
     PersonalNotePayload,
     PersonalNotesPage,
 } from '@/src/types/personalNote.types';
+import {
+    normalizePersonalNote,
+    normalizePersonalNotesPage,
+} from '@/src/utils/personalNotes';
 
 export const personalNotesApi = teethTechApi.injectEndpoints({
     endpoints: (builder) => ({
@@ -18,6 +22,7 @@ export const personalNotesApi = teethTechApi.injectEndpoints({
                     size: Math.min(params?.size ?? 20, 50),
                 },
             }),
+            transformResponse: normalizePersonalNotesPage,
             providesTags: (result) => [
                 'PersonalNotes',
                 ...(result?.content.map((note) => ({
@@ -36,6 +41,7 @@ export const personalNotesApi = teethTechApi.injectEndpoints({
                     success: false,
                 },
             }),
+            transformResponse: normalizePersonalNote,
             invalidatesTags: ['PersonalNotes'],
         }),
         updatePersonalNote: builder.mutation<
@@ -51,6 +57,7 @@ export const personalNotesApi = teethTechApi.injectEndpoints({
                     success: false,
                 },
             }),
+            transformResponse: normalizePersonalNote,
             invalidatesTags: (_result, _error, { noteId }) => [
                 { type: 'PersonalNotes', id: noteId },
             ],

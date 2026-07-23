@@ -4,6 +4,8 @@ import {
     getPersonalNoteError,
     hasPersonalNoteText,
     isSamePersonalNote,
+    normalizePersonalNote,
+    normalizePersonalNotesPage,
 } from '@/src/utils/personalNotes';
 
 describe('personal notes autosave helpers', () => {
@@ -31,5 +33,46 @@ describe('personal notes autosave helpers', () => {
 
     it('explains a 404 as an expired note', () => {
         expect(getPersonalNoteError({ status: 404 })).toContain('истекла');
+    });
+
+    it('normalizes nullable text returned by the backend', () => {
+        const note = normalizePersonalNote({
+            id: 'note-id',
+            title: null,
+            content: null,
+            expiresAt: null,
+            createdAt: null,
+            updatedAt: null,
+        } as never);
+
+        expect(note).toMatchObject({
+            title: '',
+            content: '',
+            expiresAt: '',
+            createdAt: '',
+            updatedAt: '',
+        });
+    });
+
+    it('normalizes every note in a Spring Page response', () => {
+        const page = normalizePersonalNotesPage({
+            content: [{
+                id: 'note-id',
+                title: 'Заметка',
+                content: null,
+                expiresAt: '',
+                createdAt: '',
+                updatedAt: '',
+            }],
+            number: 0,
+            size: 20,
+            totalElements: 1,
+            totalPages: 1,
+            first: true,
+            last: true,
+            empty: false,
+        } as never);
+
+        expect(page.content[0].content).toBe('');
     });
 });

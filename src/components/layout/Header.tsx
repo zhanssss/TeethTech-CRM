@@ -7,33 +7,37 @@ import ThemeToggle from './ThemeToggle'
 
 type HeaderProps = {
 	onMenuClick?: () => void
+	isMenuOpen?: boolean
 }
 
-export default function Header({ onMenuClick }: HeaderProps) {
+export default function Header({ onMenuClick, isMenuOpen = false }: HeaderProps) {
 	const { name, role } = useSelector((state: RootState) => state.auth)
 	const { totalUnreadCount } = useSelector((state: RootState) => state.chat)
 
 	return (
 		<header className="flex h-16 shrink-0 items-center justify-between border-b border-slate-200/80 bg-white/90 px-4 backdrop-blur-xl dark:border-slate-800 dark:bg-[#09090b]/90 sm:px-6 lg:px-8">
-			<button
-				type="button"
-				onClick={onMenuClick}
-				className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 text-slate-700 transition hover:border-violet-200 hover:bg-violet-50 hover:text-violet-700 dark:border-slate-700 dark:text-slate-300 lg:hidden"
-				aria-label="Open navigation"
-			>
-				<svg
-					className="h-5 w-5"
-					viewBox="0 0 24 24"
-					fill="none"
-					stroke="currentColor"
-					strokeWidth="2"
-					strokeLinecap="round"
+			{!isMenuOpen && (
+				<button
+					type="button"
+					onClick={onMenuClick}
+					className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200 text-slate-700 transition-all duration-200 hover:border-violet-200 hover:bg-violet-50 hover:text-violet-700 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+					aria-label="Показать боковое меню"
+					aria-expanded="false"
 				>
-					<path d="M4 6h16" />
-					<path d="M4 12h16" />
-					<path d="M4 18h16" />
-				</svg>
-			</button>
+					<svg
+						className="h-5 w-5"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						strokeWidth="2"
+						strokeLinecap="round"
+					>
+						<path d="M4 6h16" />
+						<path d="M4 12h16" />
+						<path d="M4 18h16" />
+					</svg>
+				</button>
+			)}
 
 			<div className="ml-auto flex min-w-0 items-center gap-3">
 				<ThemeToggle />

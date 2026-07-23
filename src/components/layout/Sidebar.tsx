@@ -51,12 +51,11 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 	const { role } = useSelector((state: RootState) => state.auth)
 	const { notifyError, notifySuccess } = useNotifications()
 	const [isLoggingOut, setIsLoggingOut] = useState(false)
-	const [expandedGroups, setExpandedGroups] = useState<Set<string>>(() => new Set())
+	const [groupExpansion, setGroupExpansion] = useState<Record<string, boolean>>({})
 
 	const menuItems: MenuItem[] = (() => {
 		if (role === 'TECHNICIAN') {
 			return [
-				{ name: 'Моя зарплата', href: '/accounting/payroll', exact: true },
 				{ name: 'Рабочая зона', href: '/employee', exact: true },
 				{ name: 'Календарь', href: '/employee/calendar' },
 				{ name: 'Аналитика', href: '/employee/analytics' },
@@ -81,7 +80,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 					href: '/laboratory',
 					children: [
 						{ name: 'Workflow', href: '/laboratory/workflows' },
-						{ name: 'Роли', href: '/settings/employees-roles/roles' }
+						{ name: 'Роли', href: '/laboratory/roles' }
 					]
 				},
 				{ name: 'Личный кабинет', href: '/settings', exact: true }
@@ -112,7 +111,10 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 					{ name: 'Сотрудники', href: '/laboratory/employees' },
 					{ name: 'Цвета', href: '/laboratory/colors' },
 					{ name: 'Типы работ', href: '/laboratory/work-types' },
-					{ name: 'Workflow', href: '/laboratory/workflows' }
+					{ name: 'Workflow', href: '/laboratory/workflows' },
+					...(role === 'ADMIN'
+						? [{ name: 'Роли', href: '/laboratory/roles' }]
+						: [])
 				]
 			},
 			{ name: 'Личный кабинет', href: '/settings', exact: true }
@@ -123,14 +125,6 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 				name: 'Зарплатные планы',
 				href: '/accounting/payroll',
 				exact: true
-			})
-			items.push({
-				name: 'Настройки',
-				href: '/settings/employees-roles/roles',
-				exact: true,
-				children: [
-					{ name: 'Сотрудники и роли · Роли', href: '/settings/employees-roles/roles' }
-				]
 			})
 			items.push({
 				name: 'Интеграции',
@@ -177,13 +171,11 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 		}
 	}
 
-	const toggleGroup = (href: string) => {
-		setExpandedGroups(current => {
-			const next = new Set(current)
-			if (next.has(href)) next.delete(href)
-			else next.add(href)
-			return next
-		})
+	const toggleGroup = (href: string, isExpanded: boolean) => {
+		setGroupExpansion(current => ({
+			...current,
+			[href]: !isExpanded
+		}))
 	}
 
 	const isChildActive = (href: string) => {
@@ -198,10 +190,10 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 		<aside
 			inert={!isOpen}
 			aria-hidden={!isOpen}
-			className={`fixed inset-y-0 left-0 z-50 h-dvh w-[min(18rem,85vw)] overflow-hidden transition-transform duration-300 ease-out motion-reduce:transition-none lg:static lg:z-auto lg:shrink-0 lg:translate-x-0 lg:transition-[width] ${
+			className={`fixed inset-y-0 left-0 z-50 h-dvh w-[min(18rem,85vw)] overflow-hidden transition-[width,transform,opacity] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none lg:static lg:z-auto lg:shrink-0 lg:translate-x-0 ${
 				isOpen
-					? 'translate-x-0 lg:w-64'
-					: 'pointer-events-none -translate-x-full lg:w-0'
+					? 'translate-x-0 opacity-100 lg:w-64'
+					: 'pointer-events-none -translate-x-full opacity-0 lg:w-0'
 			}`}
 		>
 			<div className="flex h-full w-[min(18rem,85vw)] flex-col bg-[#ffffff] text-slate-900 shadow-2xl dark:bg-[#09090b] dark:text-white lg:w-64 lg:shadow-none">
@@ -213,10 +205,13 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 
 					<button
 						onClick={onClose}
-						className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-900 dark:hover:bg-slate-800 dark:hover:text-white"
+						className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-slate-100 text-slate-700 shadow-sm transition-all hover:scale-105 hover:border-violet-300 hover:bg-violet-50 hover:text-violet-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:border-violet-500/60 dark:hover:bg-violet-500/15 dark:hover:text-violet-300"
 						aria-label="Закрыть сайдбар"
+						title="Закрыть сайдбар"
 					>
-						×
+						<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" className="h-5 w-5" strokeWidth="2.3" strokeLinecap="round">
+							<path d="M6 6l12 12M18 6 6 18" />
+						</svg>
 					</button>
 				</div>
 
@@ -226,6 +221,8 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 							pathname === item.href ||
 							(!item.exact && pathname.startsWith(`${item.href}/`)) ||
 							Boolean(item.children?.some(child => pathname === child.href.split('?')[0]))
+						const isGroupExpanded =
+							groupExpansion[item.href] ?? isParentActive
 
 						return (
 							<div key={item.href}>
@@ -237,11 +234,21 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 								>
 									<MenuIcon href={item.href} /><span className="truncate">{item.name}</span>
 								</Link>
-								{item.children && <button type="button" onClick={() => toggleGroup(item.href)} className="mr-1 flex h-8 w-8 items-center justify-center rounded-lg hover:bg-white/10" aria-label={`${expandedGroups.has(item.href) || isParentActive ? 'Свернуть' : 'Развернуть'} ${item.name}`}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" className={`h-4 w-4 transition-transform ${expandedGroups.has(item.href) || isParentActive ? 'rotate-180' : ''}`}><path d="m7 10 5 5 5-5" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg></button>}
+								{item.children && <button type="button" onClick={() => toggleGroup(item.href, isGroupExpanded)} className="mr-1 flex h-8 w-8 items-center justify-center rounded-lg hover:bg-white/10" aria-label={`${isGroupExpanded ? 'Свернуть' : 'Развернуть'} ${item.name}`} aria-expanded={isGroupExpanded}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" className={`h-4 w-4 transition-transform duration-300 ${isGroupExpanded ? 'rotate-180' : ''}`}><path d="m7 10 5 5 5-5" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg></button>}
 								</div>
 
-								{item.children && (expandedGroups.has(item.href) || isParentActive) && (
-									<div className="relative ml-5 mt-1 space-y-0.5 border-l border-slate-200 pl-3 dark:border-slate-700">
+								{item.children && (
+									<div
+										inert={!isGroupExpanded}
+										aria-hidden={!isGroupExpanded}
+										className={`grid transition-[grid-template-rows,opacity,margin] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none ${
+											isGroupExpanded
+												? 'mt-1 grid-rows-[1fr] opacity-100'
+												: 'mt-0 grid-rows-[0fr] opacity-0'
+										}`}
+									>
+										<div className="min-h-0 overflow-hidden">
+										<div className="relative ml-5 space-y-0.5 border-l border-slate-200 pl-3 dark:border-slate-700">
 										{item.children.map(child => {
 											const childActive = isChildActive(child.href)
 
@@ -260,6 +267,8 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 												</Link>
 											)
 										})}
+										</div>
+									</div>
 									</div>
 								)}
 							</div>

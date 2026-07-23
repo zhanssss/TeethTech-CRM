@@ -429,13 +429,13 @@ export default function Dashboard() {
                         return (
                         <div
                             key={column.statusId || column.statusCode || column.statusName}
-                            className={`flex h-[min(680px,72dvh)] w-[16.5rem] shrink-0 snap-start flex-col overflow-hidden rounded-2xl border bg-slate-50 shadow-sm 2xl:w-[17rem] ${theme.border}`}
+                            className={`flex h-[min(680px,72dvh)] w-[16.5rem] shrink-0 snap-start flex-col overflow-hidden rounded-2xl border bg-slate-50 shadow-sm dark:bg-slate-950 2xl:w-[17rem] ${theme.border}`}
                         >
-                            <div className={`sticky top-0 z-10 border-b border-slate-200 bg-gradient-to-br ${theme.glow} to-white p-3 backdrop-blur`}>
+                            <div className={`sticky top-0 z-10 border-b border-slate-200 bg-gradient-to-br ${theme.glow} to-white p-3 backdrop-blur dark:border-slate-700 dark:to-slate-900`}>
                                 <div className="flex items-start justify-between gap-3">
                                     <div className="flex min-w-0 items-center gap-3">
-                                        <span className={`h-3 w-3 shrink-0 rounded-full shadow-sm ring-4 ring-white ${theme.dot}`} />
-                                        <div className="min-w-0"><h2 className="truncate text-sm font-bold text-slate-900">
+                                        <span className={`h-3 w-3 shrink-0 rounded-full shadow-sm ring-4 ring-white dark:ring-slate-800 ${theme.dot}`} />
+                                        <div className="min-w-0"><h2 className="truncate text-sm font-bold text-slate-900 dark:text-slate-100">
                                             {column.statusName || column.statusCode}
                                         </h2>
                                         {column.statusCode && (
@@ -453,7 +453,7 @@ export default function Dashboard() {
 
                             <div className="flex-1 space-y-2.5 overflow-y-auto p-2.5">
                                 {column.tasks.length === 0 ? (
-                                    <div className="flex h-full min-h-40 items-center justify-center rounded-lg border border-dashed border-slate-200 bg-white px-4 text-center text-sm text-slate-400">
+                                    <div className="flex h-full min-h-40 items-center justify-center rounded-lg border border-dashed border-slate-200 bg-white px-4 text-center text-sm text-slate-400 dark:border-slate-700 dark:bg-slate-900/60 dark:text-slate-500">
                                         Нет задач на этом этапе
                                     </div>
                                 ) : (

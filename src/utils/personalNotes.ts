@@ -1,11 +1,41 @@
-import type { PersonalNotePayload } from '@/src/types/personalNote.types';
+import type {
+    PersonalNote,
+    PersonalNotePayload,
+    PersonalNotesPage,
+} from '@/src/types/personalNote.types';
 
 export const PERSONAL_NOTE_TITLE_LIMIT = 120;
 export const PERSONAL_NOTE_CONTENT_LIMIT = 5000;
 export const PERSONAL_NOTE_AUTOSAVE_DELAY_MS = 1000;
 
+function asString(value: unknown) {
+    return typeof value === 'string' ? value : '';
+}
+
+export function normalizePersonalNote(note: PersonalNote): PersonalNote {
+    return {
+        ...note,
+        title: asString(note.title),
+        content: asString(note.content),
+        expiresAt: asString(note.expiresAt),
+        createdAt: asString(note.createdAt),
+        updatedAt: asString(note.updatedAt),
+    };
+}
+
+export function normalizePersonalNotesPage(
+    page: PersonalNotesPage
+): PersonalNotesPage {
+    return {
+        ...page,
+        content: Array.isArray(page.content)
+            ? page.content.map(normalizePersonalNote)
+            : [],
+    };
+}
+
 export function hasPersonalNoteText(note: PersonalNotePayload) {
-    return Boolean(note.title.trim() || note.content.trim());
+    return Boolean(asString(note.title).trim() || asString(note.content).trim());
 }
 
 export function isSamePersonalNote(
@@ -14,8 +44,8 @@ export function isSamePersonalNote(
 ) {
     return Boolean(
         first &&
-        first.title === second.title &&
-        first.content === second.content
+        asString(first.title) === asString(second.title) &&
+        asString(first.content) === asString(second.content)
     );
 }
 

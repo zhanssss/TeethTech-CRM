@@ -5,12 +5,64 @@ import { useGetColorsQuery } from '@/src/services/api/laboratory/colorsApi';
 import { useGetWorkTypesQuery } from '@/src/services/api/laboratory/workTypesApi';
 import { useGetUsersQuery } from '@/src/services/api/usersApi';
 
-const modules = [
-    { title: 'Сотрудники', description: 'Команда, роли, специализации и загрузка', href: '/laboratory/employees', icon: '👥', tone: 'from-violet-600 to-purple-500' },
-    { title: 'Цвета', description: 'Справочник оттенков для лабораторных работ', href: '/laboratory/colors', icon: '◉', tone: 'from-fuchsia-600 to-pink-500' },
-    { title: 'Типы работ', description: 'Каталог выполняемых лабораторных работ', href: '/laboratory/work-types', icon: '◇', tone: 'from-blue-600 to-cyan-500' },
-    { title: 'Workflow', description: 'Этапы производства и маршруты задач', href: '/laboratory/workflows', icon: '⌁', tone: 'from-emerald-600 to-teal-500' },
+type ModuleIconName = 'employees' | 'colors' | 'workTypes' | 'workflow';
+
+const modules: {
+    title: string;
+    description: string;
+    href: string;
+    icon: ModuleIconName;
+    tone: string;
+}[] = [
+    { title: 'Сотрудники', description: 'Команда, роли, специализации и загрузка', href: '/laboratory/employees', icon: 'employees', tone: 'bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300' },
+    { title: 'Цвета', description: 'Справочник оттенков для лабораторных работ', href: '/laboratory/colors', icon: 'colors', tone: 'bg-fuchsia-100 text-fuchsia-700 dark:bg-fuchsia-500/15 dark:text-fuchsia-300' },
+    { title: 'Типы работ', description: 'Каталог выполняемых лабораторных работ', href: '/laboratory/work-types', icon: 'workTypes', tone: 'bg-blue-100 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300' },
+    { title: 'Workflow', description: 'Этапы производства и маршруты задач', href: '/laboratory/workflows', icon: 'workflow', tone: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300' },
 ];
+
+function ModuleIcon({ name }: { name: ModuleIconName }) {
+    const iconClassName = 'h-5 w-5';
+
+    if (name === 'employees') {
+        return (
+            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" className={iconClassName} strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="9" cy="8" r="3" />
+                <path d="M3.5 19a5.5 5.5 0 0 1 11 0" />
+                <path d="M16 5.5a3 3 0 0 1 0 5.8M17 14a5 5 0 0 1 3.5 5" />
+            </svg>
+        );
+    }
+
+    if (name === 'colors') {
+        return (
+            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" className={iconClassName} strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 3a9 9 0 1 0 0 18h1.3a2 2 0 0 0 1.4-3.4 2 2 0 0 1 1.4-3.4H18A3 3 0 0 0 21 11a8 8 0 0 0-9-8Z" />
+                <circle cx="7.5" cy="10" r=".8" fill="currentColor" stroke="none" />
+                <circle cx="10" cy="6.8" r=".8" fill="currentColor" stroke="none" />
+                <circle cx="14.2" cy="6.7" r=".8" fill="currentColor" stroke="none" />
+            </svg>
+        );
+    }
+
+    if (name === 'workTypes') {
+        return (
+            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" className={iconClassName} strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="4" y="4" width="16" height="16" rx="3" />
+                <path d="M8 9h8M8 13h5M8 17h7" />
+                <path d="M8 4V2.8M16 4V2.8" />
+            </svg>
+        );
+    }
+
+    return (
+        <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" className={iconClassName} strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="5" cy="6" r="2" />
+            <circle cx="19" cy="6" r="2" />
+            <circle cx="12" cy="18" r="2" />
+            <path d="M7 6h10M18 8c0 5-6 4-6 8M6 8c0 5 6 4 6 8" />
+        </svg>
+    );
+}
 
 export default function LaboratoryPage() {
     const usersQuery = useGetUsersQuery();
@@ -37,7 +89,7 @@ export default function LaboratoryPage() {
             <section className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm sm:p-6">
                 <div><h1 className="text-xl font-black text-slate-950">Управление лабораторией</h1><p className="mt-1 text-sm text-slate-500">Выберите рабочий раздел — вся навигация также доступна в боковом меню.</p></div>
                 <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                    {modules.map((module) => <Link key={module.href} href={module.href} className="group relative overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 p-5 transition hover:-translate-y-1 hover:border-violet-300 hover:bg-white hover:shadow-xl hover:shadow-violet-950/10"><span className={`flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br text-xl text-white shadow-md ${module.tone}`}>{module.icon}</span><h2 className="mt-5 text-base font-black text-slate-900 group-hover:text-violet-700">{module.title}</h2><p className="mt-2 min-h-10 text-xs leading-5 text-slate-500">{module.description}</p><span className="mt-5 inline-flex items-center gap-2 text-xs font-bold text-violet-600">Открыть раздел <span className="transition-transform group-hover:translate-x-1">→</span></span></Link>)}
+                    {modules.map((module) => <Link key={module.href} href={module.href} className="group relative overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 p-5 transition hover:-translate-y-1 hover:border-violet-300 hover:bg-white hover:shadow-xl hover:shadow-violet-950/10"><span className={`flex h-10 w-10 items-center justify-center rounded-xl transition-transform duration-200 group-hover:scale-105 ${module.tone}`}><ModuleIcon name={module.icon} /></span><h2 className="mt-5 text-base font-black text-slate-900 group-hover:text-violet-700">{module.title}</h2><p className="mt-2 min-h-10 text-xs leading-5 text-slate-500">{module.description}</p><span className="mt-5 inline-flex items-center gap-2 text-xs font-bold text-violet-600">Открыть раздел <span className="transition-transform group-hover:translate-x-1">→</span></span></Link>)}
                 </div>
             </section>
 

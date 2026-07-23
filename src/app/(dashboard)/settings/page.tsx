@@ -2,17 +2,17 @@
 
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { useState } from 'react';
 import { useSelector } from 'react-redux';
 import PersonalSecurityCard from '@/src/components/settings/PersonalSecurityCard';
+import PersonalNotesCard from '@/src/components/settings/PersonalNotesCard';
 import TelegramNotificationsCard from '@/src/components/settings/TelegramNotificationsCard';
 import type { RootState } from '@/src/lib/store';
 import { useGetUsersQuery } from '@/src/services/api/usersApi';
 
-type Tab = 'profile' | 'notifications' | 'security';
+type Tab = 'profile' | 'notes' | 'notifications' | 'security';
 
 function Icon({ name }: { name: Tab | 'plug' }) {
-    const paths = { profile: <><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></>, notifications: <><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M10 21h4"/></>, security: <><rect x="4" y="10" width="16" height="11" rx="3"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></>, plug: <><path d="M9 3v5m6-5v5M7 8h10v3a5 5 0 0 1-10 0V8Z"/><path d="M12 16v5"/></> };
+    const paths = { profile: <><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></>, notes: <><path d="M6 3h9l4 4v14H6z"/><path d="M15 3v5h4M9 12h6M9 16h6"/></>, notifications: <><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M10 21h4"/></>, security: <><rect x="4" y="10" width="16" height="11" rx="3"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></>, plug: <><path d="M9 3v5m6-5v5M7 8h10v3a5 5 0 0 1-10 0V8Z"/><path d="M12 16v5"/></> };
     return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">{paths[name]}</svg>;
 }
 
@@ -20,12 +20,13 @@ export default function SettingsPage() {
     const searchParams = useSearchParams();
     const initial = searchParams.get('tab');
     const { id, name, role } = useSelector((state: RootState) => state.auth);
-    const [activeTab, setActiveTab] = useState<Tab>(initial === 'security' ? 'security' : initial === 'notifications' ? 'notifications' : 'profile');
+    const activeTab: Tab = initial === 'security' ? 'security' : initial === 'notifications' ? 'notifications' : initial === 'notes' ? 'notes' : 'profile';
     const { data: users = [] } = useGetUsersQuery();
     const user = users.find((item) => item.id === id);
     const initials = (user?.fullName || name || 'TT').split(/\s+/u).slice(0, 2).map((part) => part[0]).join('').toUpperCase();
     const tabs: Array<{ id: Tab; label: string; hint: string }> = [
         { id: 'profile', label: 'Профиль', hint: 'Личные данные' },
+        { id: 'notes', label: 'Заметки', hint: 'Личные черновики' },
         { id: 'notifications', label: 'Уведомления', hint: 'Telegram и события' },
         { id: 'security', label: 'Безопасность', hint: 'Пароль и доступ' },
     ];
@@ -33,9 +34,12 @@ export default function SettingsPage() {
     return <div className="mx-auto w-full max-w-[1500px] space-y-6 pb-10">
         <header className="relative overflow-hidden rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-8"><div className="absolute -right-20 -top-24 h-64 w-64 rounded-full bg-violet-100 blur-3xl dark:bg-violet-600/10"/><div className="relative flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between"><div><p className="text-xs font-black uppercase tracking-[.18em] text-violet-600">Персональное пространство</p><h1 className="mt-1 text-3xl font-black text-slate-950 dark:text-white sm:text-4xl">Личный кабинет</h1><p className="mt-2 text-sm text-slate-500">Профиль, рабочие инструменты и безопасность аккаунта.</p></div><div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 pr-5 dark:border-slate-700 dark:bg-slate-800"><span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-600 to-indigo-600 font-black text-white">{initials}</span><div><p className="text-sm font-black text-slate-900 dark:text-white">{user?.fullName || name}</p><p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{role}</p></div></div></div></header>
 
-        <div className="grid gap-6 lg:grid-cols-[280px_minmax(0,1fr)]"><aside className="lg:sticky lg:top-4 lg:self-start"><nav className="rounded-[24px] border border-slate-200 bg-white p-2 shadow-sm dark:border-slate-800 dark:bg-slate-900">{tabs.map((tab) => <button key={tab.id} type="button" onClick={() => setActiveTab(tab.id)} className={`mb-1 flex w-full items-center gap-3 rounded-2xl p-3 text-left transition ${activeTab === tab.id ? 'bg-violet-50 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300' : 'text-slate-600 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800'}`}><span className={`flex h-10 w-10 items-center justify-center rounded-xl ${activeTab === tab.id ? 'bg-violet-600 text-white' : 'bg-slate-100 dark:bg-slate-800'}`}><Icon name={tab.id}/></span><span className="min-w-0 flex-1"><b className="block text-sm">{tab.label}</b><small className="text-[10px] text-slate-400">{tab.hint}</small></span><span>›</span></button>)}<Link href="/settings/integrations" className="flex items-center gap-3 rounded-2xl p-3 text-slate-600 transition hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800"><span className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-800"><Icon name="plug"/></span><span className="flex-1 text-sm font-bold">Интеграции</span><span>›</span></Link></nav></aside>
+        <div className="grid gap-6 lg:grid-cols-[280px_minmax(0,1fr)]"><aside className="lg:sticky lg:top-4 lg:self-start"><nav className="rounded-[24px] border border-slate-200 bg-white p-2 shadow-sm dark:border-slate-800 dark:bg-slate-900">{tabs.map((tab) => <Link key={tab.id} href={`/settings?tab=${tab.id}`} className={`mb-1 flex w-full items-center gap-3 rounded-2xl p-3 text-left transition ${activeTab === tab.id ? 'bg-violet-50 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300' : 'text-slate-600 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800'}`}><span className={`flex h-10 w-10 items-center justify-center rounded-xl ${activeTab === tab.id ? 'bg-violet-600 text-white' : 'bg-slate-100 dark:bg-slate-800'}`}><Icon name={tab.id}/></span><span className="min-w-0 flex-1"><b className="block text-sm">{tab.label}</b><small className="text-[10px] text-slate-400">{tab.hint}</small></span><span>›</span></Link>)}<Link href="/settings/integrations" className="flex items-center gap-3 rounded-2xl p-3 text-slate-600 transition hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800"><span className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-800"><Icon name="plug"/></span><span className="flex-1 text-sm font-bold">Интеграции</span><span>›</span></Link></nav></aside>
 
             <main className="min-w-0">{activeTab === 'profile' ? <section className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-6"><div className="flex items-center gap-4 border-b border-slate-100 pb-5 dark:border-slate-800"><span className="flex h-16 w-16 items-center justify-center rounded-[22px] bg-gradient-to-br from-violet-600 to-indigo-600 text-xl font-black text-white">{initials}</span><div><p className="text-xl font-black text-slate-950 dark:text-white">{user?.fullName || name}</p><p className="mt-1 text-sm text-slate-500">Основная информация учётной записи</p></div></div><div className="mt-5 grid gap-3 sm:grid-cols-2"><Info label="ФИО" value={user?.fullName || name}/><Info label="Email" value={user?.email}/><Info label="Телефон" value={user?.phone}/><Info label="Специализация" value={user?.specialization}/><Info label="Роль" value={user?.role || role}/><Info label="Статус" value={user?.status}/></div></section> : null}
+                <div className={activeTab === 'notes' ? 'block' : 'hidden'}>
+                    <PersonalNotesCard/>
+                </div>
                 {activeTab === 'notifications' ? <TelegramNotificationsCard/> : null}
                 {activeTab === 'security' ? <PersonalSecurityCard userId={id}/> : null}
             </main>

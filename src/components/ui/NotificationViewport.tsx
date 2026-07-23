@@ -88,18 +88,24 @@ function NotificationToast({ notification }: { notification: AppNotification }) 
 					openNotification();
                 }
             }}
-            className={`notification-toast relative w-full overflow-hidden rounded-2xl border bg-white/95 shadow-[0_18px_50px_-18px_rgba(15,23,42,0.45)] backdrop-blur-xl ${notification.href ? 'cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500' : ''} ${
+            className={`notification-toast relative w-full overflow-hidden rounded-2xl border bg-white/95 shadow-[0_18px_50px_-18px_rgba(15,23,42,0.45)] backdrop-blur-xl dark:bg-slate-900/95 dark:shadow-[0_18px_50px_-18px_rgba(0,0,0,0.8)] ${notification.href ? 'cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500' : ''} ${
                 isLeaving ? 'notification-toast--leaving' : 'notification-toast--entering'
-            } ${isMessage ? 'border-blue-200/90' : isSuccess ? 'border-emerald-200/90' : 'border-red-200/90'}`}
+            } ${
+                isMessage
+                    ? 'border-blue-200/90 dark:border-blue-800/80'
+                    : isSuccess
+                      ? 'border-emerald-200/90 dark:border-emerald-800/80'
+                      : 'border-red-200/90 dark:border-red-800/80'
+            }`}
         >
             <div className="flex items-start gap-3.5 px-4 pb-4 pt-4 sm:px-5">
                 <div
 					className={`flex h-11 w-11 shrink-0 items-center justify-center ${isMessage ? 'rounded-full text-sm font-black' : 'rounded-xl'} ${
 						isMessage
-							? 'bg-blue-100 text-blue-700'
+							? 'bg-blue-100 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300'
 							: isSuccess
-                            ? 'bg-emerald-100 text-emerald-700'
-                            : 'bg-red-100 text-red-700'
+                            ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300'
+                            : 'bg-red-100 text-red-700 dark:bg-red-500/15 dark:text-red-300'
                     }`}
                 >
 					{isMessage ? (
@@ -111,14 +117,14 @@ function NotificationToast({ notification }: { notification: AppNotification }) 
 
                 <div className="min-w-0 flex-1 pt-0.5">
 					{isMessage ? (
-						<p className="mb-0.5 text-[10px] font-black uppercase tracking-[0.16em] text-blue-600">
+						<p className="mb-0.5 text-[10px] font-black uppercase tracking-[0.16em] text-blue-600 dark:text-blue-300">
 							Новое сообщение
 						</p>
 					) : null}
-                    <h2 className="text-sm font-extrabold tracking-tight text-slate-900">
+                    <h2 className="text-sm font-extrabold tracking-tight text-slate-900 dark:text-slate-50">
                         {notification.title}
                     </h2>
-                    <p className="mt-1 text-sm leading-5 text-slate-600">
+                    <p className="mt-1 text-sm leading-5 text-slate-600 dark:text-slate-300">
                         {notification.message}
                     </p>
                 </div>
@@ -130,7 +136,7 @@ function NotificationToast({ notification }: { notification: AppNotification }) 
                         dismiss();
                     }}
                     aria-label="Закрыть уведомление"
-                    className="-mr-1 -mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-xl leading-none text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                    className="-mr-1 -mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-xl leading-none text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 dark:text-slate-500 dark:hover:bg-slate-800 dark:hover:text-slate-200"
                 >
                     &times;
                 </button>
