@@ -65,6 +65,19 @@ export function normalizeMessages(messages: ChatMessageDto[]) {
 	)
 }
 
+/**
+ * Realtime and mutation responses represent messages that have just arrived.
+ * Keep them at the end of the visible timeline instead of sorting again by a
+ * server timestamp, which may use a different timezone representation.
+ */
+export function appendMessageToEnd(
+	messages: ChatMessageDto[],
+	message: ChatMessageDto
+) {
+	if (messages.some(item => item.id === message.id)) return messages
+	return [...messages, message]
+}
+
 export function mergeChatSummaries(
 	base: ChatSummaryDto[] | undefined,
 	overrides: Record<string, Partial<ChatSummaryDto>>

@@ -4,7 +4,7 @@ import type {
 	ChatRealtimeEvent,
 	ChatSummaryDto
 } from '@/src/types/chat.types'
-import { normalizeMessages } from '@/src/utils/chatUtils'
+import { appendMessageToEnd, normalizeMessages } from '@/src/utils/chatUtils'
 import { createSlice, type PayloadAction } from '@reduxjs/toolkit'
 
 type MessagesByConversation = Record<string, ChatMessageDto[]>
@@ -97,10 +97,8 @@ const chatSlice = createSlice({
 			const message = action.payload
 			const existing =
 				state.messagesByConversation[message.conversationId] ?? []
-			state.messagesByConversation[message.conversationId] = normalizeMessages([
-				...existing,
-				message
-			])
+			state.messagesByConversation[message.conversationId] =
+				appendMessageToEnd(existing, message)
 		},
 		replaceMessage: (
 			state,
@@ -116,10 +114,16 @@ const chatSlice = createSlice({
 			const confirmedMessage = temporaryMessage
 				? { ...message, createdAt: temporaryMessage.createdAt }
 				: message
-			state.messagesByConversation[conversationId] = normalizeMessages([
-				...existing.filter(item => item.id !== temporaryId && item.id !== message.id),
+			const temporaryIndex = existing.findIndex(item => item.id === temporaryId)
+			const next = existing.filter(
+				item => item.id !== temporaryId && item.id !== message.id
+			)
+			next.splice(
+				temporaryIndex >= 0 ? Math.min(temporaryIndex, next.length) : next.length,
+				0,
 				confirmedMessage
-			])
+			)
+			state.messagesByConversation[conversationId] = next
 		},
 		removeMessage: (
 			state,
@@ -216,10 +220,8 @@ const chatSlice = createSlice({
 			const isNewMessage = !messages.some(item => item.id === message.id)
 
 			if (isNewMessage) {
-				state.messagesByConversation[conversationId] = normalizeMessages([
-					...messages,
-					message
-				])
+				state.messagesByConversation[conversationId] =
+					appendMessageToEnd(messages, message)
 			}
 
 			const chat = state.chats.find(item => item.id === conversationId)
@@ -251,7 +253,7 @@ const chatSlice = createSlice({
 				const exists = existing.some(item => item.id === message.id)
 				if (!exists) {
 					state.messagesByConversation[message.conversationId] =
-						normalizeMessages([...existing, message])
+						appendMessageToEnd(existing, message)
 				}
 
 				const existingChat = state.chats.find(

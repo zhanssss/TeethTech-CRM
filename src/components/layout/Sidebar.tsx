@@ -40,6 +40,7 @@ function MenuIcon({ href }: { href: string }) {
 	if (href.startsWith('/accounting/payroll')) return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" className={common}><rect x="3" y="6" width="18" height="13" rx="3" strokeWidth="1.7"/><path d="M3 10h18M7 15h4" strokeWidth="1.7" strokeLinecap="round"/><circle cx="17" cy="15" r="1.5" strokeWidth="1.5"/></svg>
 	if (href.startsWith('/accounting/invoices')) return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" className={common}><path d="M6 3h12v18l-3-2-3 2-3-2-3 2V3Z" strokeWidth="1.7" strokeLinejoin="round"/><path d="M9 8h6M9 12h6M9 16h3" strokeWidth="1.7" strokeLinecap="round"/></svg>
 	if (href.startsWith('/settings/integrations')) return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" className={common}><path d="M9 3v5m6-5v5M7 8h10v3a5 5 0 0 1-5 5v0a5 5 0 0 1-5-5V8Zm5 8v2a3 3 0 0 1-3 3H6" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
+	if (href.startsWith('/knowledge-base')) return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" className={common}><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H11v17H6.5A2.5 2.5 0 0 0 4 22V5.5ZM20 5.5A2.5 2.5 0 0 0 17.5 3H13v17h4.5A2.5 2.5 0 0 1 20 22V5.5Z" strokeWidth="1.7" strokeLinejoin="round"/></svg>
 	return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" className={common}><circle cx="12" cy="12" r="3" strokeWidth="1.7" /><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2.83 2.83-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6 1.7 1.7 0 0 0-.4 1.1V21h-4v-.09A1.7 1.7 0 0 0 8.6 19.4a1.7 1.7 0 0 0-1.88.34l-.06.06-2.83-2.83.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-1.5-1H3v-4h.09A1.7 1.7 0 0 0 4.6 9a1.7 1.7 0 0 0-.34-1.88l-.06-.06 2.83-2.83.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-.6 1.7 1.7 0 0 0 .4-1.1V3h4v.09A1.7 1.7 0 0 0 15.4 4.6" strokeWidth="1.5" strokeLinecap="round" /></svg>
 }
 
@@ -59,6 +60,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 				{ name: 'Рабочая зона', href: '/employee', exact: true },
 				{ name: 'Календарь', href: '/employee/calendar' },
 				{ name: 'Аналитика', href: '/employee/analytics' },
+				{ name: 'База знаний', href: '/knowledge-base', exact: true },
 				{ name: 'Личный кабинет', href: '/settings', exact: true }
 			]
 		}
@@ -68,6 +70,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 				{ name: 'Финансовый отчёт', href: '/accounting', exact: true },
 				{ name: 'Зарплаты', href: '/accounting/payroll', exact: true },
 				{ name: 'Счета', href: '/accounting/invoices' },
+				{ name: 'База знаний', href: '/knowledge-base', exact: true },
 				{ name: 'Личный кабинет', href: '/settings', exact: true }
 			]
 		}
@@ -83,6 +86,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 						{ name: 'Роли', href: '/laboratory/roles' }
 					]
 				},
+				{ name: 'База знаний', href: '/knowledge-base', exact: true },
 				{ name: 'Личный кабинет', href: '/settings', exact: true }
 			]
 		}
@@ -117,6 +121,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 						: [])
 				]
 			},
+			{ name: 'База знаний', href: '/knowledge-base', exact: true },
 			{ name: 'Личный кабинет', href: '/settings', exact: true }
 		]
 

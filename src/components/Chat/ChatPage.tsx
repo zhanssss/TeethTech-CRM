@@ -173,15 +173,7 @@ export default function ChatPage() {
 	const activeMessages = activeConversationId
 		? (messagesByConversation[activeConversationId] ?? [])
 		: []
-	const sortedMessages = useMemo(
-		() =>
-			[...activeMessages].sort(
-				(left, right) =>
-					new Date(left.createdAt).getTime() -
-					new Date(right.createdAt).getTime()
-			),
-		[activeMessages]
-	)
+	const sortedMessages = activeMessages
 	const activeMembers = activeConversationId
 		? (membersByConversation[activeConversationId] ?? [])
 		: []

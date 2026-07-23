@@ -4,7 +4,7 @@ import type {
 	ChatRealtimeEvent,
 	ChatSummaryDto
 } from '@/src/types/chat.types'
-import { normalizeMessages } from '@/src/utils/chatUtils'
+import { appendMessageToEnd, normalizeMessages } from '@/src/utils/chatUtils'
 import { create, type StateCreator } from 'zustand'
 
 type ChatStoreState = {
@@ -99,7 +99,7 @@ const chatStoreCreator: StateCreator<ChatStoreState> = (set, get) => ({
 		set(state => {
 			const existing =
 				state.messagesByConversation[message.conversationId] ?? []
-			const next = normalizeMessages([...existing, message])
+			const next = appendMessageToEnd(existing, message)
 			return {
 				messagesByConversation: {
 					...state.messagesByConversation,

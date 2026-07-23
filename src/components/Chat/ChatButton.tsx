@@ -11,7 +11,7 @@ import {
 	useMarkChatReadMutation,
 	useSendTextMessageMutation
 } from '@/src/services/api/chatApi'
-import { formatChatTime, getInitials, sortByLastMessageAt } from '@/src/utils/chatUtils'
+import { formatChatTime, getInitials, normalizeMessages, sortByLastMessageAt } from '@/src/utils/chatUtils'
 
 function Icon({ name, className = 'h-5 w-5' }: { name: 'chat' | 'close' | 'back' | 'minimize' | 'send' | 'expand'; className?: string }) {
 	const paths = {
@@ -43,7 +43,12 @@ export default function ChatButton() {
 	)
 	const [sendMessage, { isLoading: isSending }] = useSendTextMessageMutation()
 	const [markRead] = useMarkChatReadMutation()
-	const messages = selectedId ? (messagesByConversation[selectedId] ?? messagePage?.content ?? []) : []
+	const messages = useMemo(
+		() => selectedId
+			? (messagesByConversation[selectedId] ?? normalizeMessages(messagePage?.content ?? []))
+			: [],
+		[messagePage?.content, messagesByConversation, selectedId]
+	)
 
 	useEffect(() => {
 		if (!selectedId || !messagePage) return

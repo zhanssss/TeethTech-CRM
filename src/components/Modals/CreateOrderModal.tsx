@@ -40,6 +40,11 @@ const PATIENTS_LOOKUP_PARAMS = {
     sort: 'fullName,ASC',
 };
 const MAX_AUTOCOMPLETE_OPTIONS = 8;
+const ORDER_STEPS = [
+    { title: 'Заказчик', hint: 'Клиника и пациент' },
+    { title: 'Работы', hint: 'Технические задачи' },
+    { title: 'Проверка', hint: 'Итог и комментарий' },
+] as const;
 
 const createEmptyTask = (): CreateOrderTaskDto => ({
     workTypeId: '',
@@ -471,6 +476,8 @@ export default function CreateOrderModal({
         comment: '',
         tasks: [createEmptyTask()],
     });
+    const [currentStep, setCurrentStep] = useState(0);
+    const [activeTaskIndex, setActiveTaskIndex] = useState(0);
     const {
         data: doctorsPage,
         isLoading: isDoctorsLoading,
@@ -554,6 +561,7 @@ export default function CreateOrderModal({
             ...prev,
             tasks: [...prev.tasks, createEmptyTask()],
         }));
+        setActiveTaskIndex(formData.tasks.length);
     };
 
     const handleRemoveTask = (index: number) => {
@@ -561,6 +569,7 @@ export default function CreateOrderModal({
             ...prev,
             tasks: prev.tasks.filter((_, taskIndex) => taskIndex !== index),
         }));
+        setActiveTaskIndex((current) => Math.max(0, Math.min(current > index ? current - 1 : current, formData.tasks.length - 2)));
     };
 
     const handleTaskChange = <Field extends keyof CreateOrderTaskDto>(
@@ -736,6 +745,21 @@ export default function CreateOrderModal({
         || isWorkTypesFetching
         || isMaterialsFetching
         || isColorsFetching;
+    const customerStepComplete = Boolean(
+        formData.clinicId
+        && formData.doctorFullName.trim()
+        && formData.patientFullName.trim()
+        && formData.deadline
+    );
+    const isTaskComplete = (task: CreateOrderTaskDto) => Boolean(
+        task.workTypeId
+        && task.colorId
+        && Number(task.quantity) > 0
+        && task.materialIds.length > 0
+    );
+    const tasksStepComplete = formData.tasks.length > 0 && formData.tasks.every(isTaskComplete);
+    const completedTasksCount = formData.tasks.filter(isTaskComplete).length;
+    const canContinue = currentStep === 0 ? customerStepComplete : tasksStepComplete;
 
     const handleRetryDictionaries = () => {
         if (isClinicsError) void refetchClinics();
@@ -757,7 +781,42 @@ export default function CreateOrderModal({
                 <button onClick={onClose} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-xl text-slate-400 shadow-sm hover:bg-slate-100 dark:bg-slate-800">&times;</button>
             </div>
 
-            <form onSubmit={handleSubmit} className="flex-1 space-y-6 overflow-y-auto p-4 sm:space-y-7 sm:p-6">
+            <nav aria-label="Этапы создания заказа" className="border-b border-slate-200 bg-white px-4 py-3 sm:px-6">
+                <ol className="grid grid-cols-3 gap-2">
+                    {ORDER_STEPS.map((step, index) => {
+                        const isActive = currentStep === index;
+                        const isDone = currentStep > index;
+                        return (
+                            <li key={step.title}>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        if (index < currentStep || (index === 1 && customerStepComplete) || (index === 2 && customerStepComplete && tasksStepComplete)) {
+                                            setCurrentStep(index);
+                                        }
+                                    }}
+                                    className={`flex w-full items-center gap-2 rounded-xl px-2 py-2 text-left transition sm:px-3 ${
+                                        isActive ? 'bg-violet-50' : 'hover:bg-slate-50'
+                                    }`}
+                                >
+                                    <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-black ${
+                                        isActive ? 'bg-violet-600 text-white' : isDone ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-400'
+                                    }`}>
+                                        {isDone ? '✓' : index + 1}
+                                    </span>
+                                    <span className="min-w-0">
+                                        <span className={`block truncate text-xs font-black ${isActive ? 'text-violet-800' : 'text-slate-600'}`}>{step.title}</span>
+                                        <span className="hidden truncate text-[10px] text-slate-400 sm:block">{step.hint}</span>
+                                    </span>
+                                </button>
+                            </li>
+                        );
+                    })}
+                </ol>
+            </nav>
+
+            <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
+                <div className="flex-1 space-y-6 overflow-y-auto p-4 sm:space-y-7 sm:p-6">
                 {isLoadingDictionaries && (
                     <div className="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm font-semibold text-blue-700">
                         Загрузка справочников...
@@ -772,7 +831,7 @@ export default function CreateOrderModal({
                     />
                 )}
 
-                <section>
+                {currentStep === 0 && <section>
                     <h3 className="text-xs font-black text-violet-600 uppercase tracking-widest mb-4 flex items-center gap-2">
                         <span className="w-2 h-2 bg-violet-600 rounded-full" /> Заказчик и пациент
                     </h3>
@@ -836,9 +895,9 @@ export default function CreateOrderModal({
                         </div>
 
                     </div>
-                </section>
+                </section>}
 
-                <section className="flex flex-col">
+                {currentStep === 1 && <section className="flex flex-col">
                     <div className="mb-4 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
                         <h3 className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-violet-600">
                             <span className="h-2 w-2 rounded-full bg-violet-600" /> Техническое задание
@@ -848,8 +907,36 @@ export default function CreateOrderModal({
                         </p>
                     </div>
 
+                    <div className="mb-4 flex gap-2 overflow-x-auto pb-1">
+                        {formData.tasks.map((task, index) => {
+                            const selectedWorkType = workTypes.find((workType) => workType.id === task.workTypeId);
+                            const complete = isTaskComplete(task);
+                            return (
+                                <button
+                                    key={index}
+                                    type="button"
+                                    onClick={() => setActiveTaskIndex(index)}
+                                    className={`min-w-[190px] rounded-xl border px-3 py-2.5 text-left transition ${
+                                        activeTaskIndex === index
+                                            ? 'border-violet-400 bg-violet-50 shadow-sm'
+                                            : 'border-slate-200 bg-white hover:border-violet-200'
+                                    }`}
+                                >
+                                    <span className="flex items-center justify-between gap-2">
+                                        <span className="text-[10px] font-black uppercase text-slate-400">Работа {index + 1}</span>
+                                        <span className={`h-2 w-2 rounded-full ${complete ? 'bg-emerald-500' : 'bg-amber-400'}`} />
+                                    </span>
+                                    <span className="mt-1 block truncate text-xs font-black text-slate-800">
+                                        {selectedWorkType?.name || 'Не заполнена'}
+                                    </span>
+                                </button>
+                            );
+                        })}
+                    </div>
+
                     <div className="space-y-5">
                         {formData.tasks.map((task, index) => {
+                            if (index !== activeTaskIndex) return null;
                             const taskTotal = calculateTaskTotal(task);
                             const selectedWorkType = workTypes.find((workType) => workType.id === task.workTypeId);
 
@@ -1270,6 +1357,53 @@ export default function CreateOrderModal({
                         <span className="text-base leading-none">+</span>
                         Добавить ещё техническую задачу
                     </button>
+                </section>}
+
+                {currentStep === 2 && <>
+                <section className="grid gap-4 lg:grid-cols-[1fr_320px]">
+                    <div className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
+                        <h3 className="text-sm font-black text-slate-900">Проверьте заказ перед созданием</h3>
+                        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                            <div className="rounded-xl bg-slate-50 p-3">
+                                <p className="text-[10px] font-bold uppercase text-slate-400">Клиника и врач</p>
+                                <p className="mt-1 text-sm font-black text-slate-800">{clinics.find((clinic) => clinic.id === formData.clinicId)?.name}</p>
+                                <p className="text-xs text-slate-500">{formData.doctorFullName}</p>
+                            </div>
+                            <div className="rounded-xl bg-slate-50 p-3">
+                                <p className="text-[10px] font-bold uppercase text-slate-400">Пациент и срок</p>
+                                <p className="mt-1 text-sm font-black text-slate-800">{formData.patientFullName}</p>
+                                <p className="text-xs text-slate-500">Срок: {formData.deadline}</p>
+                            </div>
+                        </div>
+                        <div className="mt-4 space-y-2">
+                            {formData.tasks.map((task, index) => (
+                                <button
+                                    key={index}
+                                    type="button"
+                                    onClick={() => { setActiveTaskIndex(index); setCurrentStep(1); }}
+                                    className="flex w-full items-center justify-between gap-3 rounded-xl border border-slate-200 px-3 py-3 text-left transition hover:border-violet-300 hover:bg-violet-50/40"
+                                >
+                                    <span className="min-w-0">
+                                        <span className="block truncate text-xs font-black text-slate-800">
+                                            {index + 1}. {workTypes.find((item) => item.id === task.workTypeId)?.name}
+                                        </span>
+                                        <span className="text-[10px] text-slate-400">
+                                            {task.quantity} шт. · {task.materialIds.length} мат. · {task.toothNumbers.length} зуб.
+                                        </span>
+                                    </span>
+                                    <span className="shrink-0 text-sm font-black text-slate-800">{calculateTaskTotal(task).toLocaleString('ru-RU')} ₸</span>
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                    <div className="rounded-2xl bg-slate-900 p-5 text-white">
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Состав заказа</p>
+                        <p className="mt-2 text-3xl font-black">{formData.tasks.length}</p>
+                        <p className="text-xs text-slate-400">технических работ</p>
+                        <div className="my-5 border-t border-slate-700" />
+                        <p className="text-[10px] font-bold uppercase text-slate-400">Общая сумма</p>
+                        <p className="mt-1 text-2xl font-black">{total.toLocaleString('ru-RU')} ₸</p>
+                    </div>
                 </section>
 
                 <section>
@@ -1285,33 +1419,42 @@ export default function CreateOrderModal({
                         onChange={(e) => setFormData({ ...formData, comment: e.target.value })}
                     />
                 </section>
-
-                <div className="flex justify-stretch sm:justify-end">
-                    <div className="w-full rounded-2xl bg-slate-900 px-4 py-4 text-white sm:w-auto sm:min-w-[220px] sm:px-6">
-                        <p className="text-[10px] uppercase text-slate-400 font-bold">
-                            Общая сумма заказа
-                        </p>
-                        <p className="text-2xl font-black">
-                            {total.toLocaleString('ru-RU')} ₸
-                        </p>
-                    </div>
+                </>}
                 </div>
 
-                <div className="flex flex-col-reverse gap-3 border-t border-slate-100 pt-4 sm:flex-row sm:justify-end">
+                <div className="flex flex-col-reverse gap-3 border-t border-slate-200 bg-white px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
                     <button
                         type="button"
-                        onClick={onClose}
-                        className="w-full px-6 py-2.5 text-sm font-bold text-slate-400 transition hover:text-slate-600 sm:w-auto"
+                        onClick={() => currentStep === 0 ? onClose() : setCurrentStep((step) => step - 1)}
+                        className="w-full px-5 py-2.5 text-sm font-bold text-slate-500 transition hover:text-slate-800 sm:w-auto"
                     >
-                        Отмена
+                        {currentStep === 0 ? 'Отмена' : 'Назад'}
                     </button>
-                    <button
-                        type="submit"
-                        disabled={isSubmitting}
-                        className="w-full rounded-xl bg-blue-600 px-10 py-3 text-sm font-black text-white shadow-lg shadow-blue-100 transition-all hover:bg-blue-700 active:scale-95 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none sm:w-auto"
-                    >
-                        {isSubmitting ? 'Создание...' : 'Создать заказ'}
-                    </button>
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                        {currentStep === 1 && (
+                            <span className="text-center text-[11px] font-semibold text-slate-400 sm:text-right">
+                                Заполнено {completedTasksCount} из {formData.tasks.length}
+                            </span>
+                        )}
+                        {currentStep < 2 ? (
+                            <button
+                                type="button"
+                                disabled={!canContinue}
+                                onClick={() => setCurrentStep((step) => step + 1)}
+                                className="w-full rounded-xl bg-violet-600 px-8 py-3 text-sm font-black text-white shadow-lg shadow-violet-100 transition hover:bg-violet-700 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none sm:w-auto"
+                            >
+                                Продолжить
+                            </button>
+                        ) : (
+                            <button
+                                type="submit"
+                                disabled={isSubmitting}
+                                className="w-full rounded-xl bg-blue-600 px-10 py-3 text-sm font-black text-white shadow-lg shadow-blue-100 transition-all hover:bg-blue-700 active:scale-95 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none sm:w-auto"
+                            >
+                                {isSubmitting ? 'Создание...' : `Создать заказ · ${total.toLocaleString('ru-RU')} ₸`}
+                            </button>
+                        )}
+                    </div>
                 </div>
             </form>
         </Modal>
