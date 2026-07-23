@@ -290,7 +290,7 @@ export interface OrderKanbanColumn {
 export interface UpdateTaskStatusDto {
     nextStatusId: string;
     comment?: string;
-    assignedUserId?: string;
+    assignedUserId?: string | null;
     materialReportId?: string;
     materialUsages?: import('./task.types').MaterialUsageRequest[];
 }

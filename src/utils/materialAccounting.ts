@@ -55,8 +55,11 @@ export function validateMaterialUsages(usages: MaterialUsageRequest[]) {
         if (quantities.some((quantity) => !Number.isFinite(quantity) || quantity < 0)) {
             return 'Все количества должны быть неотрицательными';
         }
-        if (!isZeroMaterialUsage(usage) && usage.issuedQuantity <= 0) {
+        if (usage.issuedQuantity <= 0) {
             return 'Выданное количество должно быть больше нуля';
+        }
+        if (usage.wasteQuantity > 0 && !usage.note?.trim()) {
+            return 'Укажите причину потерь для каждой строки с фактическими потерями';
         }
         if (Math.abs(getMaterialUsageDifference(usage)) > MATERIAL_BALANCE_EPSILON) {
             return 'Выдано должно равняться сумме использованного, потерь и возврата';
@@ -111,15 +114,12 @@ export function canUseNomenclature(nomenclatureId: string, planIds: string[], al
 
 export function canSubmitMaterialTransition({
     usages,
-    materialReportRequired,
     finalized,
 }: {
     usages: MaterialUsageRequest[];
-    materialReportRequired: boolean;
     finalized: boolean;
 }) {
-    if (finalized || validateMaterialUsages(usages)) return false;
-    return !materialReportRequired || usages.some((usage) => !isZeroMaterialUsage(usage));
+    return usages.length > 0 && !finalized && !validateMaterialUsages(usages);
 }
 
 export function getVariancePresentation(varianceQuantity: number) {

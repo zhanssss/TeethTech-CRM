@@ -143,20 +143,20 @@ export const ordersApi = teethTechApi.injectEndpoints({
 
         updateTaskStatus: builder.mutation<void, UpdateTaskStatusMutationArgs>({
             query: ({ taskId, body, notification }) => ({
-                url: `/tasks/${taskId}/status`,
+                url: `/order-tasks/${taskId}/status`,
                 method: 'PATCH',
                 body,
                 notification,
             }),
-            invalidatesTags: (_result, _error, { taskId }) => [
-                'Orders',
-                'OrderKanban',
-                'Tasks',
-                { type: 'TaskHistory', id: taskId },
-                { type: 'TaskMaterialPlan', id: taskId },
-                { type: 'TaskMaterialUsages', id: taskId },
-                { type: 'TaskMaterialAccounting', id: taskId },
-            ],
+            invalidatesTags: (_result, error, { taskId }) => error ? [] : [
+                    'Orders',
+                    'OrderKanban',
+                    'Tasks',
+                    { type: 'TaskHistory', id: taskId },
+                    { type: 'TaskMaterialPlan', id: taskId },
+                    { type: 'TaskMaterialUsages', id: taskId },
+                    { type: 'TaskMaterialAccounting', id: taskId },
+                ],
         }),
 
         updateTaskMaterials: builder.mutation<void, UpdateTaskMaterialsArgs>({
@@ -174,7 +174,7 @@ export const ordersApi = teethTechApi.injectEndpoints({
         }),
 
         getTaskMaterialPlan: builder.query<MaterialPlanItem[], string>({
-            query: (taskId) => `/tasks/${taskId}/material-plan`,
+            query: (taskId) => `/order-tasks/${taskId}/material-plan`,
             transformResponse: (response: MaterialPlanItem[] | { items?: MaterialPlanItem[] }) => (
                 Array.isArray(response) ? response : response.items ?? []
             ),
@@ -184,7 +184,7 @@ export const ordersApi = teethTechApi.injectEndpoints({
         }),
 
         getTaskMaterialUsages: builder.query<MaterialUsageHistoryItem[], string>({
-            query: (taskId) => `/tasks/${taskId}/material-usages`,
+            query: (taskId) => `/order-tasks/${taskId}/material-usages`,
             transformResponse: (response: MaterialUsageHistoryItem[] | { items?: MaterialUsageHistoryItem[]; content?: MaterialUsageHistoryItem[] }) => (
                 Array.isArray(response) ? response : response.items ?? response.content ?? []
             ),
@@ -194,7 +194,7 @@ export const ordersApi = teethTechApi.injectEndpoints({
         }),
 
         getTaskMaterialAccounting: builder.query<MaterialAccounting, string>({
-            query: (taskId) => `/tasks/${taskId}/material-accounting`,
+            query: (taskId) => `/order-tasks/${taskId}/material-accounting`,
             providesTags: (_result, _error, taskId) => [
                 { type: 'TaskMaterialAccounting', id: taskId },
             ],

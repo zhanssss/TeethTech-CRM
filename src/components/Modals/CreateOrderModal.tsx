@@ -839,97 +839,162 @@ export default function CreateOrderModal({
                 </section>
 
                 <section className="flex flex-col">
-                    <h3 className="text-xs font-black text-violet-600 uppercase tracking-widest mb-4 flex items-center gap-2">
-                        <span className="w-2 h-2 bg-violet-600 rounded-full" /> Техническое задание
-                    </h3>
+                    <div className="mb-4 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+                        <h3 className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-violet-600">
+                            <span className="h-2 w-2 rounded-full bg-violet-600" /> Техническое задание
+                        </h3>
+                        <p className="text-xs text-slate-400">
+                            Заполните параметры изготовления для каждой отдельной работы
+                        </p>
+                    </div>
 
-                    {formData.tasks.map((task, index) => {
-                        const taskTotal = calculateTaskTotal(task);
+                    <div className="space-y-5">
+                        {formData.tasks.map((task, index) => {
+                            const taskTotal = calculateTaskTotal(task);
+                            const selectedWorkType = workTypes.find((workType) => workType.id === task.workTypeId);
 
-                        return (
-                            <div key={index} className="mb-4 rounded-2xl border border-slate-200 bg-white p-3 sm:p-4">
-                                <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                                    <h4 className="text-sm font-black text-slate-700">
-                                        Техническая задача #{index + 1}
-                                    </h4>
-
-                                    {formData.tasks.length > 1 && (
-                                        <button
-                                            type="button"
-                                            onClick={() => handleRemoveTask(index)}
-                                            className="text-xs font-bold text-red-500 hover:text-red-700"
-                                        >
-                                            Удалить
-                                        </button>
-                                    )}
-                                </div>
-
-                                <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
-                                    <div className="space-y-4">
-                                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                                            <div className="md:col-span-2">
-                                                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">
-                                                    Вид работы
-                                                </label>
-                                                <select
-                                                    required
-                                                    className="w-full border-2 border-slate-100 rounded-xl px-3 py-2 text-sm focus:border-blue-500 outline-none transition bg-white"
-                                                    value={task.workTypeId}
-                                                    onChange={(e) => handleTaskChange(index, 'workTypeId', e.target.value)}
-                                                >
-                                                    <option value="">Выбрать работу</option>
-                                                    {workTypes.map((workType) => (
-                                                        <option key={workType.id} value={workType.id}>
-                                                            {workType.name}
-                                                        </option>
-                                                    ))}
-                                                </select>
-                                            </div>
-
-                                            <div>
-                                                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">
-                                                    Кол-во
-                                                </label>
-                                                <input
-                                                    type="number"
-                                                    min="1"
-                                                    className="w-full border-2 border-slate-100 rounded-xl px-3 py-2 text-sm focus:border-blue-500 outline-none transition"
-                                                    value={task.quantity}
-                                                    onChange={(e) => handleTaskChange(index, 'quantity', Number(e.target.value))}
-                                                />
-                                            </div>
-
-                                            <div>
-                                                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">
-                                                    Цвет
-                                                </label>
-                                                <select
-                                                    required
-                                                    className="w-full border-2 border-slate-100 rounded-xl px-3 py-2 text-sm focus:border-blue-500 outline-none transition bg-white"
-                                                    value={task.colorId}
-                                                    onChange={(e) => handleTaskChange(index, 'colorId', e.target.value)}
-                                                >
-                                                    <option value="">Выбрать</option>
-                                                    {colors.map((color) => (
-                                                        <option key={color.id} value={color.id}>
-                                                            {color.code} - {color.name}
-                                                        </option>
-                                                    ))}
-                                                </select>
+                            return (
+                                <article key={index} className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+                                    <header className="flex flex-col gap-4 border-b border-slate-200 bg-slate-50/80 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+                                        <div className="flex min-w-0 items-center gap-3">
+                                            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-violet-600 text-xs font-black text-white shadow-sm shadow-violet-200">
+                                                {String(index + 1).padStart(2, '0')}
+                                            </span>
+                                            <div className="min-w-0">
+                                                <p className="text-[10px] font-black uppercase tracking-[.16em] text-violet-600">
+                                                    Техническая задача
+                                                </p>
+                                                <h4 className="truncate text-base font-black text-slate-900">
+                                                    {selectedWorkType?.name || 'Новая работа'}
+                                                </h4>
                                             </div>
                                         </div>
 
-                                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                                            <div>
-                                                <fieldset>
-                                                    <legend className="block text-[10px] font-bold text-slate-400 uppercase mb-1">
-                                                        Материалы
-                                                    </legend>
-                                                    <div className="max-h-36 space-y-1 overflow-y-auto rounded-xl border-2 border-slate-100 bg-white p-2">
+                                        <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+                                            <span className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[10px] font-bold text-slate-500">
+                                                Количество: {task.quantity || 0}
+                                            </span>
+                                            <span className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[10px] font-bold text-slate-500">
+                                                Материалы: {task.materialIds.length}
+                                            </span>
+                                            <span className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[10px] font-bold text-slate-500">
+                                                Зубы: {task.toothNumbers.length}
+                                            </span>
+
+                                            {formData.tasks.length > 1 && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleRemoveTask(index)}
+                                                    aria-label={`Удалить техническую задачу ${index + 1}`}
+                                                    className="rounded-lg px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-red-500 transition hover:bg-red-50 hover:text-red-700"
+                                                >
+                                                    Удалить
+                                                </button>
+                                            )}
+                                        </div>
+                                    </header>
+
+                                    <div className="space-y-5 p-4 sm:p-5">
+                                        <section aria-labelledby={`task-${index}-parameters`}>
+                                            <div className="mb-3 flex items-center gap-2">
+                                                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-violet-100 text-[10px] font-black text-violet-700">1</span>
+                                                <h5 id={`task-${index}-parameters`} className="text-xs font-black uppercase tracking-wide text-slate-700">
+                                                    Основные параметры
+                                                </h5>
+                                            </div>
+
+                                            <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
+                                                <label className="block md:col-span-2">
+                                                    <span className="mb-1.5 block text-[10px] font-bold uppercase text-slate-400">
+                                                        Вид работы
+                                                    </span>
+                                                    <select
+                                                        required
+                                                        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-700 outline-none transition focus:border-violet-500 focus:ring-2 focus:ring-violet-100"
+                                                        value={task.workTypeId}
+                                                        onChange={(e) => handleTaskChange(index, 'workTypeId', e.target.value)}
+                                                    >
+                                                        <option value="">Выбрать работу</option>
+                                                        {workTypes.map((workType) => (
+                                                            <option key={workType.id} value={workType.id}>
+                                                                {workType.name}
+                                                            </option>
+                                                        ))}
+                                                    </select>
+                                                </label>
+
+                                                <label className="block">
+                                                    <span className="mb-1.5 block text-[10px] font-bold uppercase text-slate-400">
+                                                        Количество
+                                                    </span>
+                                                    <input
+                                                        type="number"
+                                                        min="1"
+                                                        className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm font-semibold text-slate-700 outline-none transition focus:border-violet-500 focus:ring-2 focus:ring-violet-100"
+                                                        value={task.quantity}
+                                                        onChange={(e) => handleTaskChange(index, 'quantity', Number(e.target.value))}
+                                                    />
+                                                </label>
+
+                                                <label className="block">
+                                                    <span className="mb-1.5 block text-[10px] font-bold uppercase text-slate-400">
+                                                        Цвет
+                                                    </span>
+                                                    <select
+                                                        required
+                                                        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-700 outline-none transition focus:border-violet-500 focus:ring-2 focus:ring-violet-100"
+                                                        value={task.colorId}
+                                                        onChange={(e) => handleTaskChange(index, 'colorId', e.target.value)}
+                                                    >
+                                                        <option value="">Выбрать цвет</option>
+                                                        {colors.map((color) => (
+                                                            <option key={color.id} value={color.id}>
+                                                                {color.code} — {color.name}
+                                                            </option>
+                                                        ))}
+                                                    </select>
+                                                </label>
+                                            </div>
+                                        </section>
+
+                                        <section aria-labelledby={`task-${index}-production`}>
+                                            <div className="mb-3 flex items-center gap-2">
+                                                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-violet-100 text-[10px] font-black text-violet-700">2</span>
+                                                <h5 id={`task-${index}-production`} className="text-xs font-black uppercase tracking-wide text-slate-700">
+                                                    Материалы и зубы
+                                                </h5>
+                                            </div>
+
+                                            <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(330px,.65fr)]">
+                                                <div className="min-w-0 rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
+                                                    <div className="mb-3 flex items-center justify-between gap-3">
+                                                        <h6 className="text-xs font-black text-slate-700">
+                                                            Материалы
+                                                        </h6>
+                                                        <span className={`rounded-full px-2.5 py-1 text-[10px] font-black ${
+                                                            task.materialIds.length
+                                                                ? 'bg-violet-100 text-violet-700'
+                                                                : 'bg-red-50 text-red-600'
+                                                        }`}>
+                                                            {task.materialIds.length
+                                                                ? `Выбрано: ${task.materialIds.length}`
+                                                                : 'Обязательное поле'}
+                                                        </span>
+                                                    </div>
+
+                                                    <div className="grid max-h-52 grid-cols-1 gap-2 overflow-y-auto pr-1 sm:grid-cols-2">
                                                         {materials.map((material) => {
                                                             const selected = task.materialIds.includes(material.id);
+
                                                             return (
-                                                                <label key={material.id} className={`flex cursor-pointer items-center gap-2 rounded-lg px-2.5 py-2 text-xs font-semibold transition ${selected ? 'bg-violet-50 text-violet-700' : 'text-slate-600 hover:bg-slate-50'}`}>
+                                                                <label
+                                                                    key={material.id}
+                                                                    className={`flex cursor-pointer items-center gap-3 rounded-xl border px-3 py-2.5 text-xs font-semibold transition ${
+                                                                        selected
+                                                                            ? 'border-violet-300 bg-violet-50 text-violet-800 shadow-sm'
+                                                                            : 'border-slate-200 bg-white text-slate-600 hover:border-violet-200 hover:bg-violet-50/40'
+                                                                    }`}
+                                                                >
                                                                     <input
                                                                         type="checkbox"
                                                                         checked={selected}
@@ -940,218 +1005,270 @@ export default function CreateOrderModal({
                                                                                 ? task.materialIds.filter((id) => id !== material.id)
                                                                                 : normalizeMaterialIds([...task.materialIds, material.id])
                                                                         )}
-                                                                        className="accent-violet-600"
+                                                                        className="sr-only"
                                                                     />
-                                                                    <span>{material.name}</span>
+                                                                    <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border text-[11px] font-black ${
+                                                                        selected
+                                                                            ? 'border-violet-600 bg-violet-600 text-white'
+                                                                            : 'border-slate-300 bg-white text-transparent'
+                                                                    }`}>
+                                                                        ✓
+                                                                    </span>
+                                                                    <span className="min-w-0 truncate">{material.name}</span>
                                                                 </label>
                                                             );
                                                         })}
-                                                        {materials.length === 0 ? <p className="px-2 py-3 text-xs text-slate-400">Нет активных материалов</p> : null}
+                                                        {materials.length === 0 ? (
+                                                            <p className="col-span-full rounded-xl border border-dashed border-slate-200 bg-white px-3 py-6 text-center text-xs text-slate-400">
+                                                                Нет активных материалов
+                                                            </p>
+                                                        ) : null}
                                                     </div>
+
                                                     {task.materialIds.length === 0 ? (
-                                                        <p className="mt-1 text-[10px] font-semibold text-red-500">Выберите хотя бы один материал</p>
+                                                        <p className="mt-2 text-[10px] font-semibold text-red-500">
+                                                            Выберите хотя бы один материал для изготовления
+                                                        </p>
+                                                    ) : null}
+                                                </div>
+
+                                                <div className="rounded-2xl border border-blue-100 bg-blue-50/60 p-4">
+                                                    <div className="mb-3 flex items-center justify-between gap-3">
+                                                        <h6 className="text-xs font-black text-blue-800">
+                                                            Зубная формула
+                                                        </h6>
+                                                        <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-black text-blue-700 shadow-sm">
+                                                            {task.toothNumbers.length
+                                                                ? `Выбрано: ${task.toothNumbers.length}`
+                                                                : 'Не выбраны'}
+                                                        </span>
+                                                    </div>
+
+                                                    <div className="rounded-xl border border-blue-100 bg-white p-3">
+                                                        {[upperTeeth, lowerTeeth].map((row, rowIndex) => (
+                                                            <div
+                                                                key={rowIndex}
+                                                                className={rowIndex === 0 ? 'border-b border-dashed border-blue-100 pb-3' : 'pt-3'}
+                                                            >
+                                                                <p className="mb-2 text-[9px] font-black uppercase tracking-wide text-slate-400">
+                                                                    {rowIndex === 0 ? 'Верхняя челюсть' : 'Нижняя челюсть'}
+                                                                </p>
+                                                                <div className="grid grid-cols-8 gap-1.5">
+                                                                    {row.map((toothNumber) => {
+                                                                        const isSelected = task.toothNumbers.includes(toothNumber);
+
+                                                                        return (
+                                                                            <button
+                                                                                key={toothNumber}
+                                                                                type="button"
+                                                                                onClick={() => handleToothToggle(index, toothNumber)}
+                                                                                aria-pressed={isSelected}
+                                                                                aria-label={`Зуб ${toothNumber}`}
+                                                                                className={`aspect-square rounded-lg border text-[11px] font-black transition ${
+                                                                                    isSelected
+                                                                                        ? 'border-blue-600 bg-blue-600 text-white shadow-sm'
+                                                                                        : 'border-blue-100 bg-blue-50/50 text-blue-700 hover:border-blue-400 hover:bg-blue-50'
+                                                                                }`}
+                                                                            >
+                                                                                {toothNumber}
+                                                                            </button>
+                                                                        );
+                                                                    })}
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+
+                                                    {task.toothNumbers.length > 0 ? (
+                                                        <p className="mt-2 truncate text-[10px] font-semibold text-blue-700">
+                                                            Номера: {task.toothNumbers.join(', ')}
+                                                        </p>
                                                     ) : (
-                                                        <p className="mt-1 text-[10px] font-semibold text-violet-600">Выбрано: {task.materialIds.length}</p>
+                                                        <p className="mt-2 text-[10px] font-semibold text-slate-400">
+                                                            Можно выбрать несколько зубов
+                                                        </p>
                                                     )}
-                                                </fieldset>
+                                                </div>
+                                            </div>
+                                        </section>
+
+                                        <section aria-labelledby={`task-${index}-price`}>
+                                            <div className="mb-3 flex items-center gap-2">
+                                                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-violet-100 text-[10px] font-black text-violet-700">3</span>
+                                                <h5 id={`task-${index}-price`} className="text-xs font-black uppercase tracking-wide text-slate-700">
+                                                    Стоимость
+                                                </h5>
                                             </div>
 
-                                            <div>
-                                                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">
-                                                    Цена за 1 ед.
+                                            <div className="grid grid-cols-1 gap-3 rounded-2xl border border-slate-200 bg-slate-50/70 p-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(190px,.75fr)]">
+                                                <label className="block">
+                                                    <span className="mb-1.5 block text-[10px] font-bold uppercase text-slate-400">
+                                                        Цена за единицу, ₸
+                                                    </span>
+                                                    <input
+                                                        type="number"
+                                                        min="0"
+                                                        placeholder="0"
+                                                        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-700 outline-none transition focus:border-violet-500 focus:ring-2 focus:ring-violet-100"
+                                                        value={getMoneyInputValue(task.pricePerUnit)}
+                                                        onChange={(e) => handleTaskChange(index, 'pricePerUnit', parseMoneyInput(e.target.value))}
+                                                    />
                                                 </label>
-                                                <input
-                                                    type="number"
-                                                    min="0"
-                                                    placeholder="0"
-                                                    className="w-full border-2 border-slate-100 rounded-xl px-3 py-2 text-sm focus:border-blue-500 outline-none transition"
-                                                    value={getMoneyInputValue(task.pricePerUnit)}
-                                                    onChange={(e) => handleTaskChange(index, 'pricePerUnit', parseMoneyInput(e.target.value))}
-                                                />
-                                            </div>
 
-                                            <div>
-                                                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">
-                                                    Скидка
+                                                <label className="block">
+                                                    <span className="mb-1.5 block text-[10px] font-bold uppercase text-slate-400">
+                                                        Скидка, ₸
+                                                    </span>
+                                                    <input
+                                                        type="number"
+                                                        min="0"
+                                                        placeholder="0"
+                                                        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-700 outline-none transition focus:border-violet-500 focus:ring-2 focus:ring-violet-100"
+                                                        value={getMoneyInputValue(task.discount)}
+                                                        onChange={(e) => handleTaskChange(index, 'discount', parseMoneyInput(e.target.value))}
+                                                    />
                                                 </label>
-                                                <input
-                                                    type="number"
-                                                    min="0"
-                                                    placeholder="0"
-                                                    className="w-full border-2 border-slate-100 rounded-xl px-3 py-2 text-sm focus:border-blue-500 outline-none transition"
-                                                    value={getMoneyInputValue(task.discount)}
-                                                    onChange={(e) => handleTaskChange(index, 'discount', parseMoneyInput(e.target.value))}
-                                                />
-                                            </div>
 
-                                            <div className="bg-slate-900 text-white rounded-xl px-4 py-3 flex flex-col justify-center">
-                                                <span className="text-[10px] uppercase text-slate-400 font-bold">
-                                                    Итого задачи
+                                                <div className="flex items-center justify-between gap-4 rounded-xl bg-slate-900 px-4 py-3 text-white sm:flex-col sm:items-start sm:justify-center sm:gap-0">
+                                                    <span className="text-[10px] font-bold uppercase tracking-wide text-slate-400">
+                                                        Итого задачи
+                                                    </span>
+                                                    <span className="text-xl font-black">
+                                                        {taskTotal.toLocaleString('ru-RU')} ₸
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </section>
+
+                                        <section aria-labelledby={`task-${index}-files`}>
+                                            <div className="mb-3 flex items-center gap-2">
+                                                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-violet-100 text-[10px] font-black text-violet-700">4</span>
+                                                <h5 id={`task-${index}-files`} className="text-xs font-black uppercase tracking-wide text-slate-700">
+                                                    Вложения
+                                                </h5>
+                                                <span className="text-[10px] font-semibold text-slate-400">
+                                                    необязательно
                                                 </span>
-                                                <span className="text-lg font-black">
-                                                    {taskTotal.toLocaleString('ru-RU')} ₸
-                                                </span>
                                             </div>
-                                        </div>
 
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                            <div className="rounded-2xl border border-blue-100 bg-blue-50/60 p-4">
-                                                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                                                    <h5 className="text-[10px] font-black text-blue-700 uppercase tracking-widest">
-                                                        Скрины
-                                                    </h5>
-
-                                                    <label className="cursor-pointer rounded-lg bg-blue-600 px-3 py-1.5 text-[10px] font-black uppercase text-white hover:bg-blue-700">
-                                                        Добавить
-                                                        <input
-                                                            type="file"
-                                                            accept="image/*"
-                                                            multiple
-                                                            onChange={(e) => handleTaskImagesChange(index, e)}
-                                                            className="hidden"
-                                                        />
-                                                    </label>
-                                                </div>
-
-                                                {task.images?.length ? (
-                                                    <div className="mt-3 space-y-2">
-                                                        {task.images.map((image) => (
-                                                            <div
-                                                                key={image.id}
-                                                                className="flex items-center justify-between gap-3 rounded-xl border border-blue-100 bg-white px-3 py-2"
-                                                            >
-                                                                <div className="min-w-0">
-                                                                    <p className="truncate text-xs font-bold text-slate-800">
-                                                                        {image.name}
-                                                                    </p>
-                                                                    <p className="text-[10px] text-slate-400">
-                                                                        {image.size}
-                                                                    </p>
-                                                                </div>
-
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() => handleRemoveTaskImage(index, image.id)}
-                                                                    className="text-sm font-black text-slate-300 hover:text-red-500"
-                                                                    aria-label={`Удалить ${image.name}`}
-                                                                >
-                                                                    &times;
-                                                                </button>
-                                                            </div>
-                                                        ))}
+                                            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                                                <div className="rounded-2xl border border-blue-100 bg-blue-50/60 p-4">
+                                                    <div className="flex items-center justify-between gap-3">
+                                                        <div>
+                                                            <h6 className="text-xs font-black text-blue-800">Фотографии и скрины</h6>
+                                                            <p className="mt-0.5 text-[10px] text-slate-500">
+                                                                Фото модели, референсы и отметки врача
+                                                            </p>
+                                                        </div>
+                                                        <label className="shrink-0 cursor-pointer rounded-lg bg-blue-600 px-3 py-2 text-[10px] font-black uppercase text-white transition hover:bg-blue-700">
+                                                            Добавить
+                                                            <input
+                                                                type="file"
+                                                                accept="image/*"
+                                                                multiple
+                                                                onChange={(e) => handleTaskImagesChange(index, e)}
+                                                                className="hidden"
+                                                            />
+                                                        </label>
                                                     </div>
-                                                ) : (
-                                                    <p className="mt-3 rounded-xl border border-dashed border-blue-200 bg-white/70 px-3 py-3 text-xs font-semibold text-slate-400">
-                                                        Скрины не добавлены
-                                                    </p>
-                                                )}
-                                            </div>
 
-                                            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                                                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                                                    <h5 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
-                                                        Файлы
-                                                    </h5>
-
-                                                    <label className="cursor-pointer rounded-lg bg-slate-900 px-3 py-1.5 text-[10px] font-black uppercase text-white hover:bg-slate-800">
-                                                        Прикрепить
-                                                        <input
-                                                            type="file"
-                                                            multiple
-                                                            onChange={(e) => handleTaskAttachmentsChange(index, e)}
-                                                            className="hidden"
-                                                        />
-                                                    </label>
-                                                </div>
-
-                                                {task.attachments?.length ? (
-                                                    <div className="mt-3 space-y-2">
-                                                        {task.attachments.map((file) => (
-                                                            <div
-                                                                key={file.id}
-                                                                className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2"
-                                                            >
-                                                                <div className="min-w-0">
-                                                                    <p className="truncate text-xs font-bold text-slate-800">
-                                                                        {file.name}
-                                                                    </p>
-                                                                    <p className="text-[10px] text-slate-400">
-                                                                        {file.size}
-                                                                    </p>
-                                                                </div>
-
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() => handleRemoveTaskAttachment(index, file.id)}
-                                                                    className="text-sm font-black text-slate-300 hover:text-red-500"
-                                                                    aria-label={`Удалить ${file.name}`}
+                                                    {task.images?.length ? (
+                                                        <div className="mt-3 space-y-2">
+                                                            {task.images.map((image) => (
+                                                                <div
+                                                                    key={image.id}
+                                                                    className="flex items-center justify-between gap-3 rounded-xl border border-blue-100 bg-white px-3 py-2"
                                                                 >
-                                                                    &times;
-                                                                </button>
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                ) : (
-                                                    <p className="mt-3 rounded-xl border border-dashed border-slate-200 bg-white px-3 py-3 text-xs font-semibold text-slate-400">
-                                                        Файлы не добавлены
-                                                    </p>
-                                                )}
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div className="rounded-2xl border border-blue-100 bg-blue-50/60 p-4">
-                                        <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                                            <label className="text-[10px] font-black text-blue-700 uppercase">
-                                                Зубы
-                                            </label>
-                                            <span className="text-[10px] font-bold text-slate-500">
-                                                {task.toothNumbers.length ? task.toothNumbers.join(', ') : 'не выбраны'}
-                                            </span>
-                                        </div>
-
-                                        <div className="space-y-3">
-                                            {[upperTeeth, lowerTeeth].map((row, rowIndex) => (
-                                                <div key={rowIndex} className="grid grid-cols-8 gap-1.5">
-                                                    {row.map((toothNumber) => {
-                                                        const isSelected = task.toothNumbers.includes(toothNumber);
-
-                                                        return (
-                                                            <button
-                                                                key={toothNumber}
-                                                                type="button"
-                                                                onClick={() => handleToothToggle(index, toothNumber)}
-                                                                className={`h-8 rounded-full border text-[11px] font-black transition ${
-                                                                    isSelected
-                                                                        ? 'border-blue-600 bg-blue-600 text-white shadow-sm'
-                                                                        : 'border-blue-200 bg-white text-blue-700 hover:border-blue-500'
-                                                                }`}
-                                                            >
-                                                                {toothNumber}
-                                                            </button>
-                                                        );
-                                                    })}
+                                                                    <div className="min-w-0">
+                                                                        <p className="truncate text-xs font-bold text-slate-800">{image.name}</p>
+                                                                        <p className="text-[10px] text-slate-400">{image.size}</p>
+                                                                    </div>
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => handleRemoveTaskImage(index, image.id)}
+                                                                        className="text-sm font-black text-slate-300 hover:text-red-500"
+                                                                        aria-label={`Удалить ${image.name}`}
+                                                                    >
+                                                                        &times;
+                                                                    </button>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    ) : (
+                                                        <p className="mt-3 rounded-xl border border-dashed border-blue-200 bg-white/70 px-3 py-3 text-center text-xs font-semibold text-slate-400">
+                                                            Изображения не добавлены
+                                                        </p>
+                                                    )}
                                                 </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                </div>
 
-                                <TaskAssignmentFields
-                                    task={task}
-                                    users={users}
-                                    onChange={(changes) => handleTaskAssignmentChange(index, changes)}
-                                />
-                            </div>
-                        );
-                    })}
+                                                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                                                    <div className="flex items-center justify-between gap-3">
+                                                        <div>
+                                                            <h6 className="text-xs font-black text-slate-700">Документы и файлы</h6>
+                                                            <p className="mt-0.5 text-[10px] text-slate-500">
+                                                                STL, PDF и другие материалы к работе
+                                                            </p>
+                                                        </div>
+                                                        <label className="shrink-0 cursor-pointer rounded-lg bg-slate-900 px-3 py-2 text-[10px] font-black uppercase text-white transition hover:bg-slate-800">
+                                                            Прикрепить
+                                                            <input
+                                                                type="file"
+                                                                multiple
+                                                                onChange={(e) => handleTaskAttachmentsChange(index, e)}
+                                                                className="hidden"
+                                                            />
+                                                        </label>
+                                                    </div>
+
+                                                    {task.attachments?.length ? (
+                                                        <div className="mt-3 space-y-2">
+                                                            {task.attachments.map((file) => (
+                                                                <div
+                                                                    key={file.id}
+                                                                    className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2"
+                                                                >
+                                                                    <div className="min-w-0">
+                                                                        <p className="truncate text-xs font-bold text-slate-800">{file.name}</p>
+                                                                        <p className="text-[10px] text-slate-400">{file.size}</p>
+                                                                    </div>
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => handleRemoveTaskAttachment(index, file.id)}
+                                                                        className="text-sm font-black text-slate-300 hover:text-red-500"
+                                                                        aria-label={`Удалить ${file.name}`}
+                                                                    >
+                                                                        &times;
+                                                                    </button>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    ) : (
+                                                        <p className="mt-3 rounded-xl border border-dashed border-slate-200 bg-white px-3 py-3 text-center text-xs font-semibold text-slate-400">
+                                                            Файлы не добавлены
+                                                        </p>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </section>
+
+                                        <TaskAssignmentFields
+                                            task={task}
+                                            users={users}
+                                            onChange={(changes) => handleTaskAssignmentChange(index, changes)}
+                                        />
+                                    </div>
+                                </article>
+                            );
+                        })}
+                    </div>
 
                     <button
                         type="button"
                         onClick={handleAddNewTask}
-                        className="w-10 h-10 cursor-pointer self-end my-2 text-sm font-black text-white bg-blue-600 rounded-xl hover:bg-blue-700 shadow-lg shadow-blue-100 transition-all active:scale-95"
+                        className="mt-4 flex w-full cursor-pointer items-center justify-center gap-2 rounded-2xl border border-dashed border-violet-300 bg-violet-50/50 px-4 py-3 text-xs font-black text-violet-700 transition hover:border-violet-500 hover:bg-violet-50 active:scale-[.995]"
                     >
-                        +
+                        <span className="text-base leading-none">+</span>
+                        Добавить ещё техническую задачу
                     </button>
                 </section>
 

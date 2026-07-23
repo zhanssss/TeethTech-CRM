@@ -32,6 +32,7 @@ export default function TaskDetailsSidebar({
     const [renderedTask, setRenderedTask] = useState<Task | null>(selectedTask);
     const [isVisible, setIsVisible] = useState(false);
     const [isHistoryDetailsOpen, setIsHistoryDetailsOpen] = useState(false);
+    const [activeTab, setActiveTab] = useState<'overview' | 'materials'>('overview');
     const { isAuthenticated } = useSelector((state: RootState) => state.auth);
 
     useEffect(() => {
@@ -43,6 +44,7 @@ export default function TaskDetailsSidebar({
             animationFrame = window.requestAnimationFrame(() => {
                 setRenderedTask(selectedTask);
                 setIsHistoryDetailsOpen(false);
+                setActiveTab('overview');
                 visibilityFrame = window.requestAnimationFrame(() => setIsVisible(true));
             });
         } else {
@@ -130,7 +132,43 @@ export default function TaskDetailsSidebar({
                     </button>
                 </div>
 
-                <div className="flex-1 space-y-5 overflow-y-auto p-4 sm:space-y-6 sm:p-5">
+                <div className="flex-1 overflow-y-auto p-4 sm:p-5">
+                    <nav className="mb-5 grid grid-cols-2 rounded-xl bg-slate-100 p-1" aria-label="Разделы задачи">
+                        {([
+                            ['overview', 'Обзор'],
+                            ['materials', 'Материалы'],
+                        ] as const).map(([tab, label]) => (
+                            <button
+                                key={tab}
+                                type="button"
+                                onClick={() => setActiveTab(tab)}
+                                aria-current={activeTab === tab ? 'page' : undefined}
+                                className={`rounded-lg px-3 py-2 text-xs font-black transition ${
+                                    activeTab === tab
+                                        ? 'bg-white text-violet-700 shadow-sm'
+                                        : 'text-slate-500 hover:text-slate-800'
+                                }`}
+                            >
+                                {label}
+                            </button>
+                        ))}
+                    </nav>
+
+                    {activeTab === 'materials' ? (
+                        UUID_PATTERN.test(task.id) && task.materialIds && task.materialNames ? (
+                            <TaskMaterialAccountingPanel
+                                key={task.id}
+                                taskId={task.id}
+                                materialIds={task.materialIds}
+                                materialNames={task.materialNames}
+                            />
+                        ) : (
+                            <section className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-6 text-center text-sm text-slate-500">
+                                Материальный учёт доступен после сохранения производственной задачи.
+                            </section>
+                        )
+                    ) : (
+                    <div className="space-y-5 sm:space-y-6">
                     <section className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                         <h3 className="text-xs font-black uppercase tracking-widest text-slate-500">
                             Основная информация
@@ -153,15 +191,6 @@ export default function TaskDetailsSidebar({
                             {task.discount ? <InfoItem label="Скидка" value={task.discount.toLocaleString('ru-RU')} /> : null}
                         </div>
                     </section>
-
-                    {UUID_PATTERN.test(task.id) && task.materialIds && task.materialNames ? (
-                        <TaskMaterialAccountingPanel
-                            key={task.id}
-                            taskId={task.id}
-                            materialIds={task.materialIds}
-                            materialNames={task.materialNames}
-                        />
-                    ) : null}
 
                     {UUID_PATTERN.test(task.id) ? (
                         <QualityIncidentsPanel
@@ -238,6 +267,8 @@ export default function TaskDetailsSidebar({
                             <EmptyText text="Комментариев пока нет" />
                         )}
                     </section>
+                    </div>
+                    )}
                 </div>
             </aside>
 

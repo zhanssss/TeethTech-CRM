@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react';
 
 import MaterialChips from '@/src/components/tasks/MaterialChips';
+import { getApiErrorMessage } from '@/src/services/apiNotifications';
 import {
     useGetTaskMaterialAccountingQuery,
     useGetTaskMaterialUsagesQuery,
@@ -13,7 +14,7 @@ import type { MaterialUsageHistoryItem } from '@/src/types/task.types';
 import { normalizeMaterialIds, validateMaterialIds } from '@/src/utils/materialAccounting';
 
 function formatQuantity(value: number, unit: string) {
-    return `${new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 3 }).format(value)} ${unit}`;
+    return `${new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 4 }).format(value)} ${unit}`;
 }
 
 function formatDateTime(value: string | null | undefined) {
@@ -39,22 +40,26 @@ export default function TaskMaterialAccountingPanel({
     materialIds: string[];
     materialNames: string[];
 }) {
-    const { data: accounting, isLoading: isAccountingLoading } = useGetTaskMaterialAccountingQuery(taskId);
-    const { data: usages = [], isLoading: isUsagesLoading } = useGetTaskMaterialUsagesQuery(taskId);
+    const accountingQuery = useGetTaskMaterialAccountingQuery(taskId, { refetchOnMountOrArgChange: true });
+    const usagesQuery = useGetTaskMaterialUsagesQuery(taskId, { refetchOnMountOrArgChange: true });
+    const { data: accounting, isLoading: isAccountingLoading } = accountingQuery;
+    const { data: usages = [], isLoading: isUsagesLoading } = usagesQuery;
     const { data: materials = [] } = useGetMaterialsQuery();
     const [updateTaskMaterials, { isLoading: isSavingMaterials }] = useUpdateTaskMaterialsMutation();
     const [isEditing, setIsEditing] = useState(false);
     const [selectedIds, setSelectedIds] = useState(() => normalizeMaterialIds(materialIds));
+    const [saveError, setSaveError] = useState('');
     const materialError = validateMaterialIds(selectedIds);
     const usageGroups = useMemo(() => groupUsages(usages), [usages]);
 
     const saveMaterials = async () => {
         if (materialError) return;
+        setSaveError('');
         try {
             await updateTaskMaterials({ taskId, materialIds: normalizeMaterialIds(selectedIds) }).unwrap();
             setIsEditing(false);
         } catch (error) {
-            console.error('Task materials update failed:', error);
+            setSaveError(getApiErrorMessage(error, 'updateTaskMaterials'));
         }
     };
 
@@ -62,9 +67,9 @@ export default function TaskMaterialAccountingPanel({
         <section className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
             <div className="flex items-start justify-between gap-3">
                 <div>
-                    <h3 className="text-xs font-black uppercase tracking-widest text-slate-500">Материальный учёт</h3>
+                    <h3 className="text-xs font-black uppercase tracking-widest text-slate-500">Материалы</h3>
                     <p className="mt-1 text-xs text-slate-400">
-                        {accounting?.finalized ? `Расходы зафиксированы · ${formatDateTime(accounting.finalizedAt)}` : 'Предварительные данные'}
+                        {accounting?.finalized ? `Материалы списаны · ${formatDateTime(accounting.finalizedAt)}` : 'Предварительные данные'}
                     </p>
                 </div>
                 {!accounting?.finalized ? (
@@ -77,6 +82,28 @@ export default function TaskMaterialAccountingPanel({
             <div className="mt-3">
                 <MaterialChips materialNames={materialNames} />
             </div>
+
+            {accounting?.finalized ? (
+                <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs font-bold text-amber-900">
+                    Отчёт уже зафиксирован. Для корректировки обратитесь к администратору.
+                </p>
+            ) : null}
+
+            {accountingQuery.isError || usagesQuery.isError ? (
+                <div className="mt-3 rounded-xl border border-red-200 bg-red-50 p-3 text-xs font-bold text-red-800" role="alert">
+                    Не удалось загрузить план/факт или историю материалов.
+                    <button
+                        type="button"
+                        className="ml-2 underline"
+                        onClick={() => {
+                            void accountingQuery.refetch();
+                            void usagesQuery.refetch();
+                        }}
+                    >
+                        Повторить
+                    </button>
+                </div>
+            ) : null}
 
             {isEditing ? (
                 <div className="mt-3 rounded-xl border border-violet-100 bg-violet-50/40 p-3">
@@ -93,6 +120,7 @@ export default function TaskMaterialAccountingPanel({
                         })}
                     </div>
                     {materialError ? <p className="mt-2 text-xs font-semibold text-red-600">{materialError}</p> : null}
+                    {saveError ? <p className="mt-2 text-xs font-semibold text-red-600" role="alert">{saveError}</p> : null}
                     <button type="button" disabled={Boolean(materialError) || isSavingMaterials} onClick={() => void saveMaterials()} className="mt-3 rounded-lg bg-violet-600 px-4 py-2 text-xs font-black text-white disabled:bg-slate-300">
                         {isSavingMaterials ? 'Сохранение...' : 'Сохранить полный набор'}
                     </button>
@@ -100,6 +128,7 @@ export default function TaskMaterialAccountingPanel({
             ) : null}
 
             <div className="mt-4 overflow-x-auto">
+                <h4 className="mb-2 text-[10px] font-black uppercase tracking-widest text-slate-500">План/факт</h4>
                 {isAccountingLoading ? <p className="py-4 text-center text-xs text-slate-400">Загрузка план/факт...</p> : accounting?.items.length ? (
                     <table className="min-w-[1120px] w-full text-left text-[10px]">
                         <thead className="text-slate-400"><tr>{['Материал', 'План-норма', 'План-потери', 'План-всего', 'Выдано', 'Использовано', 'Факт-потери', 'Возврат', 'Итоговое списание', 'Отклонение', 'Себестоимость'].map((label) => <th key={label} className="border-b border-slate-200 px-2 py-2 font-black uppercase">{label}</th>)}</tr></thead>

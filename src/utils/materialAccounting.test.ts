@@ -51,13 +51,15 @@ describe('поэтапный материальный отчёт', () => {
         expect(validateMaterialUsages([{ ...balancedUsage, returnedQuantity: 1 }])).toContain('равняться');
         expect(validateMaterialUsages([{ ...balancedUsage, issuedQuantity: -1 }])).toContain('неотрицательными');
         expect(validateMaterialUsages([balancedUsage, balancedUsage])).toContain('дважды');
+        expect(validateMaterialUsages([{ ...balancedUsage, note: '' }])).toContain('причину потерь');
     });
 
-    it('различает обязательный и необязательный отчёт и read-only после финализации', () => {
+    it('требует ненулевой отчёт и запрещает ввод после финализации', () => {
         const zero = { ...balancedUsage, issuedQuantity: 0, consumedQuantity: 0, wasteQuantity: 0, returnedQuantity: 0 };
-        expect(canSubmitMaterialTransition({ usages: [zero], materialReportRequired: true, finalized: false })).toBe(false);
-        expect(canSubmitMaterialTransition({ usages: [zero], materialReportRequired: false, finalized: false })).toBe(true);
-        expect(canSubmitMaterialTransition({ usages: [balancedUsage], materialReportRequired: true, finalized: true })).toBe(false);
+        expect(canSubmitMaterialTransition({ usages: [zero], finalized: false })).toBe(false);
+        expect(canSubmitMaterialTransition({ usages: [], finalized: false })).toBe(false);
+        expect(canSubmitMaterialTransition({ usages: [balancedUsage], finalized: true })).toBe(false);
+        expect(canSubmitMaterialTransition({ usages: [balancedUsage], finalized: false })).toBe(true);
     });
 
     it('ограничивает внеплановую номенклатуру флагом workflow', () => {

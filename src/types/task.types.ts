@@ -460,6 +460,7 @@ export type MaterialPlanItem = {
     remainingStandardQuantity: number;
     remainingWasteQuantity: number;
     remainingReservedQuantity: number;
+    wasteLimitPercent?: number | null;
 };
 
 export type MaterialUsageRequest = {
@@ -496,6 +497,8 @@ export type MaterialAccountingItem = {
     actualWriteOffQuantity: number;
     varianceQuantity: number;
     finalizedCost: number;
+    remainingReservedQuantity?: number;
+    wasteLimitPercent?: number | null;
 };
 
 export type MaterialAccounting = {
