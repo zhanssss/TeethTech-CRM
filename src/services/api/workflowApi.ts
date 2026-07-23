@@ -9,13 +9,12 @@ import {
     UpsertOrderStatusRequest,
     WorkflowStatus,
     WorkflowStep,
-    WorkflowTransition,
 } from '@/src/types/workflow.types';
 
 export const workflowApi = teethTechApi.injectEndpoints({
     endpoints: (builder) => ({
         getAvailableWorkflowTransitions: builder.query<
-            WorkflowTransition[],
+            WorkflowStatus[],
             GetAvailableWorkflowTransitionsArgs
         >({
             query: ({ workType, currentStatusId }) => ({

@@ -98,17 +98,13 @@ function MoveTaskButton({ task }: { task: EmployeeKanbanTask }) {
             <button
                 type="button"
                 onClick={() => setIsOpen(true)}
-                disabled={!task.currentStatusId || !task.workTypeCode}
                 className="inline-flex min-h-9 w-full items-center justify-center rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-4 py-2 text-xs font-black text-white shadow-lg shadow-violet-500/20 transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:translate-y-0 disabled:bg-slate-300"
             >
                 Завершить этап <span aria-hidden="true" className="ml-2">→</span>
             </button>
-            {isOpen && task.currentStatusId ? (
+            {isOpen ? (
                 <TaskMaterialTransitionModal
                     taskId={task.id}
-                    workTypeId={task.workTypeId}
-                    workTypeCode={task.workTypeCode}
-                    currentStatusId={task.currentStatusId}
                     nextStatusId={nextStatusId}
                     defaultComment={`Завершён этап: ${task.currentStatusFormName || task.currentStatusCode}`}
                     onClose={() => setIsOpen(false)}

@@ -12,8 +12,6 @@ import {
 } from '@/src/services/api/ordersApi';
 import { useGetNomenclatureQuery } from '@/src/services/api/warehouseApi';
 import {
-    useGetAdminWorkflowStepsQuery,
-    useGetAvailableWorkflowTransitionsQuery,
     useGetWorkflowStatusesQuery,
 } from '@/src/services/api/workflowApi';
 import type {
@@ -224,9 +222,6 @@ function QuantityInput({
 
 export default function TaskMaterialTransitionModal({
     taskId,
-    workTypeId,
-    workTypeCode,
-    currentStatusId,
     nextStatusId,
     assignedUserId,
     defaultComment = '',
@@ -234,9 +229,6 @@ export default function TaskMaterialTransitionModal({
     onSuccess,
 }: {
     taskId: string;
-    workTypeId?: string;
-    workTypeCode: string;
-    currentStatusId: string;
     nextStatusId: string;
     assignedUserId?: string;
     defaultComment?: string;
@@ -260,37 +252,21 @@ export default function TaskMaterialTransitionModal({
     const accountingQuery = useGetTaskMaterialAccountingQuery(taskId, {
         refetchOnMountOrArgChange: true,
     });
-    const transitionsQuery = useGetAvailableWorkflowTransitionsQuery(
-        { workType: workTypeCode, currentStatusId },
-        { skip: !workTypeCode || !currentStatusId, refetchOnMountOrArgChange: true }
-    );
-    const stepsQuery = useGetAdminWorkflowStepsQuery(
-        { workTypeId: workTypeId ?? '' },
-        { skip: !workTypeId, refetchOnMountOrArgChange: true }
-    );
-    const statusesQuery = useGetWorkflowStatusesQuery(undefined, {
-        refetchOnMountOrArgChange: true,
-    });
+    const statusesQuery = useGetWorkflowStatusesQuery();
     const [updateTaskStatus, { isLoading: isSubmitting }] = useUpdateTaskStatusMutation();
 
     const plan = useMemo(() => planQuery.data ?? [], [planQuery.data]);
     const usages = useMemo(() => usagesQuery.data ?? [], [usagesQuery.data]);
     const accounting = accountingQuery.data;
-    const transitions = useMemo(
-        () => transitionsQuery.data ?? [],
-        [transitionsQuery.data]
-    );
-    const steps = useMemo(() => stepsQuery.data ?? [], [stepsQuery.data]);
     const statuses = useMemo(() => statusesQuery.data ?? [], [statusesQuery.data]);
-    const workflowStep = steps.find(
-        (step) => step.fromStatusId === currentStatusId && step.toStatusId === nextStatusId
-    ) ?? transitions.find(
-        (transition) => transition.toStatusId === nextStatusId || transition.id === nextStatusId
-    );
     const isTerminal = statuses.some(
         (status) => status.id === nextStatusId && status.terminal
     );
-    const allowUnplannedMaterials = workflowStep?.allowUnplannedMaterials === true;
+    // The employee kanban already returns role-filtered allowedNextStatusIds.
+    // The public transition endpoint returns only OrderStatus objects and does
+    // not expose workflow material flags, so it cannot validate this modal.
+    const allowUnplannedMaterials = false;
+    const materialReportRequired = false;
     const nomenclatureQuery = useGetNomenclatureQuery(
         { activeOnly: true, page: 0, size: 200, sort: 'name,ASC' },
         { skip: !allowUnplannedMaterials }
@@ -306,12 +282,8 @@ export default function TaskMaterialTransitionModal({
     const hasLoadError = planQuery.isError
         || usagesQuery.isError
         || accountingQuery.isError
-        || transitionsQuery.isError
-        || stepsQuery.isError
         || statusesQuery.isError;
-    const isWorkflowLoading = transitionsQuery.isLoading
-        || stepsQuery.isLoading
-        || statusesQuery.isLoading;
+    const isWorkflowLoading = statusesQuery.isLoading;
     const baseRows = useMemo(() => {
         const accountingById = new Map(
             accounting?.items.map((item) => [item.nomenclatureId, item]) ?? []
@@ -333,11 +305,10 @@ export default function TaskMaterialTransitionModal({
     const formError = duplicateIds
         ? 'Одна номенклатура не может быть добавлена в отчёт дважды.'
         : rowErrors.find(Boolean) ?? '';
-    const canReview = Boolean(workflowStep)
-        && rows.length > 0
+    const canReview = (!materialReportRequired || rows.length > 0)
         && !accounting?.finalized
         && !formError
-        && measurementConfirmed
+        && (rows.length === 0 || measurementConfirmed)
         && !isReportLoading
         && !isWorkflowLoading
         && !hasLoadError;
@@ -402,8 +373,6 @@ export default function TaskMaterialTransitionModal({
         void planQuery.refetch();
         void usagesQuery.refetch();
         void accountingQuery.refetch();
-        void transitionsQuery.refetch();
-        if (!stepsQuery.isUninitialized) void stepsQuery.refetch();
         void statusesQuery.refetch();
     };
 
@@ -420,10 +389,12 @@ export default function TaskMaterialTransitionModal({
                 taskId,
                 body: {
                     nextStatusId,
-                    assignedUserId: assignedUserId ?? null,
+                    ...(assignedUserId ? { assignedUserId } : {}),
                     ...(comment.trim() ? { comment: comment.trim() } : {}),
-                    materialReportId,
-                    materialUsages: rows.map(toUsage),
+                    ...(rows.length > 0 || materialReportRequired ? {
+                        materialReportId,
+                        materialUsages: rows.map(toUsage),
+                    } : {}),
                 },
                 notification: { error: false },
             }).unwrap();
@@ -640,8 +611,14 @@ export default function TaskMaterialTransitionModal({
                                 })}
                             </div>
                         ) : (
-                            <p className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm font-bold text-amber-800">
-                                В материальном плане нет номенклатуры. Отчёт и переход заблокированы.
+                            <p className={`rounded-xl border p-4 text-sm font-bold ${
+                                materialReportRequired
+                                    ? 'border-amber-200 bg-amber-50 text-amber-800'
+                                    : 'border-slate-200 bg-slate-50 text-slate-600'
+                            }`}>
+                                {materialReportRequired
+                                    ? 'В материальном плане нет номенклатуры. Для этого перехода отчёт обязателен.'
+                                    : 'В материальном плане нет номенклатуры. Для этого перехода материальный отчёт не требуется.'}
                             </p>
                         )}
 
@@ -651,18 +628,20 @@ export default function TaskMaterialTransitionModal({
                             </p>
                         ) : null}
 
-                        <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-xl border border-violet-200 bg-violet-50 p-4">
-                            <input
-                                type="checkbox"
-                                checked={measurementConfirmed}
-                                onChange={(event) => setMeasurementConfirmed(event.target.checked)}
-                                disabled={Boolean(accounting?.finalized)}
-                                className="mt-0.5 h-4 w-4 accent-violet-600"
-                            />
-                            <span className="text-sm font-bold text-slate-800">
-                                Я сверил количество материала и подтверждаю фактический расход, потери и возврат.
-                            </span>
-                        </label>
+                        {rows.length > 0 ? (
+                            <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-xl border border-violet-200 bg-violet-50 p-4">
+                                <input
+                                    type="checkbox"
+                                    checked={measurementConfirmed}
+                                    onChange={(event) => setMeasurementConfirmed(event.target.checked)}
+                                    disabled={Boolean(accounting?.finalized)}
+                                    className="mt-0.5 h-4 w-4 accent-violet-600"
+                                />
+                                <span className="text-sm font-bold text-slate-800">
+                                    Я сверил количество материала и подтверждаю фактический расход, потери и возврат.
+                                </span>
+                            </label>
+                        ) : null}
 
                         <label className="mt-4 block">
                             <span className="mb-1 block text-xs font-bold text-slate-500">
@@ -678,33 +657,37 @@ export default function TaskMaterialTransitionModal({
                 ) : (
                     <>
                         <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm font-bold text-emerald-900">
-                            Фактическое измерение подтверждено. Проверьте сводку: после успешного перехода отчёт нельзя будет изменить или отменить.
+                            {rows.length > 0
+                                ? 'Фактическое измерение подтверждено. Проверьте сводку: после успешного перехода отчёт нельзя будет изменить или отменить.'
+                                : 'Материальный отчёт для этого перехода не требуется. Проверьте комментарий перед отправкой.'}
                         </div>
-                        <div className="mt-4 overflow-x-auto rounded-xl border border-slate-200">
-                            <table className="min-w-[760px] w-full text-left text-xs">
-                                <thead className="bg-slate-50 text-[10px] uppercase tracking-wide text-slate-500">
-                                    <tr>
-                                        {['Материал', 'Выдано', 'Использовано', 'Потери', 'Возвращено'].map((label) => (
-                                            <th key={label} className="px-3 py-3 font-black">{label}</th>
-                                        ))}
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {rows.map((row) => (
-                                        <tr key={row.key} className="border-t border-slate-100">
-                                            <td className="px-3 py-3 font-black text-slate-800">
-                                                {row.nomenclatureName}
-                                            </td>
-                                            {QUANTITY_FIELDS.map((field) => (
-                                                <td key={field} className="px-3 py-3">
-                                                    {formatQuantity(parseQuantity(row[field]) ?? 0)} {row.unit}
-                                                </td>
+                        {rows.length > 0 ? (
+                            <div className="mt-4 overflow-x-auto rounded-xl border border-slate-200">
+                                <table className="min-w-[760px] w-full text-left text-xs">
+                                    <thead className="bg-slate-50 text-[10px] uppercase tracking-wide text-slate-500">
+                                        <tr>
+                                            {['Материал', 'Выдано', 'Использовано', 'Потери', 'Возвращено'].map((label) => (
+                                                <th key={label} className="px-3 py-3 font-black">{label}</th>
                                             ))}
                                         </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
+                                    </thead>
+                                    <tbody>
+                                        {rows.map((row) => (
+                                            <tr key={row.key} className="border-t border-slate-100">
+                                                <td className="px-3 py-3 font-black text-slate-800">
+                                                    {row.nomenclatureName}
+                                                </td>
+                                                {QUANTITY_FIELDS.map((field) => (
+                                                    <td key={field} className="px-3 py-3">
+                                                        {formatQuantity(parseQuantity(row[field]) ?? 0)} {row.unit}
+                                                    </td>
+                                                ))}
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        ) : null}
                         {rows.map((row) => {
                             const warning = getWasteWarning(row);
                             return warning ? (

@@ -238,8 +238,8 @@ function CompleteTaskButton({
     }
 
     return <>
-        <button type="button" disabled={!task.currentStatusId || !task.workTypeCode} onClick={() => setIsOpen(true)} className="w-full rounded-lg bg-slate-900 px-3 py-2.5 text-xs font-black text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-300">Завершить задачу</button>
-        {isOpen && closedStatusId && task.currentStatusId ? <TaskMaterialTransitionModal taskId={task.id} workTypeId={task.workTypeId} workTypeCode={task.workTypeCode} currentStatusId={task.currentStatusId} nextStatusId={closedStatusId} defaultComment="Финальная проверка завершена" onClose={() => setIsOpen(false)} /> : null}
+        <button type="button" onClick={() => setIsOpen(true)} className="w-full rounded-lg bg-slate-900 px-3 py-2.5 text-xs font-black text-white transition hover:bg-slate-700">Завершить задачу</button>
+        {isOpen && closedStatusId ? <TaskMaterialTransitionModal taskId={task.id} nextStatusId={closedStatusId} defaultComment="Финальная проверка завершена" onClose={() => setIsOpen(false)} /> : null}
     </>;
 }
 
@@ -280,15 +280,16 @@ function StartTaskButton({
     const nextAssignee = assignment?.statusAssignees.find(
         (assignee) => assignee.statusId === nextStatusId
     ) ?? (!task.allowedNextStatusIds?.length && !nextColumnStatusId ? fallbackAssignee : undefined);
+    const isAutoAssignment = assignment?.assignmentMode === 'AUTO';
     const isStarting = isAssigning || isUpdatingStatus;
 
     const handleStart = async () => {
-        if (!nextStatusId || !nextAssignee?.userId) return;
+        if (!nextStatusId || (!isAutoAssignment && !nextAssignee?.userId)) return;
 
         let isAssigned = hasAssignedForStart;
 
         try {
-            if (!isAssigned) {
+            if (!isAutoAssignment && !isAssigned && nextAssignee?.userId) {
                 await assignTask({
                     taskId: task.id,
                     userId: nextAssignee.userId,
@@ -312,10 +313,13 @@ function StartTaskButton({
         } catch (error) {
             console.error('Task start failed:', error);
             notifyError(
-                isAssigned
+                !isAutoAssignment && isAssigned
                     ? 'Исполнитель назначен, но статус задачи не изменился. Повторный запуск продолжит с этого шага.'
-                    : getApiErrorMessage(error, 'assignTask'),
-                {duration: isAssigned ? 9000 : undefined}
+                    : getApiErrorMessage(
+                        error,
+                        isAutoAssignment ? 'updateTaskStatus' : 'assignTask'
+                    ),
+                {duration: !isAutoAssignment && isAssigned ? 9000 : undefined}
             );
         }
     };
@@ -348,7 +352,7 @@ function StartTaskButton({
         );
     }
 
-    if (!nextAssignee?.userId) {
+    if (!isAutoAssignment && !nextAssignee?.userId) {
         return (
             <button
                 type="button"
@@ -371,7 +375,9 @@ function StartTaskButton({
                 {isStarting ? 'Запускаем...' : 'Начать задачу'}
             </button>
             <p className="truncate text-center text-[10px] font-semibold text-slate-500">
-                Следующий ответственный: {nextAssignee.userFullName || nextAssignee.userId}
+                {isAutoAssignment
+                    ? 'Сотрудник будет назначен автоматически по наименьшей загрузке'
+                    : `Следующий ответственный: ${nextAssignee?.userFullName || nextAssignee?.userId}`}
             </p>
         </div>
     );
@@ -508,7 +514,7 @@ export default function OrderBoardPage() {
                 isUsersLoading={isUsersLoading}
                 canAssignTasks={canAssignTasks}
                 closedStatus={closedStatus}
-                isClosedStatusLoading={isWorkflowStatusesLoading || isWorkflowStatusesFetching}
+                isClosedStatusLoading={isWorkflowStatusesLoading}
             />
         );
     }
