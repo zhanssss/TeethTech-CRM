@@ -42,6 +42,12 @@ type CreateOrderMutationArgs = CreateOrderDto & WithNotificationOptions;
 type UpdateTaskStatusMutationArgs = UpdateTaskStatusArgs & WithNotificationOptions;
 type AssignTaskMutationArgs = AssignTaskArgs & WithNotificationOptions;
 
+export function buildUpdateTaskMaterialsBody(materialIds: string[]) {
+    return {
+        materialIds: Array.from(new Set(materialIds.map((id) => id.trim()).filter(Boolean))),
+    };
+}
+
 export function buildCreateOrderBody(body: CreateOrderDto): CreateOrderRequest {
     return {
         ...body,
@@ -161,14 +167,16 @@ export const ordersApi = teethTechApi.injectEndpoints({
 
         updateTaskMaterials: builder.mutation<void, UpdateTaskMaterialsArgs>({
             query: ({ taskId, materialIds }) => ({
-                url: `/tasks/${taskId}`,
+                url: `/tasks/${taskId}/materials`,
                 method: 'PATCH',
-                body: { materialIds: Array.from(new Set(materialIds)) },
+                body: buildUpdateTaskMaterialsBody(materialIds),
             }),
-            invalidatesTags: (_result, _error, { taskId }) => [
+            invalidatesTags: (_result, error, { taskId }) => error ? [] : [
+                'Orders',
                 'Tasks',
                 'OrderKanban',
                 { type: 'TaskMaterialPlan', id: taskId },
+                { type: 'TaskMaterialAccounting', id: taskId },
                 { type: 'TaskHistory', id: taskId },
             ],
         }),

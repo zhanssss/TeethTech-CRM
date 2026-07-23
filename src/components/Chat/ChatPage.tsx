@@ -15,6 +15,7 @@ import { useDispatch, useSelector } from 'react-redux'
 
 import ErrorState from '@/src/components/ui/ErrorState'
 import Modal from '@/src/components/ui/Modal'
+import ConfirmDialog from '@/src/components/ui/ConfirmDialog'
 import {
 	appendMessage,
 	appendMessages,
@@ -135,6 +136,8 @@ export default function ChatPage() {
 	const [forwardSearch, setForwardSearch] = useState('')
 	const [isForwarding, setIsForwarding] = useState(false)
 	const [deletingMessageId, setDeletingMessageId] = useState<string | null>(null)
+	const [memberToRemove, setMemberToRemove] = useState<string | null>(null)
+	const [messageToDelete, setMessageToDelete] = useState<ChatMessageDto | null>(null)
 	const messageListRef = useRef<HTMLDivElement | null>(null)
 	const composerRef = useRef<HTMLTextAreaElement | null>(null)
 	const contextMenuRef = useRef<HTMLDivElement | null>(null)
@@ -587,7 +590,6 @@ export default function ChatPage() {
 
 	const handleRemoveMember = async (memberId: string) => {
 		if (!activeConversationId) return
-		if (!window.confirm('Удалить участника из группы?')) return
 		try {
 			await removeChatMember({
 				conversationId: activeConversationId,
@@ -595,6 +597,7 @@ export default function ChatPage() {
 			}).unwrap()
 			await loadMembers(activeConversationId)
 			notifySuccess('Участник удалён')
+			setMemberToRemove(null)
 		} catch {
 			notifyError('Не удалось удалить участника')
 		}
@@ -740,7 +743,6 @@ export default function ChatPage() {
 			return
 		}
 		setMessageContextMenu(null)
-		if (!window.confirm('Удалить сообщение? Это действие нельзя отменить.')) return
 
 		setDeletingMessageId(message.id)
 		try {
@@ -756,6 +758,7 @@ export default function ChatPage() {
 			)
 			if (replyToId === message.id) setReplyToId(null)
 			notifySuccess('Сообщение удалено')
+			setMessageToDelete(null)
 		} catch {
 			notifyError('Не удалось удалить сообщение')
 		} finally {
@@ -1189,7 +1192,10 @@ export default function ChatPage() {
 							<button
 								type="button"
 								role="menuitem"
-								onClick={() => void handleDeleteMessage(contextMessage)}
+								onClick={() => {
+									setMessageContextMenu(null)
+									setMessageToDelete(contextMessage)
+								}}
 								disabled={deletingMessageId === contextMessage.id}
 								className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left font-medium text-red-600 hover:bg-red-50 focus:bg-red-50 focus:outline-none disabled:opacity-50"
 							>
@@ -1388,7 +1394,7 @@ export default function ChatPage() {
 									{currentUserCanManageGroup && member.role !== 'OWNER' ? (
 										<button
 											type="button"
-											onClick={() => void handleRemoveMember(member.userId)}
+											onClick={() => setMemberToRemove(member.userId)}
 											className="rounded-xl bg-red-50 px-3 py-2 text-xs font-bold text-red-600 transition hover:bg-red-100 dark:bg-red-500/10"
 										>
 											Удалить
@@ -1466,6 +1472,23 @@ export default function ChatPage() {
 					</div>
 				</Modal>
 			) : null}
+			<ConfirmDialog
+				open={messageToDelete !== null}
+				title="Удалить сообщение?"
+				description="Сообщение исчезнет у всех участников. Это действие нельзя отменить."
+				confirmLabel="Удалить сообщение"
+				isLoading={deletingMessageId !== null}
+				onClose={() => setMessageToDelete(null)}
+				onConfirm={() => messageToDelete ? handleDeleteMessage(messageToDelete) : undefined}
+			/>
+			<ConfirmDialog
+				open={memberToRemove !== null}
+				title="Удалить участника?"
+				description="Участник потеряет доступ к этой группе и её новым сообщениям."
+				confirmLabel="Удалить из группы"
+				onClose={() => setMemberToRemove(null)}
+				onConfirm={() => memberToRemove ? handleRemoveMember(memberToRemove) : undefined}
+			/>
 		</div>
 	)
 }

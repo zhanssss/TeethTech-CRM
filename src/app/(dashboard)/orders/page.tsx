@@ -25,6 +25,7 @@ import {
 import { useNotifications } from '@/src/features/notifications/useNotifications';
 import { getApiErrorMessage } from '@/src/services/apiNotifications';
 import QueryErrorNotice from '@/src/components/ui/QueryErrorNotice';
+import ConfirmDialog from '@/src/components/ui/ConfirmDialog';
 
 const DEFAULT_ORDER_SORT = 'deadline,ASC';
 const DEFAULT_PAGE_SIZE = 10;
@@ -245,6 +246,7 @@ export default function OrdersPage() {
     const [abortMultipartUpload] = useAbortMultipartTaskFileUploadMutation();
 
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [orderToDelete, setOrderToDelete] = useState<OrderListItem | null>(null);
     const [isUploadingOrderFiles, setIsUploadingOrderFiles] = useState(false);
     const [search, setSearch] = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
@@ -353,12 +355,11 @@ export default function OrdersPage() {
         }
     };
 
-    const handleDeleteOrder = async (orderId: string) => {
-        const shouldDelete = window.confirm('Удалить заказ?');
-        if (!shouldDelete) return;
-
+    const handleDeleteOrder = async () => {
+        if (!orderToDelete) return;
         try {
-            await deleteOrder(orderId).unwrap();
+            await deleteOrder(orderToDelete.id).unwrap();
+            setOrderToDelete(null);
         } catch (error) {
             console.error('Ошибка удаления заказа:', error);
         }
@@ -542,7 +543,7 @@ export default function OrdersPage() {
                                         <button
                                             type="button"
                                             disabled={isDeletingOrder}
-                                            onClick={() => handleDeleteOrder(order.id)}
+                                            onClick={() => setOrderToDelete(order)}
                                             className="text-red-600 hover:bg-red-600 hover:text-white border border-red-600 px-3 py-1.5 rounded-lg text-xs font-bold transition disabled:cursor-not-allowed disabled:opacity-50"
                                         >
                                             Удалить
@@ -569,6 +570,15 @@ export default function OrdersPage() {
                 isSubmitting={isCreatingOrder || isUploadingOrderFiles}
                 onClose={() => setIsModalOpen(false)}
                 onSubmit={handleCreateOrder}
+            />
+            <ConfirmDialog
+                open={orderToDelete !== null}
+                title="Удалить заказ?"
+                description={<>Заказ <strong className="font-semibold text-slate-700 dark:text-slate-200">№{orderToDelete?.orderNumber ?? orderToDelete?.id}</strong>{orderToDelete?.patient ? ` · ${orderToDelete.patient}` : ''} и связанные с ним данные будут удалены.</>}
+                confirmLabel="Удалить заказ"
+                isLoading={isDeletingOrder}
+                onClose={() => setOrderToDelete(null)}
+                onConfirm={handleDeleteOrder}
             />
         </div>
     );

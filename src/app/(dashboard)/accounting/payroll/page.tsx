@@ -333,7 +333,7 @@ function RuleEditor({
                         <select className={inputClass} value={draft.statusId} onChange={(e) => update('statusId', e.target.value)}>
                             <option value="">Любой этап</option>
                             {statusesQuery.data?.map((status) => (
-                                <option key={status.id} value={status.id}>{status.name}</option>
+                                <option key={status.id} value={status.id}>{status.code} — {status.name}</option>
                             ))}
                         </select>
                         {statusesQuery.isFetching && <span className="mt-1 block text-xs text-slate-400">Загрузка этапов…</span>}
@@ -344,7 +344,7 @@ function RuleEditor({
                         <select className={inputClass} value={draft.workTypeId} onChange={(e) => update('workTypeId', e.target.value)}>
                             <option value="">Любой вид работы</option>
                             {workTypesQuery.data?.map((workType) => (
-                                <option key={workType.id} value={workType.id}>{workType.name}</option>
+                                <option key={workType.id} value={workType.id}>{workType.code} — {workType.name}</option>
                             ))}
                         </select>
                         {workTypesQuery.isFetching && <span className="mt-1 block text-xs text-slate-400">Загрузка видов работ…</span>}
@@ -439,6 +439,7 @@ export default function FlexiblePayrollPage() {
         [auth.role, auth.roles]
     );
     const canEdit = normalizedRoles.some((role) => ['ADMIN', 'FINANCIER'].includes(role));
+    const [activeSection, setActiveSection] = useState<'calculate' | 'settings'>('calculate');
 
     const employeesQuery = useGetSalaryEmployeesQuery();
     const [selectedEmployeeChoice, setSelectedEmployeeChoice] = useState('');
@@ -446,6 +447,8 @@ export default function FlexiblePayrollPage() {
         selectedEmployeeChoice || employeesQuery.data?.[0]?.id || '';
     const selectedEmployee = employeesQuery.data?.find((employee) => employee.id === selectedEmployeeId);
     const planQuery = useGetSalaryPlanQuery(selectedEmployeeId, { skip: !selectedEmployeeId });
+    const statusesQuery = useGetOrderStatusesQuery();
+    const workTypesQuery = useGetWorkTypesQuery();
     const planNotFound = getErrorStatus(planQuery.error) === 404;
     const [planDraft, setPlanDraft] = useState<PlanDraft>(emptyPlan);
     const [planError, setPlanError] = useState('');
@@ -480,6 +483,14 @@ export default function FlexiblePayrollPage() {
     }, [planNotFound, planQuery.data]);
 
     const rules = useMemo(() => planQuery.data?.rules ?? [], [planQuery.data?.rules]);
+    const statusesById = useMemo(
+        () => new Map(statusesQuery.data?.map((status) => [status.id, status]) ?? []),
+        [statusesQuery.data]
+    );
+    const workTypesById = useMemo(
+        () => new Map(workTypesQuery.data?.map((workType) => [workType.id, workType]) ?? []),
+        [workTypesQuery.data]
+    );
     const duplicateKeys = useMemo(() => {
         const counts = new Map<string, number>();
         rules.filter((rule) => rule.active).forEach((rule) => {
@@ -590,18 +601,50 @@ export default function FlexiblePayrollPage() {
 
     return (
         <div className="mx-auto w-full max-w-[1550px] space-y-6 pb-10">
-            <header className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-                <p className="text-xs font-black uppercase tracking-[0.18em] text-blue-600">Финансы</p>
-                <h1 className="mt-1 text-3xl font-black text-slate-950 dark:text-white">Зарплатные планы</h1>
-                <p className="mt-2 max-w-3xl text-sm text-slate-500">
-                    Гибкие правила оплаты этапов, лимиты выплат и предварительный расчёт ведомости
-                </p>
+            <header className="overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+                <div className="flex flex-col gap-4 p-6 lg:flex-row lg:items-center lg:justify-between">
+                    <div>
+                        <p className="text-xs font-black uppercase tracking-[0.18em] text-violet-600">Зарплата сотрудников</p>
+                        <h1 className="mt-1 text-3xl font-black text-slate-950 dark:text-white">Расчёт и зарплатные планы</h1>
+                        <p className="mt-2 max-w-3xl text-sm text-slate-500">
+                            Сначала проверьте расчёт, затем сформируйте ведомость. Настройки плана изменяются отдельно.
+                        </p>
+                    </div>
+                    <div className="flex rounded-2xl border border-slate-200 bg-slate-50 p-1.5">
+                        <button
+                            type="button"
+                            onClick={() => setActiveSection('calculate')}
+                            className={`rounded-xl px-4 py-2.5 text-sm font-black transition ${activeSection === 'calculate' ? 'bg-violet-600 text-white shadow-md shadow-violet-200' : 'text-slate-500 hover:text-slate-800'}`}
+                        >
+                            Рассчитать зарплату
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setActiveSection('settings')}
+                            className={`rounded-xl px-4 py-2.5 text-sm font-black transition ${activeSection === 'settings' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
+                        >
+                            Настройка плана
+                        </button>
+                    </div>
+                </div>
+                <div className="grid grid-cols-3 border-t border-slate-100 bg-slate-50/70">
+                    {[
+                        ['1', 'Выберите сотрудника'],
+                        ['2', activeSection === 'calculate' ? 'Укажите период' : 'Настройте оплату'],
+                        ['3', activeSection === 'calculate' ? 'Проверьте и сформируйте' : 'Сохраните план'],
+                    ].map(([number, label]) => (
+                        <div key={number} className="flex items-center justify-center gap-2 border-r border-slate-100 px-2 py-3 last:border-r-0">
+                            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-violet-100 text-[10px] font-black text-violet-700">{number}</span>
+                            <span className="hidden text-xs font-bold text-slate-600 sm:block">{label}</span>
+                        </div>
+                    ))}
+                </div>
             </header>
 
-            <section className="rounded-[22px] border border-slate-200 bg-white p-5 shadow-sm">
+            <section className="rounded-[22px] border border-violet-200 bg-gradient-to-r from-violet-50 to-white p-5 shadow-sm">
                 <div className="grid gap-4 lg:grid-cols-[1fr_auto] lg:items-end">
                     <label>
-                        <Label>Сотрудник</Label>
+                        <Label>1. Для кого считаем зарплату</Label>
                         <select
                             className={inputClass}
                             value={selectedEmployeeId}
@@ -616,22 +659,29 @@ export default function FlexiblePayrollPage() {
                             ))}
                         </select>
                     </label>
-                    <div className="text-sm text-slate-500 lg:pb-3">
-                        {selectedEmployee?.email}
+                    <div className="rounded-xl bg-white px-4 py-3 text-sm text-slate-500 shadow-sm">
+                        <span className="text-xs font-bold text-slate-400">Учётная запись</span>
+                        <p className="mt-0.5 font-semibold text-slate-700">{selectedEmployee?.email || 'Не выбрана'}</p>
                     </div>
                 </div>
                 {employeesQuery.isFetching && <div className="mt-4"><StateNotice tone="loading">Загрузка сотрудников…</StateNotice></div>}
                 {employeesQuery.isError && <div className="mt-4"><StateNotice tone="error">{getLocalError(employeesQuery.error, 'Не удалось загрузить сотрудников')}</StateNotice></div>}
                 {!employeesQuery.isFetching && !employeesQuery.isError && employeesQuery.data?.length === 0 && (
-                    <div className="mt-4"><StateNotice tone="empty">Backend не вернул доступных для просмотра сотрудников.</StateNotice></div>
+                    <div className="mt-4"><StateNotice tone="empty">Нет сотрудников, доступных для расчёта зарплаты.</StateNotice></div>
                 )}
             </section>
+
+            {activeSection === 'settings' && <>
+            <div className="rounded-2xl border border-blue-200 bg-blue-50 p-4">
+                <p className="text-sm font-black text-blue-900">Настройки меняют будущие расчёты</p>
+                <p className="mt-1 text-xs leading-5 text-blue-700">Здесь задаются оклад, ограничения и правила оплаты отдельных работ. Не изменяйте действующий план посреди закрываемого периода без согласования.</p>
+            </div>
 
             <form onSubmit={handleSavePlan} className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
                         <h2 className="text-lg font-black text-slate-900">План сотрудника</h2>
-                        <p className="mt-1 text-sm text-slate-500">Оклад, лимит выплаты и период действия</p>
+                        <p className="mt-1 text-sm text-slate-500">Шаг 2 · Основная сумма, ограничения и срок действия</p>
                     </div>
                     {planQuery.data && (
                         <span className={`rounded-full px-3 py-1 text-xs font-bold ${planQuery.data.active ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>
@@ -706,12 +756,12 @@ export default function FlexiblePayrollPage() {
             <section className="overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-sm">
                 <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 p-5">
                     <div>
-                        <h2 className="text-lg font-black text-slate-900">Правила этапов</h2>
-                        <p className="mt-1 text-sm text-slate-500">Backend применяет самое конкретное подходящее правило</p>
+                        <h2 className="text-lg font-black text-slate-900">Доплаты за работы</h2>
+                        <p className="mt-1 text-sm text-slate-500">Укажите, за какую завершённую работу сотрудник получает дополнительную оплату</p>
                     </div>
                     {canEdit && planQuery.data && (
                         <button type="button" onClick={() => setEditingRule(null)} className="min-h-10 rounded-xl bg-blue-600 px-4 text-sm font-bold text-white hover:bg-blue-700">
-                            Добавить правило
+                            Добавить доплату
                         </button>
                     )}
                 </div>
@@ -722,14 +772,14 @@ export default function FlexiblePayrollPage() {
                 {duplicateKeys.size > 0 && (
                     <div className="p-5 pb-0">
                         <StateNotice tone="info">
-                            Найдены активные правила с одинаковыми этапом, видом работы, периодом и приоритетом. Уточните конфигурацию, чтобы избежать неоднозначности.
+                            Найдены одинаковые активные правила. Одна работа может быть посчитана неоднозначно — проверьте выделенные строки.
                         </StateNotice>
                     </div>
                 )}
                 {ruleError && <div className="p-5 pb-0"><StateNotice tone="error">{ruleError}</StateNotice></div>}
 
                 {planQuery.data && rules.length === 0 && (
-                    <div className="p-8"><StateNotice tone="empty">Для этого плана пока нет правил этапов.</StateNotice></div>
+                    <div className="p-8"><StateNotice tone="empty">Доплаты пока не настроены. Сотрудник получит только фиксированную часть плана.</StateNotice></div>
                 )}
                 {rules.length > 0 && (
                     <div className="overflow-x-auto">
@@ -750,8 +800,22 @@ export default function FlexiblePayrollPage() {
                                                 <div className="font-bold text-slate-800">{rule.name}</div>
                                                 {duplicate && <span className="mt-1 inline-block text-xs font-semibold text-amber-700">Неоднозначное правило</span>}
                                             </td>
-                                            <td className="p-4 text-sm text-slate-600">{rule.statusName || (rule.statusId ? rule.statusId : 'Любой этап')}</td>
-                                            <td className="p-4 text-sm text-slate-600">{rule.workTypeName || (rule.workTypeId ? rule.workTypeId : 'Любой вид')}</td>
+                                            <td className="p-4">
+                                                {rule.statusId ? (
+                                                    <div>
+                                                        <span className="rounded-md bg-blue-50 px-2 py-1 text-[10px] font-black uppercase text-blue-700">{statusesById.get(rule.statusId)?.code || 'Код не найден'}</span>
+                                                        <p className="mt-1.5 text-xs font-semibold text-slate-600">{rule.statusName || statusesById.get(rule.statusId)?.name || 'Этап удалён'}</p>
+                                                    </div>
+                                                ) : <span className="text-sm text-slate-500">Любой этап</span>}
+                                            </td>
+                                            <td className="p-4">
+                                                {rule.workTypeId ? (
+                                                    <div>
+                                                        <span className="rounded-md bg-violet-50 px-2 py-1 text-[10px] font-black uppercase text-violet-700">{workTypesById.get(rule.workTypeId)?.code || 'Код не найден'}</span>
+                                                        <p className="mt-1.5 text-xs font-semibold text-slate-600">{rule.workTypeName || workTypesById.get(rule.workTypeId)?.name || 'Вид работы удалён'}</p>
+                                                    </div>
+                                                ) : <span className="text-sm text-slate-500">Любой вид</span>}
+                                            </td>
                                             <td className="p-4"><span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-700">{treatmentLabels[rule.treatment]}</span></td>
                                             <td className="p-4 text-sm text-slate-600">{calculationLabels[rule.calculationType]}</td>
                                             <td className="p-4 text-sm font-black text-slate-800">{rule.calculationType === 'PERCENT_OF_TASK' ? `${rule.rate}%` : formatMoney(rule.rate)}</td>
@@ -774,11 +838,23 @@ export default function FlexiblePayrollPage() {
                     </div>
                 )}
             </section>
+            </>}
 
-            <section className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+            {activeSection === 'calculate' && <section className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
                 <div>
-                    <h2 className="text-lg font-black text-slate-900">Предпросмотр расчёта</h2>
-                    <p className="mt-1 text-sm text-slate-500">Суммы показывает backend; расчёт запускается только кнопкой</p>
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div>
+                            <p className="text-[10px] font-black uppercase tracking-wider text-violet-600">Шаг 2</p>
+                            <h2 className="mt-1 text-lg font-black text-slate-900">Выберите расчётный период</h2>
+                            <p className="mt-1 text-sm text-slate-500">Система найдёт завершённые работы сотрудника и применит его зарплатный план</p>
+                        </div>
+                        {planQuery.data ? (
+                            <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-right">
+                                <p className="text-[10px] font-black uppercase text-emerald-700">Используется план</p>
+                                <p className="text-xs font-black text-emerald-900">{planQuery.data.name}</p>
+                            </div>
+                        ) : null}
+                    </div>
                 </div>
                 <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-[1fr_1fr_auto] xl:items-end">
                     <label>
@@ -793,38 +869,56 @@ export default function FlexiblePayrollPage() {
                         {previewQuery.isFetching ? 'Расчёт…' : 'Рассчитать'}
                     </button>
                 </div>
-                <p className="mt-2 text-xs text-slate-400">Часовой пояс лаборатории: UTC{LAB_TIMEZONE_OFFSET}</p>
+                <p className="mt-2 text-xs text-slate-400">В расчёт попадут операции с 00:00 первого дня до 23:59 последнего дня.</p>
                 {previewPeriodError && <div className="mt-4"><StateNotice tone="error">{previewPeriodError}</StateNotice></div>}
                 {!previewQuery.data && !previewQuery.isFetching && !previewPeriodError && (
-                    <div className="mt-5"><StateNotice tone="empty">Выберите период и нажмите «Рассчитать».</StateNotice></div>
+                    <div className="mt-5"><StateNotice tone="empty">После выбора периода нажмите «Рассчитать». Ведомость ещё не будет создана — сначала вы увидите предварительный результат.</StateNotice></div>
                 )}
-                {previewQuery.isFetching && <div className="mt-5"><StateNotice tone="loading">Backend рассчитывает начисления…</StateNotice></div>}
+                {previewQuery.isFetching && <div className="mt-5"><StateNotice tone="loading">Собираем завершённые работы и рассчитываем начисления…</StateNotice></div>}
 
                 {previewQuery.data && (
                     <>
-                        <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                            {[
-                                ['Оклад', previewQuery.data.baseSalary],
-                                ['Дополнительные начисления', previewQuery.data.extraAccrued],
-                                ['Начислено', previewQuery.data.grossAccrued],
-                                ['Перенос с прошлого периода', previewQuery.data.carryIn],
-                                ['Доступно', previewQuery.data.available],
-                                ['Лимит', previewQuery.data.monthlyCap],
-                                ['К выплате', previewQuery.data.payable],
-                                ['Перенос на следующий период', previewQuery.data.carryOut],
-                            ].map(([label, value]) => (
-                                <article key={String(label)} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                                    <p className="text-xs font-bold text-slate-500">{label}</p>
-                                    <p className="mt-2 text-xl font-black text-slate-900">{formatMoney(value as number | null)}</p>
-                                    {label === 'Перенос на следующий период' && (
-                                        <p className="mt-2 text-xs leading-5 text-amber-700">Заработано, но переносится на следующий месяц из-за лимита выплаты</p>
-                                    )}
-                                </article>
-                            ))}
+                        <div className="mt-6 grid gap-3 lg:grid-cols-[1.25fr_1fr_1fr]">
+                            <article className="rounded-2xl bg-gradient-to-br from-emerald-600 to-teal-600 p-5 text-white shadow-lg shadow-emerald-100">
+                                <p className="text-[10px] font-black uppercase tracking-wider text-emerald-100">Итог к выплате</p>
+                                <p className="mt-2 text-3xl font-black">{formatMoney(previewQuery.data.payable)}</p>
+                                <p className="mt-2 text-xs leading-5 text-emerald-100">Сумма после применения плана, доплат и месячного лимита</p>
+                            </article>
+                            <article className="rounded-2xl border border-slate-200 bg-white p-5">
+                                <p className="text-xs font-bold text-slate-500">Всего заработано</p>
+                                <p className="mt-2 text-2xl font-black text-slate-900">{formatMoney(previewQuery.data.grossAccrued)}</p>
+                                <p className="mt-2 text-xs text-slate-400">До применения ограничения выплаты</p>
+                            </article>
+                            <article className="rounded-2xl border border-violet-200 bg-violet-50 p-5">
+                                <p className="text-xs font-bold text-violet-700">Состав начисления</p>
+                                <div className="mt-3 space-y-2 text-xs">
+                                    <div className="flex justify-between gap-3"><span className="text-slate-500">Оклад</span><strong className="text-slate-900">{formatMoney(previewQuery.data.baseSalary)}</strong></div>
+                                    <div className="flex justify-between gap-3"><span className="text-slate-500">Доплаты</span><strong className="text-violet-800">{formatMoney(previewQuery.data.extraAccrued)}</strong></div>
+                                </div>
+                            </article>
                         </div>
 
+                        <details className="mt-3 rounded-2xl border border-slate-200 bg-slate-50">
+                            <summary className="cursor-pointer list-none px-4 py-3 text-xs font-black text-slate-700">
+                                Подробнее о лимитах и переносах
+                            </summary>
+                            <dl className="grid gap-3 border-t border-slate-200 p-4 sm:grid-cols-2 lg:grid-cols-4">
+                                {[
+                                    ['Перенос с прошлого периода', previewQuery.data.carryIn],
+                                    ['Доступно с учётом переноса', previewQuery.data.available],
+                                    ['Месячный лимит', previewQuery.data.monthlyCap],
+                                    ['Перенос на следующий период', previewQuery.data.carryOut],
+                                ].map(([label, value]) => (
+                                    <div key={String(label)} className="rounded-xl bg-white p-3">
+                                        <dt className="text-[10px] font-bold text-slate-400">{label}</dt>
+                                        <dd className="mt-1 text-sm font-black text-slate-800">{formatMoney(value as number | null)}</dd>
+                                    </div>
+                                ))}
+                            </dl>
+                        </details>
+
                         <div className="mt-6 overflow-hidden rounded-2xl border border-slate-200">
-                            <div className="border-b border-slate-100 bg-slate-50 px-4 py-3 font-bold text-slate-800">Детализация начислений</div>
+                            <div className="border-b border-slate-100 bg-slate-50 px-4 py-3"><p className="font-bold text-slate-800">Из чего сложилась зарплата</p><p className="mt-0.5 text-xs text-slate-500">Проверьте работы, количество, ставку и сумму до формирования ведомости</p></div>
                             <div className="overflow-x-auto">
                                 <table className="w-full min-w-[1000px] text-left">
                                     <thead className="border-b border-slate-200 text-[11px] uppercase tracking-wider text-slate-400">
@@ -844,8 +938,16 @@ export default function FlexiblePayrollPage() {
                                                         <div className="text-sm font-bold text-slate-800">{accrual.ruleName || accrual.taskId || 'Начисление'}</div>
                                                         {accrual.orderNumber && <div className="mt-1 text-xs text-slate-400">{accrual.orderNumber}</div>}
                                                     </td>
-                                                    <td className="p-4 text-sm text-slate-600">{accrual.statusName || 'Любой этап'}</td>
-                                                    <td className="p-4 text-sm text-slate-600">{accrual.workTypeName || 'Любой вид'}</td>
+                                                    <td className="p-4">
+                                                        {accrual.statusId ? (
+                                                            <div><span className="text-[10px] font-black uppercase text-blue-700">{statusesById.get(accrual.statusId)?.code || '—'}</span><p className="mt-1 text-xs text-slate-600">{accrual.statusName || statusesById.get(accrual.statusId)?.name || 'Этап'}</p></div>
+                                                        ) : <span className="text-sm text-slate-500">Любой этап</span>}
+                                                    </td>
+                                                    <td className="p-4">
+                                                        {accrual.workTypeId ? (
+                                                            <div><span className="text-[10px] font-black uppercase text-violet-700">{workTypesById.get(accrual.workTypeId)?.code || '—'}</span><p className="mt-1 text-xs text-slate-600">{accrual.workTypeName || workTypesById.get(accrual.workTypeId)?.name || 'Вид работы'}</p></div>
+                                                        ) : <span className="text-sm text-slate-500">Любой вид</span>}
+                                                    </td>
                                                     <td className="p-4 text-sm text-slate-600">{accrual.calculationType ? calculationLabels[accrual.calculationType] : '—'}</td>
                                                     <td className="p-4 text-sm text-slate-600">{accrual.quantity ?? '—'}</td>
                                                     <td className="p-4 text-sm text-slate-600">{accrual.rate === null || accrual.rate === undefined ? '—' : formatMoney(accrual.rate)}</td>
@@ -869,11 +971,11 @@ export default function FlexiblePayrollPage() {
                         {canEdit && (
                             <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-4">
                                 <label>
-                                    <Label>Комментарий к ведомости</Label>
+                                    <Label>Название или комментарий к ведомости</Label>
                                     <input className={inputClass} value={statementComment} onChange={(e) => setStatementComment(e.target.value)} placeholder="Например, Зарплата за август" />
                                 </label>
                                 <button type="button" onClick={() => setShowStatementConfirm(true)} disabled={statementState.isLoading} className="mt-4 min-h-11 rounded-xl bg-emerald-600 px-5 text-sm font-bold text-white hover:bg-emerald-700 disabled:bg-slate-300">
-                                    Сформировать ведомость
+                                    Перейти к формированию ведомости
                                 </button>
                             </div>
                         )}
@@ -882,7 +984,7 @@ export default function FlexiblePayrollPage() {
                         )}
                     </>
                 )}
-            </section>
+            </section>}
 
             {editingRule !== undefined && planQuery.data && (
                 <RuleEditor

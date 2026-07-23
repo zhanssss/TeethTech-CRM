@@ -3,6 +3,7 @@
 import React, { FormEvent, useMemo, useState } from 'react';
 import ErrorState from '@/src/components/ui/ErrorState';
 import { useNotifications } from '@/src/features/notifications/useNotifications';
+import ConfirmDialog from '@/src/components/ui/ConfirmDialog';
 
 type FormValue = string | number | boolean;
 type FormState = Record<string, FormValue>;
@@ -120,6 +121,7 @@ export default function LaboratoryCrudPage<
     const [form, setForm] = useState<FormState>(initialFormState);
     const [editingId, setEditingId] = useState<string | null>(null);
     const [search, setSearch] = useState('');
+    const [itemToDelete, setItemToDelete] = useState<TItem | null>(null);
     const { notifyError } = useNotifications();
 
     const isSubmitting = isCreating || isUpdating;
@@ -185,13 +187,15 @@ export default function LaboratoryCrudPage<
         setForm(initialFormState);
     };
 
-    const handleDelete = async (id: string) => {
+    const handleDelete = async () => {
+        if (!itemToDelete) return;
         try {
-            await deleteItem(id).unwrap();
+            await deleteItem(itemToDelete.id).unwrap();
 
-            if (editingId === id) {
+            if (editingId === itemToDelete.id) {
                 handleCancelEdit();
             }
+            setItemToDelete(null);
         } catch {
             // API errors are displayed by the global notification handler.
         }
@@ -427,7 +431,7 @@ export default function LaboratoryCrudPage<
 
                                             <button
                                                 type="button"
-                                                onClick={() => handleDelete(item.id)}
+                                                onClick={() => setItemToDelete(item)}
                                                 disabled={isDeleting}
                                                 className="rounded-xl bg-white px-3 py-2 text-xs font-medium text-red-600 shadow-sm transition hover:bg-red-50 disabled:cursor-not-allowed disabled:text-red-300"
                                             >
@@ -441,6 +445,15 @@ export default function LaboratoryCrudPage<
                     )}
                 </div>
             </section>
+            <ConfirmDialog
+                open={itemToDelete !== null}
+                title="Удалить запись?"
+                description={<>Запись <strong className="font-semibold text-slate-700 dark:text-slate-200">{itemToDelete?.name}</strong> будет удалена из справочника и больше не появится при выборе.</>}
+                confirmLabel="Удалить запись"
+                isLoading={isDeleting}
+                onClose={() => setItemToDelete(null)}
+                onConfirm={handleDelete}
+            />
             </section>
         </>
     );

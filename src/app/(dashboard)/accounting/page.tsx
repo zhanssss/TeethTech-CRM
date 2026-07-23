@@ -21,6 +21,7 @@ import type {
     SalaryStatement,
     SalaryStatementTask,
 } from '@/src/types/finance.types';
+import ConfirmDialog from '@/src/components/ui/ConfirmDialog';
 
 type SummaryCardProps = {
     title: string;
@@ -205,6 +206,7 @@ export default function AccountingPage() {
     const [statementComment, setStatementComment] = useState('');
     const [statement, setStatement] = useState<SalaryStatement | null>(null);
     const [statementError, setStatementError] = useState('');
+    const [statementAction, setStatementAction] = useState<'confirm' | 'delete' | null>(null);
 
     const {
         data: salaryEmployees = [],
@@ -367,6 +369,7 @@ export default function AccountingPage() {
         try {
             await confirmSalaryStatement(statement.statementId).unwrap();
             setStatement((current) => current ? { ...current, status: 'PAID' } : current);
+            setStatementAction(null);
         } catch (error) {
             console.error('Salary statement confirm failed:', error);
         }
@@ -380,6 +383,7 @@ export default function AccountingPage() {
         try {
             await deleteSalaryStatement(statement.statementId).unwrap();
             setStatement(null);
+            setStatementAction(null);
         } catch (error) {
             console.error('Salary statement delete failed:', error);
         }
@@ -655,7 +659,7 @@ export default function AccountingPage() {
 
                         <button
                             type="button"
-                            onClick={handleConfirmStatement}
+                            onClick={() => setStatementAction('confirm')}
                             disabled={!statement?.statementId || statement.status === 'PAID' || isConfirmingStatement}
                             className="inline-flex min-h-11 items-center justify-center rounded-xl border border-emerald-600 px-5 text-sm font-bold text-emerald-700 transition hover:bg-emerald-50 disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-300"
                         >
@@ -664,7 +668,7 @@ export default function AccountingPage() {
 
                         <button
                             type="button"
-                            onClick={handleDeleteStatement}
+                            onClick={() => setStatementAction('delete')}
                             disabled={!statement?.statementId || statement.status !== 'DRAFT' || isDeletingStatement}
                             className="inline-flex min-h-11 items-center justify-center rounded-xl border border-red-500 px-5 text-sm font-bold text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-300"
                         >
@@ -860,6 +864,25 @@ export default function AccountingPage() {
             </section>
                 </>
             )}
+            <ConfirmDialog
+                open={statementAction === 'confirm'}
+                title="Подтвердить выплату?"
+                description="Ведомость получит статус «Оплачено». После этого черновик нельзя будет удалить."
+                confirmLabel="Да, выплата проведена"
+                tone="primary"
+                isLoading={isConfirmingStatement}
+                onClose={() => setStatementAction(null)}
+                onConfirm={handleConfirmStatement}
+            />
+            <ConfirmDialog
+                open={statementAction === 'delete'}
+                title="Удалить черновик?"
+                description="Расчёт ведомости будет удалён. Выплаты сотрудникам это не затронет."
+                confirmLabel="Удалить черновик"
+                isLoading={isDeletingStatement}
+                onClose={() => setStatementAction(null)}
+                onConfirm={handleDeleteStatement}
+            />
         </div>
     );
 }

@@ -19,6 +19,7 @@ import type {
     TaskFileAttachmentType,
     TaskImage,
 } from '@/src/types/task.types';
+import ConfirmDialog from '@/src/components/ui/ConfirmDialog';
 
 type TaskFilesPanelProps = {
     taskId?: string | null;
@@ -64,6 +65,7 @@ export default function TaskFilesPanel({
     const [deletingId, setDeletingId] = useState<string | null>(null);
     const [fileActionId, setFileActionId] = useState<string | null>(null);
     const [downloadActionId, setDownloadActionId] = useState<string | null>(null);
+    const [fileToDelete, setFileToDelete] = useState<DisplayFile | null>(null);
 
     const {
         data: serverFiles = [],
@@ -258,6 +260,7 @@ export default function TaskFilesPanel({
                 taskId: activeTaskId,
                 attachmentId: file.id,
             }).unwrap();
+            setFileToDelete(null);
         } catch {
             // API errors are displayed by the global notification handler.
         } finally {
@@ -361,7 +364,7 @@ export default function TaskFilesPanel({
                         onFilesSelected={handleFilesSelected}
                         onOpenFile={handleOpenFile}
                         onDownloadFile={handleDownloadFile}
-                        onDeleteFile={handleDeleteFile}
+                        onDeleteFile={setFileToDelete}
                     />
 
                     <FileBucket
@@ -377,7 +380,7 @@ export default function TaskFilesPanel({
                         onFilesSelected={handleFilesSelected}
                         onOpenFile={handleOpenFile}
                         onDownloadFile={handleDownloadFile}
-                        onDeleteFile={handleDeleteFile}
+                        onDeleteFile={setFileToDelete}
                     />
                 </div>
             ) : null}
@@ -387,6 +390,15 @@ export default function TaskFilesPanel({
                     Файлы будут доступны через сервер после сохранения задачи.
                 </p>
             ) : null}
+            <ConfirmDialog
+                open={fileToDelete !== null}
+                title="Удалить файл?"
+                description={<>Файл <strong className="font-semibold text-slate-700 dark:text-slate-200">{fileToDelete?.name}</strong> будет удалён из задачи.</>}
+                confirmLabel="Удалить файл"
+                isLoading={deletingId !== null}
+                onClose={() => setFileToDelete(null)}
+                onConfirm={() => fileToDelete ? handleDeleteFile(fileToDelete) : undefined}
+            />
         </section>
     );
 }

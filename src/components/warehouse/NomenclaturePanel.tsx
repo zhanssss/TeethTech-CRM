@@ -4,6 +4,7 @@ import { type FormEvent, useMemo, useState } from 'react';
 
 import Modal from '@/src/components/ui/Modal';
 import QueryErrorNotice from '@/src/components/ui/QueryErrorNotice';
+import ConfirmDialog from '@/src/components/ui/ConfirmDialog';
 import { useGetMaterialsQuery } from '@/src/services/api/laboratory/materialApi';
 import { useGetWorkTypesQuery } from '@/src/services/api/laboratory/workTypesApi';
 import {
@@ -37,6 +38,7 @@ export default function NomenclaturePanel() {
     const [normQuantity, setNormQuantity] = useState('');
     const [normIdToDelete, setNormIdToDelete] = useState('');
     const [normError, setNormError] = useState('');
+    const [isDeleteNormConfirmOpen, setIsDeleteNormConfirmOpen] = useState(false);
 
     const listQuery = useGetNomenclatureQuery({ activeOnly });
     const inventoryChecksQuery = useGetInventoryChecksQuery();
@@ -222,6 +224,7 @@ export default function NomenclaturePanel() {
         try {
             await deleteNomenclatureNorm(normId).unwrap();
             setNormIdToDelete('');
+            setIsDeleteNormConfirmOpen(false);
         } catch {
             // API errors are displayed by the global notification handler.
         }
@@ -663,7 +666,13 @@ export default function NomenclaturePanel() {
                                 </label>
                                 <button
                                     type="button"
-                                    onClick={handleDeleteNorm}
+                                    onClick={() => {
+                                        if (!normIdToDelete.trim()) {
+                                            setNormError('Укажите ID нормы расхода для удаления.');
+                                            return;
+                                        }
+                                        setIsDeleteNormConfirmOpen(true);
+                                    }}
                                     disabled={deleteNormState.isLoading}
                                     className="mt-3 rounded-xl border border-red-500 px-4 py-2 text-sm font-bold text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-300"
                                 >
@@ -688,6 +697,15 @@ export default function NomenclaturePanel() {
                     </div>
                 </Modal>
             )}
+            <ConfirmDialog
+                open={isDeleteNormConfirmOpen}
+                title="Удалить норму расхода?"
+                description={<>Норма <span className="font-mono text-xs text-slate-700 dark:text-slate-200">{normIdToDelete}</span> перестанет применяться к новым задачам.</>}
+                confirmLabel="Удалить норму"
+                isLoading={deleteNormState.isLoading}
+                onClose={() => setIsDeleteNormConfirmOpen(false)}
+                onConfirm={handleDeleteNorm}
+            />
         </div>
     );
 }

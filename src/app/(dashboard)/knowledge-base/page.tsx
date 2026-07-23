@@ -7,7 +7,7 @@ import { useSelector } from 'react-redux';
 import type { RootState } from '@/src/lib/store';
 
 type GuideRole = 'ADMIN' | 'DISPATCHER' | 'TECHNICIAN' | 'FINANCIER' | 'CHIEF_TECHNICIAN';
-type GuideKind = 'orders' | 'tasks' | 'materials' | 'payroll' | 'workflow';
+type GuideKind = 'orders' | 'tasks' | 'materials' | 'payroll-plan' | 'payroll-rule' | 'payroll-calc' | 'payroll-payment' | 'workflow';
 
 type Guide = {
     id: string;
@@ -34,6 +34,13 @@ const roleNames: Record<string, string> = {
     FINANCIER: 'Финансист',
     CHIEF_TECHNICIAN: 'Главный техник',
     HEAD_TECHNICIAN: 'Главный техник',
+};
+
+const guideWarnings: Partial<Record<GuideKind, string>> = {
+    'payroll-plan': 'Неактивный план или план вне периода действия не участвует в расчёте зарплаты.',
+    'payroll-rule': 'Начисления создаёт backend автоматически, когда сотрудник переводит задачу вперёд по workflow. Бухгалтер не создаёт начисления вручную.',
+    'payroll-calc': 'Предварительный расчёт ничего не запечатывает. При создании ведомости backend возьмёт только начисления, ещё не связанные с другой ведомостью.',
+    'payroll-payment': 'Создать ведомость и подтвердить выплату — два разных действия. Подтверждайте только после фактического платежа.',
 };
 
 const guides: Guide[] = [
@@ -137,39 +144,168 @@ const guides: Guide[] = [
         ],
     },
     {
-        id: 'payroll',
-        kind: 'payroll',
+        id: 'payroll-plan',
+        kind: 'payroll-plan',
         category: 'Зарплата',
-        title: 'Настроить расчёт и закрыть зарплату',
-        result: 'Будет создана проверенная зарплатная ведомость за выбранный период.',
-        path: 'Зарплатные планы',
+        title: 'Создать зарплатный план сотрудника',
+        result: 'У сотрудника появится действующий план с окладом, лимитом и правилами переноса.',
+        path: 'Зарплатные планы → Настройка плана',
         href: '/accounting/payroll',
-        duration: '8 минут',
-        roles: ['ADMIN', 'FINANCIER', 'CHIEF_TECHNICIAN'],
+        duration: '6 минут',
+        roles: ['ADMIN', 'FINANCIER'],
         steps: [
             {
-                title: 'Проверьте схему оплаты сотрудника',
-                action: 'Выберите фиксированную, сдельную или гибридную оплату и задайте ставку. Не меняйте схему посреди закрываемого периода.',
-                example: 'Техник: сдельная · коронка циркониевая — 4 000 ₸ за единицу',
-                check: 'У каждого сотрудника указан тип оплаты и действующая ставка.',
+                title: 'Выберите сотрудника',
+                action: 'В разделе «Настройка плана» выберите сотрудника. Если плана нет, это нормальная ситуация — заполните форму, но не создавайте план без согласования.',
+                example: 'Садыков Марат · marat@teethtech.kz',
+                check: 'На экране показан выбранный сотрудник и его учётная запись.',
             },
             {
-                title: 'Выберите период без пересечений',
-                action: 'Укажите точные начало и конец расчётного периода. Проверьте, что за эти даты ещё нет подтверждённой ведомости.',
-                example: '01.07.2026 00:00 — 31.07.2026 23:59',
-                check: 'Период не пересекается с ранее закрытой зарплатой.',
+                title: 'Задайте оклад и срок действия',
+                action: 'Укажите название плана, фиксированный оклад и дату начала. Дату окончания оставьте пустой для бессрочного плана.',
+                example: '«Оклад + доплаты» · 300 000 ₸ · действует с 01.08.2026',
+                check: 'План активен, дата окончания не раньше даты начала.',
             },
             {
-                title: 'Сформируйте и откройте расшифровку',
-                action: 'Система соберёт завершённые задачи. Откройте список работ каждого сотрудника и проверьте количество и ставки.',
-                example: '12 коронок × 4 000 ₸ = 48 000 ₸',
-                check: 'В расчёте нет незавершённых, чужих или повторяющихся задач.',
+                title: 'Решите, нужен ли месячный лимит',
+                action: 'Без лимита сотруднику доступна вся рассчитанная сумма. При лимите выберите: ограничивать всю выплату или только доплаты.',
+                example: 'Лимит 500 000 ₸ · режим «Лимит всей выплаты»',
+                check: 'Если лимит включён, его сумма больше нуля.',
             },
             {
-                title: 'Подтвердите только согласованную ведомость',
-                action: 'Сверьте итог с руководителем, затем подтвердите. После подтверждения ведомость считается финансовым фактом.',
-                example: 'Итого сотруднику: 48 000 ₸ · статус «Подтверждена»',
-                check: 'Период, сотрудник и сумма проверены до нажатия кнопки.',
+                title: 'Настройте перенос превышения',
+                action: 'При включённом переносе невыплаченная из-за лимита сумма перейдёт в следующий период. Если выключить — backend вернёт перенос 0.',
+                example: 'Доступно 520 000 ₸ · лимит 500 000 ₸ · перенос 20 000 ₸',
+                check: 'Перенос включён, если невыплаченный остаток должен сохраниться.',
+            },
+            {
+                title: 'Сохраните план',
+                action: 'Проверьте поля и нажмите «Создать план» или «Сохранить план». Не меняйте действующий план посреди закрываемого периода.',
+                example: 'Статус плана: «Активен»',
+                check: 'Название плана появилось рядом с предварительным расчётом.',
+            },
+        ],
+    },
+    {
+        id: 'payroll-rules',
+        kind: 'payroll-rule',
+        category: 'Зарплата',
+        title: 'Настроить оплату производственных этапов',
+        result: 'Backend будет автоматически фиксировать нужные начисления при завершении сотрудником этапов.',
+        path: 'Зарплатные планы → Настройка плана → Доплаты за работы',
+        href: '/accounting/payroll',
+        duration: '8 минут',
+        roles: ['ADMIN', 'FINANCIER'],
+        steps: [
+            {
+                title: 'Определите, что именно оплачивается',
+                action: 'Выберите код этапа и при необходимости код вида работы. «Все виды работ» означает одинаковое правило для этого этапа.',
+                example: 'MODELING — Моделирование · REMOVABLE_DENTURE — Съёмный протез',
+                check: 'В интерфейсе видны коды и названия, UUID пользователю не показываются.',
+            },
+            {
+                title: 'Выберите режим оплаты',
+                action: '«Включено в оклад» учитывает факт работы с суммой 0. «Доплата» увеличивает зарплату. «Не оплачивается» только фиксирует факт. «Требует проверки» не входит в итог.',
+                example: 'Моделирование оплачивается дополнительно',
+                check: 'Для включённого в оклад и неоплачиваемого этапа ставка равна 0.',
+            },
+            {
+                title: 'Выберите формулу',
+                action: 'Один раз за этап, за единицу изделия, за зуб или процент от стоимости задачи. Процент должен быть от 0 до 100.',
+                example: '3 000 ₸ × 5 изделий = 15 000 ₸',
+                check: 'Единица ставки соответствует выбранной формуле: ₸ или %.',
+            },
+            {
+                title: 'Проверьте область действия',
+                action: 'Самое конкретное правило «этап + вид работы» важнее общего. Общее правило для всех этапов используйте только осознанно.',
+                example: 'Сначала этап + вид → только этап → только вид → общее правило',
+                check: 'Нет двух активных правил с одинаковыми условиями, периодом и приоритетом.',
+            },
+            {
+                title: 'Сохраните правило',
+                action: 'Задайте период и активность. Начисления появятся автоматически только после будущих переходов задачи вперёд по workflow.',
+                example: 'Действует с 01.08.2026 · приоритет 100 · активно',
+                check: 'Правило появилось в таблице, а выделенных конфликтов нет.',
+            },
+        ],
+    },
+    {
+        id: 'payroll-calculate',
+        kind: 'payroll-calc',
+        category: 'Ведомость',
+        title: 'Рассчитать и сформировать ведомость',
+        result: 'Появится запечатанная ведомость с ещё не привязанными начислениями выбранного периода.',
+        path: 'Зарплатные планы → Рассчитать зарплату',
+        href: '/accounting/payroll',
+        duration: '7 минут',
+        roles: ['ADMIN', 'FINANCIER'],
+        steps: [
+            {
+                title: 'Выберите сотрудника и период',
+                action: 'Начало и конец должны охватывать нужный расчётный месяц и не пересекаться с ранее созданной ведомостью.',
+                example: '01.08.2026 — 31.08.2026',
+                check: 'У сотрудника есть активный план на первый день периода.',
+            },
+            {
+                title: 'Нажмите «Рассчитать»',
+                action: 'Это безопасный предварительный просмотр: ведомость пока не создаётся. Все итоговые суммы возвращает backend.',
+                example: 'Оклад 300 000 ₸ + доплаты 40 000 ₸ = начислено 340 000 ₸',
+                check: 'Показаны «Всего заработано» и крупная сумма «К выплате».',
+            },
+            {
+                title: 'Проверьте каждую строку',
+                action: 'Сверьте этап, вид работы, количество, ставку и сумму. Нулевые строки «Включено в оклад» должны оставаться в списке.',
+                example: 'MODELING · 5 изделий × 3 000 ₸ = 15 000 ₸',
+                check: 'Нет чужих работ; строки «Требует проверки» не включены в итог.',
+            },
+            {
+                title: 'Проверьте лимит и перенос',
+                action: 'Откройте «Подробнее о лимитах и переносах». Перенос — это заработанная сумма на следующий период, не штраф.',
+                example: 'Доступно 360 000 ₸ · лимит 350 000 ₸ · перенос 10 000 ₸',
+                check: 'Понимаете разницу между начислено, доступно и к выплате.',
+            },
+            {
+                title: 'Сформируйте ведомость один раз',
+                action: 'Добавьте понятный комментарий, подтвердите диалог. После создания начисления привязываются к ведомости; повторно POST не отправляйте.',
+                example: '«Зарплата за август 2026» · статус DRAFT',
+                check: 'CRM показала ID ведомости и фактический статус от backend.',
+            },
+        ],
+    },
+    {
+        id: 'payroll-payment',
+        kind: 'payroll-payment',
+        category: 'Выплата',
+        title: 'Подтвердить фактическую выплату',
+        result: 'Ведомость будет отмечена оплаченной, а её перенос сможет участвовать в следующем периоде.',
+        path: 'Финансовый отчёт → История ведомостей',
+        href: '/accounting',
+        duration: '3 минуты',
+        roles: ['ADMIN', 'FINANCIER'],
+        steps: [
+            {
+                title: 'Найдите сформированную ведомость',
+                action: 'Сверьте сотрудника, период, ID и текущий статус. Создание ведомости ещё не означает фактическую выплату.',
+                example: 'Садыков Марат · август 2026 · DRAFT',
+                check: 'Открыта именно нужная ведомость, а не предварительный расчёт.',
+            },
+            {
+                title: 'Сверьте сумму с платёжным документом',
+                action: 'Сумма «К выплате» в CRM должна совпадать с фактически перечисляемой суммой.',
+                example: 'К выплате: 350 000 ₸',
+                check: 'Получатель, сумма и период совпадают.',
+            },
+            {
+                title: 'Подтвердите выплату отдельным действием',
+                action: 'Подтверждайте только после реального платежа. Не подтверждайте автоматически сразу после формирования.',
+                example: 'Статус: «Оплачена» · зафиксировано paidAt',
+                check: 'Статус изменился на оплаченный; повторное подтверждение не требуется.',
+            },
+            {
+                title: 'Проверьте следующий расчёт',
+                action: 'Только оплаченная предыдущая ведомость становится источником входящего переноса следующего периода.',
+                example: 'Перенос прошлого периода: 10 000 ₸',
+                check: 'В следующем preview входящий перенос соответствует прошлому carryOut.',
             },
         ],
     },
@@ -262,11 +398,67 @@ function GuidePreview({ kind, step }: { kind: GuideKind; step: number }) {
         );
     }
 
-    if (kind === 'payroll') {
+    if (kind === 'payroll-plan') {
         return (
-            <BrowserFrame title="Зарплатные планы">
-                <div className="grid gap-3 bg-slate-50 p-4 sm:grid-cols-2"><Field label="Сотрудник" value="Садыков Марат" wide /><Field label="Тип оплаты" value={step === 0 ? 'Сдельная' : 'Сдельная ✓'} /><Field label="Период" value="01–31 июля" /><div className="sm:col-span-2 rounded-xl border border-slate-200 bg-white p-3"><div className="flex justify-between text-[10px]"><b>Коронка циркониевая</b><span>12 × 4 000 ₸</span></div><div className="mt-2 flex justify-between border-t border-slate-100 pt-2 text-xs font-black"><span>Итого</span><span>48 000 ₸</span></div></div></div>
-                <div className="flex justify-end p-3"><span className={`rounded-lg px-4 py-2 text-[9px] font-black text-white ${step >= 3 ? 'bg-emerald-600' : 'bg-violet-600'}`}>{step >= 3 ? 'Подтвердить ведомость' : 'Сформировать расчёт'}</span></div>
+            <BrowserFrame title="Настройка зарплатного плана">
+                <div className="grid gap-3 bg-slate-50 p-4 sm:grid-cols-2">
+                    <Field label="Сотрудник" value="Садыков Марат" wide />
+                    <Field label="Название плана" value="Оклад + доплаты" wide />
+                    <Field label="Фиксированный оклад" value="300 000 ₸" />
+                    <Field label="Действует с" value="01.08.2026" />
+                    {step >= 2 && <><Field label="Месячный лимит" value="500 000 ₸" /><Field label="Режим" value="Вся выплата" /></>}
+                    {step >= 3 && <div className="sm:col-span-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-[10px] font-black text-emerald-700">✓ Переносить превышение на следующий период</div>}
+                </div>
+                <div className="flex items-center justify-between border-t border-slate-100 p-3"><span className="text-[9px] font-bold text-emerald-600">План активен</span><span className="rounded-lg bg-slate-900 px-4 py-2 text-[9px] font-black text-white">{step >= 4 ? 'Сохранить план' : 'Настройка плана'}</span></div>
+            </BrowserFrame>
+        );
+    }
+
+    if (kind === 'payroll-rule') {
+        return (
+            <BrowserFrame title="Новая доплата за работу">
+                <div className="grid gap-3 bg-slate-50 p-4 sm:grid-cols-2">
+                    <Field label="Название" value="Моделирование протеза" wide />
+                    <Field label="Этап" value="MODELING — Моделирование" />
+                    <Field label="Вид работы" value="REMOVABLE_DENTURE — Протез" />
+                    <Field label="Режим" value={step > 0 ? 'Оплачивается дополнительно' : 'Включено в оклад'} />
+                    <Field label="Метод" value={step > 1 ? 'За единицу изделия' : 'Один раз за этап'} />
+                    <Field label="Ставка" value={step > 1 ? '3 000 ₸' : '0 ₸'} />
+                    <Field label="Приоритет" value="100" />
+                </div>
+                {step >= 3 && <div className="mx-4 mb-3 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-[9px] leading-4 text-blue-800">За моделирование съёмного протеза будет начислено 3 000 ₸ за каждую единицу.</div>}
+                <div className="flex justify-end border-t border-slate-100 p-3"><span className="rounded-lg bg-blue-600 px-4 py-2 text-[9px] font-black text-white">Сохранить доплату</span></div>
+            </BrowserFrame>
+        );
+    }
+
+    if (kind === 'payroll-calc') {
+        return (
+            <BrowserFrame title="Предварительный расчёт">
+                <div className="grid gap-3 bg-slate-50 p-4 sm:grid-cols-2">
+                    <Field label="Сотрудник" value="Садыков Марат" wide />
+                    <Field label="Начало периода" value="01.08.2026" />
+                    <Field label="Конец периода" value="31.08.2026" />
+                    {step >= 1 && <><div className="rounded-xl bg-emerald-600 p-3 text-white"><p className="text-[8px] uppercase text-emerald-100">К выплате</p><p className="mt-1 text-lg font-black">350 000 ₸</p></div><div className="rounded-xl border border-slate-200 bg-white p-3"><p className="text-[8px] uppercase text-slate-400">Начислено</p><p className="mt-1 text-lg font-black">340 000 ₸</p></div></>}
+                    {step >= 2 && <div className="sm:col-span-2 rounded-xl border border-slate-200 bg-white p-3"><div className="flex justify-between text-[9px]"><b>MODELING · Протез</b><span>5 × 3 000 ₸</span></div><div className="mt-2 flex justify-between border-t border-slate-100 pt-2 text-[10px] font-black"><span>Доплата</span><span className="text-emerald-700">15 000 ₸</span></div></div>}
+                    {step >= 3 && <div className="sm:col-span-2 rounded-lg bg-amber-50 px-3 py-2 text-[9px] text-amber-800">Перенос на следующий период: 10 000 ₸</div>}
+                </div>
+                <div className="flex justify-end border-t border-slate-100 p-3"><span className={`rounded-lg px-4 py-2 text-[9px] font-black text-white ${step >= 4 ? 'bg-emerald-600' : 'bg-violet-600'}`}>{step >= 4 ? 'Сформировать ведомость' : 'Рассчитать'}</span></div>
+            </BrowserFrame>
+        );
+    }
+
+    if (kind === 'payroll-payment') {
+        return (
+            <BrowserFrame title="История зарплатных ведомостей">
+                <div className="bg-slate-50 p-4">
+                    <div className="rounded-xl border border-slate-200 bg-white p-4">
+                        <div className="flex items-start justify-between gap-3"><div><p className="text-[9px] font-black uppercase text-violet-600">Ведомость · август 2026</p><p className="mt-1 text-xs font-black text-slate-900">Садыков Марат</p></div><span className={`rounded-full px-2 py-1 text-[8px] font-black ${step >= 2 ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>{step >= 2 ? 'ОПЛАЧЕНА' : 'DRAFT'}</span></div>
+                        <div className="mt-3 flex justify-between border-t border-slate-100 pt-3"><span className="text-[10px] text-slate-500">К выплате</span><b className="text-sm">350 000 ₸</b></div>
+                        {step >= 3 && <p className="mt-2 rounded-lg bg-blue-50 px-2 py-1.5 text-[9px] text-blue-700">В следующий период: 10 000 ₸</p>}
+                    </div>
+                </div>
+                <div className="flex justify-end border-t border-slate-100 p-3"><span className={`rounded-lg px-4 py-2 text-[9px] font-black text-white ${step >= 2 ? 'bg-slate-300' : 'bg-emerald-600'}`}>{step >= 2 ? 'Выплата подтверждена' : 'Подтвердить выплату'}</span></div>
             </BrowserFrame>
         );
     }
@@ -307,6 +499,7 @@ export default function KnowledgeBasePage() {
     const activeGuide = visibleGuides.find((guide) => guide.id === activeGuideId) ?? visibleGuides[0];
     const filteredGuides = visibleGuides.filter((guide) => `${guide.title} ${guide.result} ${guide.category}`.toLocaleLowerCase('ru-RU').includes(search.trim().toLocaleLowerCase('ru-RU')));
     const displayRole = roleNames[String(role)] ?? 'Сотрудник';
+    const isFinanceUser = normalizedRoles.has('FINANCIER');
 
     const selectGuide = (id: string) => {
         setActiveGuideId(id);
@@ -321,6 +514,26 @@ export default function KnowledgeBasePage() {
                 <div><p className="text-[10px] font-black uppercase tracking-[.18em] text-violet-600">Учебный центр · {displayRole}</p><h1 className="mt-1 text-2xl font-black text-slate-950 sm:text-3xl">Как работать в TeethTech</h1><p className="mt-1 text-xs leading-5 text-slate-500">Здесь показаны только процессы, доступные вашей роли.</p></div>
                 <label className="flex w-full items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 sm:max-w-sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" className="h-4 w-4 text-slate-400"><circle cx="11" cy="11" r="7" strokeWidth="2"/><path d="m16 16 4 4" strokeWidth="2"/></svg><input value={search} onChange={(event) => setSearch(event.target.value)} className="w-full bg-transparent text-xs font-semibold outline-none" placeholder="Найти инструкцию…" /></label>
             </header>
+
+            {isFinanceUser && (
+                <section className="mb-5 overflow-hidden rounded-3xl bg-gradient-to-r from-violet-700 to-indigo-700 p-5 text-white shadow-lg shadow-violet-200 sm:p-6">
+                    <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+                        <div><p className="text-[10px] font-black uppercase tracking-[.18em] text-violet-200">Первый день финансиста</p><h2 className="mt-1 text-xl font-black">Пройдите четыре урока по порядку</h2><p className="mt-1 text-xs leading-5 text-violet-100">После них вы сможете настроить сотрудника, проверить начисления, создать ведомость и корректно подтвердить выплату.</p></div>
+                        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                            {[
+                                ['1', 'План', 'payroll-plan'],
+                                ['2', 'Доплаты', 'payroll-rules'],
+                                ['3', 'Ведомость', 'payroll-calculate'],
+                                ['4', 'Выплата', 'payroll-payment'],
+                            ].map(([number, label, id]) => (
+                                <button key={id} type="button" onClick={() => selectGuide(id)} className="flex items-center gap-2 rounded-xl border border-white/15 bg-white/10 px-3 py-2 text-left transition hover:bg-white/20">
+                                    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-white text-[9px] font-black text-violet-700">{number}</span><span className="text-[10px] font-black">{label}</span>
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                </section>
+            )}
 
             <div className="grid gap-5 lg:grid-cols-[280px_minmax(0,1fr)]">
                 <aside className="lg:sticky lg:top-4 lg:self-start">
@@ -341,6 +554,7 @@ export default function KnowledgeBasePage() {
                         <div className="flex flex-wrap items-center gap-2"><span className="rounded-full bg-violet-100 px-2.5 py-1 text-[9px] font-black uppercase text-violet-700">{activeGuide.category}</span><span className="text-[10px] font-bold text-slate-400">{activeGuide.duration}</span></div>
                         <h2 className="mt-3 text-2xl font-black text-slate-950">{activeGuide.title}</h2>
                         <div className="mt-4 grid gap-3 sm:grid-cols-2"><div className="rounded-xl bg-emerald-50 p-3"><p className="text-[9px] font-black uppercase text-emerald-700">Что получится</p><p className="mt-1 text-xs leading-5 text-emerald-900">{activeGuide.result}</p></div><div className="rounded-xl bg-slate-50 p-3"><p className="text-[9px] font-black uppercase text-slate-500">Где открыть</p><p className="mt-1 text-xs font-black text-slate-800">{activeGuide.path}</p></div></div>
+                        {guideWarnings[activeGuide.kind] && <div className="mt-3 flex gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5"><span>!</span><p className="text-[10px] font-semibold leading-4 text-amber-900">{guideWarnings[activeGuide.kind]}</p></div>}
                     </div>
 
                     <div className="grid gap-6 p-5 sm:p-7 xl:grid-cols-[minmax(0,.85fr)_minmax(380px,1.15fr)]">

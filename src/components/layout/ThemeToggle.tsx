@@ -32,7 +32,7 @@ export default function ThemeToggle() {
 		<button
 			type="button"
 			onClick={toggleTheme}
-			className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-slate-50 text-slate-700 transition hover:bg-slate-100"
+			className="group relative inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:border-violet-200 hover:bg-violet-50 hover:text-violet-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
 			aria-label={isDark ? 'Включить светлую тему' : 'Включить тёмную тему'}
 			title={isDark ? 'Светлая тема' : 'Тёмная тема'}
 		>
@@ -46,6 +46,9 @@ export default function ThemeToggle() {
 					<path d="M20.5 14.4A8.5 8.5 0 0 1 9.6 3.5 8.5 8.5 0 1 0 20.5 14.4Z" />
 				</svg>
 			)}
+			<span className="pointer-events-none absolute right-0 top-[calc(100%+8px)] z-50 hidden whitespace-nowrap rounded-lg bg-slate-950 px-2.5 py-1.5 text-[10px] font-bold text-white shadow-xl group-hover:block group-focus-visible:block">
+				{isDark ? 'Светлая тема' : 'Тёмная тема'}
+			</span>
 		</button>
 	)
 }

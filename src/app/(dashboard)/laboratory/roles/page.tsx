@@ -7,6 +7,7 @@ import { useSelector } from 'react-redux';
 import RoleCreateModal from '@/src/components/roles/RoleCreateModal';
 import Modal from '@/src/components/ui/Modal';
 import QueryErrorNotice from '@/src/components/ui/QueryErrorNotice';
+import ConfirmDialog from '@/src/components/ui/ConfirmDialog';
 import type { RootState } from '@/src/lib/store';
 import {
     useDeleteRoleMutation,
@@ -57,6 +58,7 @@ export default function RolesManagementPage() {
     const [isCreateOpen, setIsCreateOpen] = useState(false);
     const [editingRole, setEditingRole] = useState<Role | null>(null);
     const [editingName, setEditingName] = useState('');
+    const [roleToDelete, setRoleToDelete] = useState<Role | null>(null);
     const {
         data: roles = [],
         isLoading,
@@ -104,15 +106,11 @@ export default function RolesManagementPage() {
         }
     };
 
-    const handleDelete = async (role: Role) => {
-        if (!isAdmin || role.systemManaged || !role.deletable || isDeleting) return;
-        const confirmed = window.confirm(
-            `Удалить роль “${role.name}”? Восстановить роль автоматически будет невозможно`
-        );
-        if (!confirmed) return;
-
+    const handleDelete = async () => {
+        if (!roleToDelete || !isAdmin || roleToDelete.systemManaged || !roleToDelete.deletable || isDeleting) return;
         try {
-            await deleteRole(role.id).unwrap();
+            await deleteRole(roleToDelete.id).unwrap();
+            setRoleToDelete(null);
         } catch (error) {
             if ((error as FetchBaseQueryError)?.status === 404) void refetch();
             console.error('Role delete failed:', error);
@@ -145,7 +143,7 @@ export default function RolesManagementPage() {
                         </button>
                         <button
                             type="button"
-                            onClick={() => void handleDelete(role)}
+                            onClick={() => setRoleToDelete(role)}
                             disabled={!role.deletable || isDeleting || isUpdating}
                             title={role.deletable ? 'Удалить роль' : deleteUnavailableReason(role)}
                             className="rounded-xl border border-red-200 px-3 py-2 text-xs font-bold text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-400"
@@ -221,6 +219,15 @@ export default function RolesManagementPage() {
                     </div>
                 </Modal>
             )}
+            <ConfirmDialog
+                open={roleToDelete !== null}
+                title="Удалить роль?"
+                description={<>Роль <strong className="font-semibold text-slate-700 dark:text-slate-200">{roleToDelete?.name}</strong> исчезнет из настроек. Восстановить её автоматически не получится.</>}
+                confirmLabel="Удалить роль"
+                isLoading={isDeleting}
+                onClose={() => setRoleToDelete(null)}
+                onConfirm={handleDelete}
+            />
         </div>
     );
 }

@@ -51,6 +51,7 @@ export default function TaskMaterialAccountingPanel({
     const [saveError, setSaveError] = useState('');
     const materialError = validateMaterialIds(selectedIds);
     const usageGroups = useMemo(() => groupUsages(usages), [usages]);
+    const materialsLocked = Boolean(accounting?.finalized || usages.length > 0);
 
     const saveMaterials = async () => {
         if (materialError) return;
@@ -72,7 +73,7 @@ export default function TaskMaterialAccountingPanel({
                         {accounting?.finalized ? `Материалы списаны · ${formatDateTime(accounting.finalizedAt)}` : 'Предварительные данные'}
                     </p>
                 </div>
-                {!accounting?.finalized ? (
+                {!materialsLocked && !isAccountingLoading && !isUsagesLoading ? (
                     <button type="button" onClick={() => { if (isEditing) setSelectedIds(normalizeMaterialIds(materialIds)); setIsEditing((value) => !value); }} className="rounded-lg border border-violet-200 px-3 py-1.5 text-[10px] font-black text-violet-700 hover:bg-violet-50">
                         {isEditing ? 'Отмена' : 'Изменить материалы'}
                     </button>
@@ -83,9 +84,11 @@ export default function TaskMaterialAccountingPanel({
                 <MaterialChips materialNames={materialNames} />
             </div>
 
-            {accounting?.finalized ? (
+            {materialsLocked ? (
                 <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs font-bold text-amber-900">
-                    Отчёт уже зафиксирован. Для корректировки обратитесь к администратору.
+                    {accounting?.finalized
+                        ? 'Материальный учёт уже финализирован. Изменить плановый список нельзя.'
+                        : 'По задаче уже начат поэтапный учёт расхода. Изменить плановый список материалов нельзя.'}
                 </p>
             ) : null}
 

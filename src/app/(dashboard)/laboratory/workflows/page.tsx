@@ -20,6 +20,7 @@ import { useSelector } from 'react-redux';
 
 import { useGetWorkTypesQuery } from '@/src/services/api/laboratory/workTypesApi';
 import QueryErrorNotice from '@/src/components/ui/QueryErrorNotice';
+import ConfirmDialog from '@/src/components/ui/ConfirmDialog';
 import RoleCreateModal from '@/src/components/roles/RoleCreateModal';
 import RoleSelect from '@/src/components/roles/RoleSelect';
 import type { RootState } from '@/src/lib/store';
@@ -191,6 +192,9 @@ export default function LaboratoryWorkflowsPage() {
     const [createOrderStatus, { isLoading: isCreatingOrderStatus }] = useCreateOrderStatusMutation();
     const [updateOrderStatusConfig, { isLoading: isUpdatingOrderStatus }] = useUpdateOrderStatusConfigMutation();
     const [deleteOrderStatus, { isLoading: isDeletingOrderStatus }] = useDeleteOrderStatusMutation();
+    const [serverStepToDelete, setServerStepToDelete] = useState<string | null>(null);
+    const [isStatusDeleteOpen, setIsStatusDeleteOpen] = useState(false);
+    const [localWorkflowToDelete, setLocalWorkflowToDelete] = useState<Workflow | null>(null);
     const isSavingOrderStatus = isCreatingOrderStatus || isUpdatingOrderStatus;
 
     const sensors = useSensors(
@@ -255,6 +259,7 @@ export default function LaboratoryWorkflowsPage() {
 
         try {
             await deleteAdminWorkflowStep(id).unwrap();
+            setServerStepToDelete(null);
         } catch (error) {
             console.error('Workflow step delete failed:', error);
         }
@@ -326,6 +331,7 @@ export default function LaboratoryWorkflowsPage() {
 
         try {
             await deleteOrderStatus(statusDraftId).unwrap();
+            setIsStatusDeleteOpen(false);
             selectStatusDraft('');
         } catch (error) {
             console.error('Order status delete failed:', error);
@@ -557,7 +563,7 @@ export default function LaboratoryWorkflowsPage() {
                                 </div>
                                 <button
                                     type="button"
-                                    onClick={() => handleDeleteServerStep(step.id)}
+                                    onClick={() => setServerStepToDelete(step.id)}
                                     disabled={isDeletingServerStep}
                                     className="rounded-lg px-3 py-2 text-xs font-bold text-red-500 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:text-slate-300"
                                 >
@@ -675,7 +681,7 @@ export default function LaboratoryWorkflowsPage() {
 
                         <button
                             type="button"
-                            onClick={handleDeleteOrderStatus}
+                            onClick={() => setIsStatusDeleteOpen(true)}
                             disabled={!statusDraftId || isDeletingOrderStatus}
                             className="inline-flex min-h-11 items-center justify-center rounded-xl border border-red-500 px-5 text-sm font-bold text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-300"
                         >
@@ -903,11 +909,7 @@ export default function LaboratoryWorkflowsPage() {
                                     </div>
                                     <button
                                         type="button"
-                                        onClick={() =>
-                                            setWorkflows((current) =>
-                                                current.filter((item) => item.id !== workflow.id)
-                                            )
-                                        }
+                                        onClick={() => setLocalWorkflowToDelete(workflow)}
                                         className="text-xs font-bold text-red-500 transition hover:text-red-700"
                                     >
                                         Удалить
@@ -944,6 +946,36 @@ export default function LaboratoryWorkflowsPage() {
                     onCreated={(role) => setRequiredRole(role.code)}
                 />
             )}
+            <ConfirmDialog
+                open={serverStepToDelete !== null}
+                title="Удалить переход?"
+                description="Переход между статусами перестанет быть доступен в производственном процессе."
+                confirmLabel="Удалить переход"
+                isLoading={isDeletingServerStep}
+                onClose={() => setServerStepToDelete(null)}
+                onConfirm={() => serverStepToDelete ? handleDeleteServerStep(serverStepToDelete) : undefined}
+            />
+            <ConfirmDialog
+                open={isStatusDeleteOpen}
+                title="Удалить статус?"
+                description={<>Статус <strong className="font-semibold text-slate-700 dark:text-slate-200">{statusName}</strong> исчезнет из workflow и фильтров.</>}
+                confirmLabel="Удалить статус"
+                isLoading={isDeletingOrderStatus}
+                onClose={() => setIsStatusDeleteOpen(false)}
+                onConfirm={handleDeleteOrderStatus}
+            />
+            <ConfirmDialog
+                open={localWorkflowToDelete !== null}
+                title="Удалить схему?"
+                description={<>Схема <strong className="font-semibold text-slate-700 dark:text-slate-200">{localWorkflowToDelete?.name}</strong> будет удалена из этого браузера.</>}
+                confirmLabel="Удалить схему"
+                onClose={() => setLocalWorkflowToDelete(null)}
+                onConfirm={() => {
+                    if (!localWorkflowToDelete) return;
+                    setWorkflows((current) => current.filter((item) => item.id !== localWorkflowToDelete.id));
+                    setLocalWorkflowToDelete(null);
+                }}
+            />
         </div>
     );
 }

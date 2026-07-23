@@ -28,6 +28,7 @@ type SidebarProps = {
 function MenuIcon({ href }: { href: string }) {
 	const common = 'h-[18px] w-[18px] shrink-0'
 	if (href === '/') return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" className={common}><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z" strokeWidth="1.7" strokeLinejoin="round" /></svg>
+	if (href.startsWith('/tv-dashboard')) return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" className={common}><rect x="3" y="4" width="18" height="14" rx="2" strokeWidth="1.7"/><path d="M8 22h8M12 18v4M7 9h3v5H7zM12 7h3v7h-3zM17 11h2v3h-2z" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"/></svg>
 	if (href === '/employee') return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" className={common}><circle cx="12" cy="8" r="4" strokeWidth="1.7"/><path d="M4 21a8 8 0 0 1 16 0" strokeWidth="1.7" strokeLinecap="round"/><path d="m17.5 5.5 1 1 2-2" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/></svg>
 	if (href.startsWith('/employee/calendar')) return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" className={common}><rect x="3" y="5" width="18" height="16" rx="3" strokeWidth="1.7"/><path d="M8 3v4M16 3v4M3 10h18" strokeWidth="1.7" strokeLinecap="round"/><path d="M8 14h2M14 14h2M8 17h2" strokeWidth="1.7" strokeLinecap="round"/></svg>
 	if (href.startsWith('/employee/analytics')) return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" className={common}><path d="M4 20V10m5 10V5m5 15v-7m5 7V8" strokeWidth="1.8" strokeLinecap="round"/><path d="m4 7 5-3 5 5 6-5" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/></svg>
@@ -59,9 +60,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 			return [
 				{ name: 'Рабочая зона', href: '/employee', exact: true },
 				{ name: 'Календарь', href: '/employee/calendar' },
-				{ name: 'Аналитика', href: '/employee/analytics' },
-				{ name: 'База знаний', href: '/knowledge-base', exact: true },
-				{ name: 'Личный кабинет', href: '/settings', exact: true }
+				{ name: 'Аналитика', href: '/employee/analytics' }
 			]
 		}
 
@@ -69,9 +68,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 			return [
 				{ name: 'Финансовый отчёт', href: '/accounting', exact: true },
 				{ name: 'Зарплаты', href: '/accounting/payroll', exact: true },
-				{ name: 'Счета', href: '/accounting/invoices' },
-				{ name: 'База знаний', href: '/knowledge-base', exact: true },
-				{ name: 'Личный кабинет', href: '/settings', exact: true }
+				{ name: 'Счета', href: '/accounting/invoices' }
 			]
 		}
 
@@ -85,9 +82,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 						{ name: 'Workflow', href: '/laboratory/workflows' },
 						{ name: 'Роли', href: '/laboratory/roles' }
 					]
-				},
-				{ name: 'База знаний', href: '/knowledge-base', exact: true },
-				{ name: 'Личный кабинет', href: '/settings', exact: true }
+				}
 			]
 		}
 
@@ -120,9 +115,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 						? [{ name: 'Роли', href: '/laboratory/roles' }]
 						: [])
 				]
-			},
-			{ name: 'База знаний', href: '/knowledge-base', exact: true },
-			{ name: 'Личный кабинет', href: '/settings', exact: true }
+			}
 		]
 
 		if (role === 'ADMIN') {

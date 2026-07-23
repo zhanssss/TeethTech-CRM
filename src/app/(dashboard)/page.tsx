@@ -192,6 +192,40 @@ function TaskCard({ task }: { task: TaskDashboardTask }) {
     );
 }
 
+function CompactTaskCard({ task }: { task: TaskDashboardTask }) {
+    return (
+        <Link
+            href={`/orders/${task.orderId}`}
+            className={`group flex min-w-0 items-center gap-2.5 rounded-xl border bg-white p-2.5 transition hover:border-violet-300 hover:shadow-md ${
+                task.isOverdue ? 'border-red-200 bg-red-50/40' : 'border-slate-200'
+            }`}
+        >
+            <span className={`h-8 w-1 shrink-0 rounded-full ${task.isOverdue ? 'bg-red-500' : 'bg-violet-500'}`} />
+            <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                    <span className="shrink-0 text-[9px] font-black uppercase text-violet-600">
+                        #{getOrderLabel(task)}
+                    </span>
+                    <span className="truncate text-[9px] font-semibold text-slate-400">
+                        {task.clinicName || 'Без клиники'}
+                    </span>
+                </div>
+                <p className="mt-0.5 truncate text-xs font-black text-slate-900">
+                    {getTaskTitle(task)}
+                </p>
+            </div>
+            <div className="shrink-0 text-right">
+                <p className={`text-[9px] font-black ${task.isOverdue ? 'text-red-600' : 'text-slate-500'}`}>
+                    {task.isOverdue ? 'Просрочено' : formatDate(task.deadline)}
+                </p>
+                <p className="mt-0.5 max-w-24 truncate text-[9px] text-slate-400">
+                    {task.technicianName || 'Не назначен'}
+                </p>
+            </div>
+        </Link>
+    );
+}
+
 function DashboardSkeleton() {
     return (
         <div className="grid gap-4 md:grid-cols-4">
@@ -211,6 +245,7 @@ export default function Dashboard() {
     const [selectedStatusKey, setSelectedStatusKey] = useState('');
     const [selectedStatusId, setSelectedStatusId] = useState<string | undefined>();
     const [selectedStatusLabel, setSelectedStatusLabel] = useState('');
+    const [flowView, setFlowView] = useState<'compact' | 'kanban'>('compact');
 
     const dashboardFilters = useMemo(
         () => ({
@@ -289,7 +324,7 @@ export default function Dashboard() {
     };
 
     return (
-        <div className="mx-auto max-w-[1600px] space-y-5 pb-6">
+        <div className="mx-auto max-w-[1920px] space-y-5 pb-6">
             <header className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                 <div>
                     <h1 className="text-2xl font-bold tracking-tight text-slate-950">
@@ -417,11 +452,75 @@ export default function Dashboard() {
                         <div className="flex items-center gap-2.5"><h2 className="text-sm font-bold text-slate-900">Производственный поток</h2><span className="rounded-full bg-violet-50 px-2.5 py-1 text-[10px] font-bold text-violet-700">{visibleColumns.length} этапов</span></div>
                         <p className="mt-1 text-xs text-slate-400">Задачи распределены по текущему статусу</p>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                         <div className="rounded-xl bg-slate-50 px-3 py-2"><span className="text-[10px] text-slate-400">Видимых задач</span><strong className="ml-2 text-sm text-slate-900">{formatNumber(visibleTaskCount)}</strong></div>
                         {hasFilters && <span className="rounded-xl bg-violet-50 px-3 py-2 text-[10px] font-bold text-violet-700">Фильтры активны</span>}
+                        <div className="flex rounded-xl border border-slate-200 bg-slate-50 p-1">
+                            <button
+                                type="button"
+                                onClick={() => setFlowView('compact')}
+                                className={`rounded-lg px-3 py-1.5 text-[10px] font-black transition ${flowView === 'compact' ? 'bg-white text-violet-700 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                            >
+                                Компактно
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setFlowView('kanban')}
+                                className={`rounded-lg px-3 py-1.5 text-[10px] font-black transition ${flowView === 'kanban' ? 'bg-white text-violet-700 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                            >
+                                Колонки
+                            </button>
+                        </div>
                     </div>
                 </div>
+
+                {flowView === 'compact' ? (
+                    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+                        {visibleColumns.map((column, index) => {
+                            const theme = getColumnTheme(index);
+                            const visibleTasks = column.tasks.slice(0, 5);
+                            const hiddenCount = Math.max(0, column.tasks.length - visibleTasks.length);
+
+                            return (
+                                <section
+                                    key={column.statusId || column.statusCode || column.statusName}
+                                    className={`min-w-0 overflow-hidden rounded-2xl border bg-slate-50/80 shadow-sm ${theme.border}`}
+                                >
+                                    <header className={`border-b border-slate-200 bg-gradient-to-r ${theme.glow} to-white px-3 py-2.5`}>
+                                        <div className="flex items-center justify-between gap-3">
+                                            <div className="flex min-w-0 items-center gap-2.5">
+                                                <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${theme.dot}`} />
+                                                <div className="min-w-0">
+                                                    <h3 className="truncate text-xs font-black text-slate-900">{column.statusName || column.statusCode}</h3>
+                                                    <p className="truncate text-[9px] uppercase tracking-wider text-slate-400">{column.statusCode}</p>
+                                                </div>
+                                            </div>
+                                            <span className={`rounded-lg px-2.5 py-1 text-xs font-black ${theme.badge}`}>{formatNumber(column.count)}</span>
+                                        </div>
+                                    </header>
+                                    <div className="space-y-1.5 p-2">
+                                        {visibleTasks.map((task) => <CompactTaskCard key={task.id} task={task} />)}
+                                        {visibleTasks.length === 0 && (
+                                            <div className="rounded-xl border border-dashed border-slate-200 bg-white px-3 py-7 text-center text-xs text-slate-400">Нет задач</div>
+                                        )}
+                                    </div>
+                                    {hiddenCount > 0 && (
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                handleStatusChange(column.statusId || column.statusCode);
+                                                setFlowView('kanban');
+                                            }}
+                                            className="w-full border-t border-slate-200 bg-white px-3 py-2 text-[10px] font-black text-violet-700 transition hover:bg-violet-50"
+                                        >
+                                            Показать ещё {hiddenCount} задач →
+                                        </button>
+                                    )}
+                                </section>
+                            );
+                        })}
+                    </div>
+                ) : (
                 <div className="overflow-x-auto pb-3 [scrollbar-color:#8b5cf6_transparent]">
                 <div className="flex min-w-max snap-x snap-mandatory gap-3 pb-2">
                     {visibleColumns.map((column, index) => {
@@ -466,6 +565,7 @@ export default function Dashboard() {
                     );})}
                 </div>
                 </div>
+                )}
 
                 {!isLoading && !isError && visibleColumns.length === 0 && (
                     <div className="rounded-lg border border-dashed border-slate-300 bg-white px-5 py-12 text-center text-sm text-slate-500">

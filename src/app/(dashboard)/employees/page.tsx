@@ -12,6 +12,7 @@ import {
 import CreateEmployeeModal from '@/src/components/Modals/CreateEmployeeModal';
 import { useDeleteUserMutation, useGetUsersQuery } from "@/src/services/api/usersApi";
 import ErrorState from '@/src/components/ui/ErrorState';
+import ConfirmDialog from '@/src/components/ui/ConfirmDialog';
 import { useGetRolesQuery } from '@/src/services/api/rolesApi';
 import type { RootState } from '@/src/lib/store';
 
@@ -39,6 +40,7 @@ export default function EmployeesPage() {
     const [selectedRole, setSelectedRole] = useState('ALL');
     const [showFiredEmployees, setShowFiredEmployees] = useState(false);
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+    const [employeeToDelete, setEmployeeToDelete] = useState<{ id: string; fullName: string } | null>(null);
 
     const {
         data: users = [],
@@ -103,12 +105,11 @@ export default function EmployeesPage() {
         };
     }, [filteredEmployees]);
 
-    const handleDeleteUser = async (id: string, fullName: string) => {
-        const shouldDelete = window.confirm(`Удалить сотрудника "${fullName}"?`);
-        if (!shouldDelete) return;
-
+    const handleDeleteUser = async () => {
+        if (!employeeToDelete) return;
         try {
-            await deleteUser(id).unwrap();
+            await deleteUser(employeeToDelete.id).unwrap();
+            setEmployeeToDelete(null);
         } catch (error) {
             console.error('User delete failed:', error);
         }
@@ -246,7 +247,7 @@ export default function EmployeesPage() {
                                         {isAdmin && (
                                             <button
                                                 type="button"
-                                                onClick={() => handleDeleteUser(employee.id, employee.fullName)}
+                                                onClick={() => setEmployeeToDelete({ id: employee.id, fullName: employee.fullName })}
                                                 disabled={isDeletingUser}
                                                 className="rounded-lg px-2 py-1.5 text-[10px] font-bold text-slate-400 transition hover:bg-red-50 hover:text-red-600 disabled:opacity-40"
                                             >
@@ -267,6 +268,15 @@ export default function EmployeesPage() {
             {isAdmin && isCreateModalOpen && (
                 <CreateEmployeeModal onClose={() => setIsCreateModalOpen(false)} />
             )}
+            <ConfirmDialog
+                open={employeeToDelete !== null}
+                title="Удалить сотрудника?"
+                description={<>Профиль <strong className="font-semibold text-slate-700 dark:text-slate-200">{employeeToDelete?.fullName}</strong> будет удалён. Это действие нельзя отменить.</>}
+                confirmLabel="Удалить сотрудника"
+                isLoading={isDeletingUser}
+                onClose={() => setEmployeeToDelete(null)}
+                onConfirm={handleDeleteUser}
+            />
         </div>
     );
 }

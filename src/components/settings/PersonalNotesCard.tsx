@@ -21,6 +21,7 @@ import {
     PERSONAL_NOTE_CONTENT_LIMIT,
     PERSONAL_NOTE_TITLE_LIMIT,
 } from '@/src/utils/personalNotes';
+import ConfirmDialog from '@/src/components/ui/ConfirmDialog';
 
 type NoteDraft = PersonalNotePayload &
     Partial<Pick<PersonalNote, 'id' | 'createdAt' | 'updatedAt' | 'expiresAt'>>;
@@ -128,6 +129,7 @@ export default function PersonalNotesCard({
     const [errorMessage, setErrorMessage] = useState('');
     const [isExpired, setIsExpired] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
+    const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
 
     const draftRef = useRef<NoteDraft>(EMPTY_DRAFT);
     const persistedRef = useRef<(PersonalNotePayload & { id?: string }) | null>(null);
@@ -485,7 +487,6 @@ export default function PersonalNotesCard({
     const removeCurrentNote = async () => {
         const noteId = draftRef.current.id;
         if (!noteId || status === 'saving' || isDeleting) return;
-        if (!window.confirm('Удалить эту личную заметку?')) return;
 
         clearSaveTimer();
         setIsDeleting(true);
@@ -493,6 +494,7 @@ export default function PersonalNotesCard({
 
         try {
             await deleteNote(noteId).unwrap();
+            setIsDeleteConfirmOpen(false);
             applySelectedNote();
         } catch (error) {
             const expired =
@@ -691,7 +693,7 @@ export default function PersonalNotesCard({
                                 {draft.id ? (
                                     <button
                                         type="button"
-                                        onClick={() => void removeCurrentNote()}
+                                        onClick={() => setIsDeleteConfirmOpen(true)}
                                         disabled={status === 'saving' || isDeleting}
                                         className="flex h-8 items-center gap-1.5 rounded-lg px-2 text-xs font-bold text-red-600 transition hover:bg-red-50 disabled:opacity-40 dark:hover:bg-red-500/10"
                                     >
@@ -751,6 +753,15 @@ export default function PersonalNotesCard({
                             </footer>
                         </div>
                     </div>
+            <ConfirmDialog
+                open={isDeleteConfirmOpen}
+                title="Удалить заметку?"
+                description="Заметка исчезнет без возможности восстановления."
+                confirmLabel="Удалить заметку"
+                isLoading={isDeleting}
+                onClose={() => setIsDeleteConfirmOpen(false)}
+                onConfirm={removeCurrentNote}
+            />
         </section>
     );
 }

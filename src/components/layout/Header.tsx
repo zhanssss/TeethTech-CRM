@@ -2,6 +2,7 @@
 
 import { RootState } from '@/src/lib/store'
 import Link from 'next/link'
+import { useEffect, useRef, useState } from 'react'
 import { useSelector } from 'react-redux'
 import ThemeToggle from './ThemeToggle'
 
@@ -13,9 +14,40 @@ type HeaderProps = {
 export default function Header({ onMenuClick, isMenuOpen = false }: HeaderProps) {
 	const { name, role } = useSelector((state: RootState) => state.auth)
 	const { totalUnreadCount } = useSelector((state: RootState) => state.chat)
+	const canOpenTvDashboard = role === 'ADMIN' || role === 'DISPATCHER'
+	const [isProfileOpen, setIsProfileOpen] = useState(false)
+	const profileRef = useRef<HTMLDivElement | null>(null)
+	const roleLabels: Record<string, string> = {
+		ADMIN: 'Администратор',
+		CHIEF_TECHNICIAN: 'Главный техник',
+		DISPATCHER: 'Диспетчер',
+		TECHNICIAN: 'Техник',
+		FINANCIER: 'Финансист'
+	}
+	const roleLabel = roleLabels[role ?? ''] ?? role ?? 'Роль не указана'
+
+	useEffect(() => {
+		if (!isProfileOpen) return
+
+		const handlePointerDown = (event: PointerEvent) => {
+			if (!profileRef.current?.contains(event.target as Node)) {
+				setIsProfileOpen(false)
+			}
+		}
+		const handleKeyDown = (event: KeyboardEvent) => {
+			if (event.key === 'Escape') setIsProfileOpen(false)
+		}
+
+		document.addEventListener('pointerdown', handlePointerDown)
+		document.addEventListener('keydown', handleKeyDown)
+		return () => {
+			document.removeEventListener('pointerdown', handlePointerDown)
+			document.removeEventListener('keydown', handleKeyDown)
+		}
+	}, [isProfileOpen])
 
 	return (
-		<header className="flex h-16 shrink-0 items-center justify-between border-b border-slate-200/80 bg-white/90 px-4 backdrop-blur-xl dark:border-slate-800 dark:bg-[#09090b]/90 sm:px-6 lg:px-8">
+		<header className="relative z-50 flex h-16 shrink-0 items-center justify-between border-b border-slate-200/80 bg-white/90 px-4 backdrop-blur-xl dark:border-slate-800 dark:bg-[#09090b]/90 sm:px-6 lg:px-8">
 			{!isMenuOpen && (
 				<button
 					type="button"
@@ -39,8 +71,33 @@ export default function Header({ onMenuClick, isMenuOpen = false }: HeaderProps)
 				</button>
 			)}
 
-			<div className="ml-auto flex min-w-0 items-center gap-3">
+			<div className="ml-auto flex min-w-0 items-center gap-1.5 sm:gap-3">
 				<ThemeToggle />
+				<Link
+					href="/knowledge-base"
+					aria-label="База знаний"
+					title="База знаний"
+					className="group relative inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:border-violet-200 hover:bg-violet-50 hover:text-violet-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
+				>
+					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" className="h-5 w-5 shrink-0" aria-hidden="true">
+						<path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H11v17H6.5A2.5 2.5 0 0 0 4 22V5.5ZM20 5.5A2.5 2.5 0 0 0 17.5 3H13v17h4.5A2.5 2.5 0 0 1 20 22V5.5Z" strokeWidth="1.7" strokeLinejoin="round"/>
+					</svg>
+					<span className="pointer-events-none absolute right-0 top-[calc(100%+8px)] z-50 hidden whitespace-nowrap rounded-lg bg-slate-950 px-2.5 py-1.5 text-[10px] font-bold text-white shadow-xl group-hover:block group-focus-visible:block">База знаний</span>
+				</Link>
+				{canOpenTvDashboard && (
+					<Link
+						href="/tv-dashboard"
+						aria-label="Открыть ТВ-экран"
+						title="ТВ-экран"
+						className="group relative inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:border-violet-200 hover:bg-violet-50 hover:text-violet-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
+					>
+						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" className="h-5 w-5 shrink-0" aria-hidden="true">
+							<rect x="3" y="4" width="18" height="14" rx="2" strokeWidth="1.7"/>
+							<path d="M8 22h8M12 18v4M7 9h3v5H7zM12 7h3v7h-3zM17 11h2v3h-2z" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"/>
+						</svg>
+						<span className="pointer-events-none absolute right-0 top-[calc(100%+8px)] z-50 hidden whitespace-nowrap rounded-lg bg-slate-950 px-2.5 py-1.5 text-[10px] font-bold text-white shadow-xl group-hover:block group-focus-visible:block">ТВ-экран</span>
+					</Link>
+				)}
 				<Link
 					href="/chats"
 					aria-label={
@@ -48,7 +105,8 @@ export default function Header({ onMenuClick, isMenuOpen = false }: HeaderProps)
 							? `Сообщения: ${totalUnreadCount} непрочитанных`
 							: 'Сообщения'
 					}
-					className="relative inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:border-violet-200 hover:bg-violet-50 hover:text-violet-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
+					title="Сообщения"
+					className="group relative inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:border-violet-200 hover:bg-violet-50 hover:text-violet-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
 				>
 					<svg
 						className="h-5 w-5"
@@ -66,19 +124,59 @@ export default function Header({ onMenuClick, isMenuOpen = false }: HeaderProps)
 							{totalUnreadCount > 99 ? '99+' : totalUnreadCount}
 						</span>
 					) : null}
+					<span className="pointer-events-none absolute right-0 top-[calc(100%+8px)] z-50 hidden whitespace-nowrap rounded-lg bg-slate-950 px-2.5 py-1.5 text-[10px] font-bold text-white shadow-xl group-hover:block group-focus-visible:block">Сообщения</span>
 				</Link>
-				<div className="flex min-w-0 items-center gap-3">
-					<div className="min-w-0 text-right">
-						<p className="truncate leading-none text-sm font-black text-slate-900 dark:text-white">
-							{name}
-						</p>
-						<p className="mt-1 truncate text-xs uppercase tracking-wider text-slate-500">
-							{role}
-						</p>
-					</div>
-					<div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-violet-600 to-indigo-600 font-black text-white shadow-lg shadow-violet-500/20">
+				<div ref={profileRef} className="group relative">
+					<button
+						type="button"
+						onClick={() => setIsProfileOpen(current => !current)}
+						title="Профиль пользователя"
+						aria-label="Открыть меню профиля"
+						aria-expanded={isProfileOpen}
+						aria-haspopup="menu"
+						className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-violet-600 to-indigo-600 font-black text-white shadow-lg shadow-violet-500/20 transition hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 ${isProfileOpen ? 'ring-2 ring-violet-300 ring-offset-2' : ''}`}
+					>
 						{name?.[0]}
-					</div>
+					</button>
+					{!isProfileOpen && <span className="pointer-events-none absolute right-0 top-[calc(100%+8px)] z-50 hidden whitespace-nowrap rounded-lg bg-slate-950 px-2.5 py-1.5 text-[10px] font-bold text-white shadow-xl group-hover:block group-focus-within:block">Профиль пользователя</span>}
+
+					{isProfileOpen && (
+						<div role="menu" className="absolute right-0 top-[calc(100%+10px)] z-[70] w-[min(300px,calc(100vw-2rem))] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_24px_70px_-24px_rgba(15,23,42,.55)] dark:border-slate-700 dark:bg-slate-900">
+							<div className="relative overflow-hidden bg-gradient-to-br from-violet-600 to-indigo-700 p-4 text-white">
+								<div className="absolute -right-8 -top-10 h-28 w-28 rounded-full bg-white/10" />
+								<div className="relative flex items-center gap-3">
+									<span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-white/20 bg-white/15 text-lg font-black shadow-inner">
+										{name?.[0] || 'П'}
+									</span>
+									<div className="min-w-0">
+										<p className="truncate text-sm font-black">{name || 'Пользователь'}</p>
+										<p className="mt-1 text-[10px] font-bold uppercase tracking-wider text-violet-100">{roleLabel}</p>
+									</div>
+								</div>
+							</div>
+
+							<div className="p-2">
+								<Link role="menuitem" href="/settings?tab=profile" onClick={() => setIsProfileOpen(false)} className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-bold text-slate-700 transition hover:bg-violet-50 hover:text-violet-700 dark:text-slate-200 dark:hover:bg-violet-500/15">
+									<span className="flex h-9 w-9 items-center justify-center rounded-xl bg-violet-50 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300">
+										<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" className="h-4.5 w-4.5" aria-hidden="true"><circle cx="12" cy="8" r="4" strokeWidth="1.8"/><path d="M4 21a8 8 0 0 1 16 0" strokeWidth="1.8"/></svg>
+									</span>
+									<span className="min-w-0 flex-1"><span className="block">Личный кабинет</span><span className="block text-[10px] font-medium text-slate-400">Профиль и личные данные</span></span>
+									<span className="text-slate-300">›</span>
+								</Link>
+								<Link role="menuitem" href="/settings?tab=security" onClick={() => setIsProfileOpen(false)} className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-bold text-slate-700 transition hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800">
+									<span className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+										<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" className="h-4.5 w-4.5" aria-hidden="true"><rect x="4" y="10" width="16" height="11" rx="3" strokeWidth="1.8"/><path d="M8 10V7a4 4 0 0 1 8 0v3" strokeWidth="1.8"/></svg>
+									</span>
+									<span className="min-w-0 flex-1"><span className="block">Безопасность</span><span className="block text-[10px] font-medium text-slate-400">Пароль и доступ</span></span>
+								</Link>
+							</div>
+
+							<Link role="menuitem" href="/settings" onClick={() => setIsProfileOpen(false)} className="flex items-center justify-center gap-2 border-t border-slate-100 bg-slate-50 px-4 py-3 text-xs font-black text-violet-700 transition hover:bg-violet-50 dark:border-slate-800 dark:bg-slate-950 dark:text-violet-300">
+								Открыть личный кабинет
+								<span>→</span>
+							</Link>
+						</div>
+					)}
 				</div>
 			</div>
 		</header>

@@ -12,6 +12,7 @@ import ChatNotifications from '@/src/components/Chat/ChatNotifications';
 import ChatButton from '@/src/components/Chat/ChatButton';
 import PersonalNotesModal from '@/src/components/personal-notes/PersonalNotesModal';
 import QuickActionsMenu from '@/src/components/layout/QuickActionsMenu';
+import Breadcrumbs from '@/src/components/layout/Breadcrumbs';
 
 const SIDEBAR_STORAGE_KEY = 'teeth-tech-sidebar-open';
 
@@ -138,6 +139,7 @@ export default function DashboardLayout({
                     isMenuOpen={isSidebarOpen}
                     onMenuClick={() => setSidebarOpen(true)}
                 />
+                <Breadcrumbs />
 
                 <main className="app-dashboard-main flex-1 overflow-x-hidden overflow-y-auto px-4 py-4 sm:px-6 lg:px-8">
                     {children}
