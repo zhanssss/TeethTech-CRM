@@ -24,7 +24,7 @@ export type AddTaskDto = {
     toothNumbers: number[]
     orderId: string,
     colorId: string,
-    materialId: string,
+    materialIds: string[],
     pricePerUnit: number,
     discountPercent: number
 }
@@ -190,7 +190,7 @@ export interface CreateOrderTaskDto {
     toothNumbers: number[];
     orderId?: string;
     colorId: string;
-    materialId: string;
+    materialIds: string[];
     pricePerUnit: number;
     discount: number;
     discountPercent: 0;
@@ -215,7 +215,7 @@ export interface CreateOrderTaskRequest {
     toothNumbers: number[];
     orderId?: string;
     colorId: string;
-    materialId: string;
+    materialIds: string[];
     pricePerUnit: number;
     discountPercent: number;
     assignmentMode: TaskAssignmentMode;
@@ -255,7 +255,8 @@ export interface OrderKanbanTask {
     taskType?: OrderTaskType;
     workTypeName: string;
     workTypeCode: string;
-    materialName: string;
+    materialIds: string[];
+    materialNames: string[];
     colorCode: string;
     quantity: number;
     totalAmount: number;
@@ -290,11 +291,18 @@ export interface UpdateTaskStatusDto {
     nextStatusId: string;
     comment?: string;
     assignedUserId?: string;
+    materialReportId?: string;
+    materialUsages?: import('./task.types').MaterialUsageRequest[];
 }
 
 export interface UpdateTaskStatusArgs {
     taskId: string;
     body: UpdateTaskStatusDto;
+}
+
+export interface UpdateTaskMaterialsArgs {
+    taskId: string;
+    materialIds: string[];
 }
 
 export interface AssignTaskArgs {

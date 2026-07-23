@@ -1,12 +1,12 @@
 'use client';
 
-import Link from 'next/link';
 import { useState } from 'react';
 
 import TaskDetailsSidebar from '@/src/components/layout/TaskDetailsSidebar';
+import MaterialChips from '@/src/components/tasks/MaterialChips';
+import TaskMaterialTransitionModal from '@/src/components/tasks/TaskMaterialTransitionModal';
 import {
     useGetMyTasksKanbanQuery,
-    useUpdateTaskStatusMutation,
 } from '@/src/services/api/ordersApi';
 import type {
     EmployeeKanbanColumn,
@@ -70,7 +70,9 @@ function mapTaskToDetails(task: EmployeeKanbanTask): Task {
         hasAccess: task.hasAccess,
         orderId: task.orderId,
         type: task.workTypeName,
-        material: task.materialName,
+        material: (task.materialNames ?? []).join(', '),
+        materialIds: task.materialIds,
+        materialNames: task.materialNames,
         color: task.colorCode,
         technicianId: task.dentalTechnicianFullName,
         units: task.quantity,
@@ -80,7 +82,7 @@ function mapTaskToDetails(task: EmployeeKanbanTask): Task {
 }
 
 function MoveTaskButton({ task }: { task: EmployeeKanbanTask }) {
-    const [updateTaskStatus, { isLoading }] = useUpdateTaskStatusMutation();
+    const [isOpen, setIsOpen] = useState(false);
     const nextStatusId = task.allowedNextStatusIds[0];
 
     if (!nextStatusId) {
@@ -91,32 +93,27 @@ function MoveTaskButton({ task }: { task: EmployeeKanbanTask }) {
         );
     }
 
-    const handleMoveNext = async () => {
-        try {
-            await updateTaskStatus({
-                taskId: task.id,
-                body: {
-                    nextStatusId,
-                    comment: `Завершён этап: ${task.currentStatusFormName || task.currentStatusCode}`,
-                },
-            }).unwrap();
-        } catch (error) {
-            console.error('Task status update failed:', error);
-        }
-    };
-
     return (
         <div className="space-y-2" onClick={(event) => event.stopPropagation()}>
             <button
                 type="button"
-                onClick={handleMoveNext}
-                disabled={isLoading}
+                onClick={() => setIsOpen(true)}
+                disabled={!task.currentStatusId || !task.workTypeCode}
                 className="inline-flex min-h-9 w-full items-center justify-center rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-4 py-2 text-xs font-black text-white shadow-lg shadow-violet-500/20 transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:translate-y-0 disabled:bg-slate-300"
             >
-                {isLoading ? 'Передача...' : 'Завершить этап'}
-                {!isLoading && <span aria-hidden="true" className="ml-2">→</span>}
+                Завершить этап <span aria-hidden="true" className="ml-2">→</span>
             </button>
-
+            {isOpen && task.currentStatusId ? (
+                <TaskMaterialTransitionModal
+                    taskId={task.id}
+                    workTypeId={task.workTypeId}
+                    workTypeCode={task.workTypeCode}
+                    currentStatusId={task.currentStatusId}
+                    nextStatusId={nextStatusId}
+                    defaultComment={`Завершён этап: ${task.currentStatusFormName || task.currentStatusCode}`}
+                    onClose={() => setIsOpen(false)}
+                />
+            ) : null}
         </div>
     );
 }
@@ -159,10 +156,10 @@ function EmployeeTaskCard({
 			<h3 className="mt-2.5 text-sm font-black leading-snug text-slate-900 dark:text-white">
                 {getTaskLabel(task)}
             </h3>
-            <p className="mt-1 text-xs leading-5 text-slate-500">
-                {task.materialName || 'Материал не указан'}
-                {task.colorCode ? ` · цвет ${task.colorCode}` : ''}
-            </p>
+            <div className="mt-2 space-y-1.5 text-xs leading-5 text-slate-500">
+                <MaterialChips materialNames={task.materialNames} compact />
+                {task.colorCode ? <p>Цвет {task.colorCode}</p> : null}
+            </div>
 
             {status && (
 				<p className="mt-2.5 inline-flex rounded-lg border border-violet-100 bg-violet-50 px-2.5 py-1 text-[9px] font-black text-violet-700 dark:border-violet-500/20 dark:bg-violet-500/10 dark:text-violet-300">

@@ -7,6 +7,11 @@ export interface WorkflowTransition {
     description?: string;
     sortOrder?: number;
     colorHex?: string;
+    fromStatusId?: string;
+    toStatusId?: string;
+    terminal?: boolean;
+    materialReportRequired: boolean;
+    allowUnplannedMaterials: boolean;
 }
 
 type StagesWorkflowWorkTypesDTO = {
@@ -75,6 +80,8 @@ export type WorkflowStep = {
     toStatusName: string;
     requiredRole: string;
     sortOrder: number;
+    materialReportRequired: boolean;
+    allowUnplannedMaterials: boolean;
 };
 
 export type GetWorkflowStepsArgs = {
@@ -87,6 +94,8 @@ export type CreateWorkflowStepRequest = {
     toStatusId: string;
     requiredRole: string;
     sortOrder: number;
+    materialReportRequired: boolean;
+    allowUnplannedMaterials: boolean;
 };
 
 export type OrderStatus = WorkflowStatus;

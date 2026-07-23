@@ -10,6 +10,7 @@ import { useGetClinicDoctorsQuery, useGetClinicPatientsQuery, useSearchClinicsQu
 import { useGetUsersQuery } from '@/src/services/api/usersApi';
 import { useGetWorkTypesQuery } from '@/src/services/api/laboratory/workTypesApi';
 import { useGetMaterialsQuery } from '@/src/services/api/laboratory/materialApi';
+import { normalizeMaterialIds, validateMaterialIds } from '@/src/utils/materialAccounting';
 import { useGetColorsQuery } from '@/src/services/api/laboratory/colorsApi';
 import { useGetAdminWorkflowStepsQuery } from '@/src/services/api/workflowApi';
 import type { User } from '@/src/types/user.types';
@@ -46,7 +47,7 @@ const createEmptyTask = (): CreateOrderTaskDto => ({
     toothNumbers: [],
     orderId: '',
     colorId: '',
-    materialId: '',
+    materialIds: [],
     pricePerUnit: 0,
     discount: 0,
     discountPercent: 0,
@@ -525,7 +526,9 @@ export default function CreateOrderModal({
 
     const handleSubmit = async (e: FormEvent) => {
         e.preventDefault();
-        console.log(formData)
+
+        const invalidTask = formData.tasks.find((task) => validateMaterialIds(task.materialIds));
+        if (invalidTask) return;
 
         try {
             await onSubmit({
@@ -537,6 +540,7 @@ export default function CreateOrderModal({
                     discount: Number(task.discount),
                     orderId: task.orderId || '',
                     toothNumbers: task.toothNumbers,
+                    materialIds: normalizeMaterialIds(task.materialIds),
                 })),
             });
             onClose();
@@ -917,22 +921,39 @@ export default function CreateOrderModal({
 
                                         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                                             <div>
-                                                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">
-                                                    Материал
-                                                </label>
-                                                <select
-                                                    required
-                                                    className="w-full border-2 border-slate-100 rounded-xl px-3 py-2 text-sm focus:border-blue-500 outline-none transition bg-white"
-                                                    value={task.materialId}
-                                                    onChange={(e) => handleTaskChange(index, 'materialId', e.target.value)}
-                                                >
-                                                    <option value="">Выбрать</option>
-                                                    {materials.map((material) => (
-                                                        <option key={material.id} value={material.id}>
-                                                            {material.name}
-                                                        </option>
-                                                    ))}
-                                                </select>
+                                                <fieldset>
+                                                    <legend className="block text-[10px] font-bold text-slate-400 uppercase mb-1">
+                                                        Материалы
+                                                    </legend>
+                                                    <div className="max-h-36 space-y-1 overflow-y-auto rounded-xl border-2 border-slate-100 bg-white p-2">
+                                                        {materials.map((material) => {
+                                                            const selected = task.materialIds.includes(material.id);
+                                                            return (
+                                                                <label key={material.id} className={`flex cursor-pointer items-center gap-2 rounded-lg px-2.5 py-2 text-xs font-semibold transition ${selected ? 'bg-violet-50 text-violet-700' : 'text-slate-600 hover:bg-slate-50'}`}>
+                                                                    <input
+                                                                        type="checkbox"
+                                                                        checked={selected}
+                                                                        onChange={() => handleTaskChange(
+                                                                            index,
+                                                                            'materialIds',
+                                                                            selected
+                                                                                ? task.materialIds.filter((id) => id !== material.id)
+                                                                                : normalizeMaterialIds([...task.materialIds, material.id])
+                                                                        )}
+                                                                        className="accent-violet-600"
+                                                                    />
+                                                                    <span>{material.name}</span>
+                                                                </label>
+                                                            );
+                                                        })}
+                                                        {materials.length === 0 ? <p className="px-2 py-3 text-xs text-slate-400">Нет активных материалов</p> : null}
+                                                    </div>
+                                                    {task.materialIds.length === 0 ? (
+                                                        <p className="mt-1 text-[10px] font-semibold text-red-500">Выберите хотя бы один материал</p>
+                                                    ) : (
+                                                        <p className="mt-1 text-[10px] font-semibold text-violet-600">Выбрано: {task.materialIds.length}</p>
+                                                    )}
+                                                </fieldset>
                                             </div>
 
                                             <div>

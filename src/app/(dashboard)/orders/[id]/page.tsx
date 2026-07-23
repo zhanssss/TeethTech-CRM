@@ -1,11 +1,13 @@
 'use client';
 
 import {useMemo, useState} from 'react';
-import {useParams, useRouter} from 'next/navigation';
+import {useParams} from 'next/navigation';
 import Link from 'next/link';
 import {useSelector} from 'react-redux';
 import TaskDetailsSidebar from '@/src/components/layout/TaskDetailsSidebar';
 import TaskAssignmentModal from '@/src/components/Modals/TaskAssignmentModal';
+import MaterialChips from '@/src/components/tasks/MaterialChips';
+import TaskMaterialTransitionModal from '@/src/components/tasks/TaskMaterialTransitionModal';
 import {RootState} from '@/src/lib/store';
 import type {Task} from '@/src/types/task.types';
 import type {OrderApiListItem, OrderDetails, OrderKanbanColumn, OrderKanbanTask} from '@/src/types/order.types';
@@ -17,7 +19,6 @@ import {
     useGetOrderKanbanQuery,
     useGetOrdersQuery,
     useGetTaskAssignmentQuery,
-    useUpdateOrderStatusMutation,
     useUpdateTaskStatusMutation,
 } from '@/src/services/api/ordersApi';
 import {useGetUsersQuery} from '@/src/services/api/usersApi';
@@ -203,61 +204,18 @@ function isReviewTaskStage(task: OrderKanbanTask) {
 }
 
 function CompleteTaskButton({
-    orderId,
     task,
     closedStatusId,
     isClosedStatusLoading,
-    shouldCloseOrder,
 }: {
-    orderId: string;
     task: OrderKanbanTask;
     closedStatusId?: string;
     isClosedStatusLoading: boolean;
-    shouldCloseOrder: boolean;
 }) {
-    const router = useRouter();
-    const {notifyError, notifySuccess} = useNotifications();
-    const [updateTaskStatus, {isLoading}] = useUpdateTaskStatusMutation();
-    const [updateOrderStatus, {isLoading: isClosingOrder}] = useUpdateOrderStatusMutation();
+    const [isOpen, setIsOpen] = useState(false);
     const isTransitionAllowed = Boolean(
         closedStatusId && task.allowedNextStatusIds?.includes(closedStatusId)
     );
-
-    const handleComplete = async () => {
-        if (!closedStatusId || !isTransitionAllowed) return;
-
-        try {
-            await updateTaskStatus({
-                taskId: task.id,
-                body: {
-                    nextStatusId: closedStatusId,
-                    comment: 'Финальная проверка завершена',
-                },
-                notification: COMPOSITE_NOTIFICATION,
-            }).unwrap();
-        } catch (error) {
-            console.error('Task completion failed:', error);
-            notifyError(getApiErrorMessage(error, 'updateTaskStatus'));
-            return;
-        }
-
-        if (!shouldCloseOrder) {
-            notifySuccess('Задача завершена');
-            return;
-        }
-
-        try {
-            await updateOrderStatus(orderId).unwrap();
-            notifySuccess('Все задачи завершены. Заказ закрыт');
-            router.replace('/orders');
-        } catch (error) {
-            console.error('Automatic order closing failed:', error);
-            notifyError(
-                `Задача завершена, но заказ не удалось закрыть. ${getApiErrorMessage(error, 'updateOrderStatus')}`,
-                {duration: 9000}
-            );
-        }
-    };
 
     if (isClosedStatusLoading) {
         return (
@@ -279,20 +237,10 @@ function CompleteTaskButton({
         );
     }
 
-    return (
-        <button
-            type="button"
-            disabled={isLoading || isClosingOrder}
-            onClick={() => void handleComplete()}
-            className="w-full rounded-lg bg-slate-900 px-3 py-2.5 text-xs font-black text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-300"
-        >
-            {isClosingOrder
-                ? 'Закрываем заказ...'
-                : isLoading
-                    ? 'Завершаем...'
-                    : 'Завершить задачу'}
-        </button>
-    );
+    return <>
+        <button type="button" disabled={!task.currentStatusId || !task.workTypeCode} onClick={() => setIsOpen(true)} className="w-full rounded-lg bg-slate-900 px-3 py-2.5 text-xs font-black text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-300">Завершить задачу</button>
+        {isOpen && closedStatusId && task.currentStatusId ? <TaskMaterialTransitionModal taskId={task.id} workTypeId={task.workTypeId} workTypeCode={task.workTypeCode} currentStatusId={task.currentStatusId} nextStatusId={closedStatusId} defaultComment="Финальная проверка завершена" onClose={() => setIsOpen(false)} /> : null}
+    </>;
 }
 
 function StartTaskButton({
@@ -445,7 +393,9 @@ function mapOrderKanbanTaskToDetailsTask(task: OrderKanbanTask, order?: ServerOr
         patient: getStringValue(order, ['patientFullName', 'patientName', 'patient']),
         deadline: getStringValue(order, ['deadline']),
         type: task.workTypeName || task.workTypeCode,
-        material: task.materialName,
+        material: (task.materialNames ?? []).join(', '),
+        materialIds: task.materialIds,
+        materialNames: task.materialNames,
         color: task.colorCode,
         taskType: task.taskType,
         technicianId: task.dentalTechnicianFullName || task.technician?.fullName || '',
@@ -787,10 +737,10 @@ function ServerKanbanBoard({
                                         <h3 className="text-sm font-bold leading-5 text-slate-900">
                                             {task.workTypeName}
                                         </h3>
-                                        <p className="mt-1 line-clamp-2 text-[11px] text-slate-500">
-                                            {task.materialName || 'Материал не указан'}
-                                            {task.colorCode ? ` · цвет ${task.colorCode}` : ''}
-                                        </p>
+                                        <div className="mt-1 space-y-1 text-[11px] text-slate-500">
+                                            <MaterialChips materialNames={task.materialNames} compact />
+                                            {task.colorCode ? <p>Цвет {task.colorCode}</p> : null}
+                                        </div>
                                     </div>
 
                                     <div className="grid grid-cols-2 gap-1.5 text-[9px] text-slate-500">
@@ -833,11 +783,9 @@ function ServerKanbanBoard({
 
                                     {canAssignTasks && isReviewTaskStage(task) && (
                                         <CompleteTaskButton
-                                            orderId={orderId}
                                             task={task}
                                             closedStatusId={closedStatus?.id}
                                             isClosedStatusLoading={isClosedStatusLoading}
-                                            shouldCloseOrder={activeTaskCount === 1}
                                         />
                                     )}
                                 </div>

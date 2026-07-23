@@ -7,6 +7,8 @@ import Modal from '@/src/components/ui/Modal';
 import QualityIncidentsPanel from '@/src/components/tasks/QualityIncidentsPanel';
 import TaskFilesPanel from '@/src/components/tasks/TaskFilesPanel';
 import TaskHistoryTimeline from '@/src/components/tasks/TaskHistoryTimeline';
+import MaterialChips from '@/src/components/tasks/MaterialChips';
+import TaskMaterialAccountingPanel from '@/src/components/tasks/TaskMaterialAccountingPanel';
 import { RootState } from '@/src/lib/store';
 import type { Task, TaskAttachment, TaskImage } from '@/src/types/task.types';
 
@@ -140,12 +142,26 @@ export default function TaskDetailsSidebar({
                             {task.deadline && <InfoItem label="Срок" value={task.deadline} />}
                             {task.priority && <InfoItem label="Приоритет" value={task.priority} />}
                             {task.type && <InfoItem label="Вид работы" value={task.type} />}
-                            {task.material && <InfoItem label="Материал" value={task.material} />}
+                            {task.materialNames ? (
+                                <div className="rounded-xl border border-slate-200 bg-white p-3 sm:col-span-2">
+                                    <p className="text-[10px] font-black uppercase text-slate-400">Материалы задачи</p>
+                                    <MaterialChips materialNames={task.materialNames} className="mt-2" />
+                                </div>
+                            ) : null}
                             <InfoItem label="Кол-во" value={task.units} />
                             {task.unitPrice ? <InfoItem label="Цена" value={task.unitPrice.toLocaleString('ru-RU')} /> : null}
                             {task.discount ? <InfoItem label="Скидка" value={task.discount.toLocaleString('ru-RU')} /> : null}
                         </div>
                     </section>
+
+                    {UUID_PATTERN.test(task.id) && task.materialIds && task.materialNames ? (
+                        <TaskMaterialAccountingPanel
+                            key={task.id}
+                            taskId={task.id}
+                            materialIds={task.materialIds}
+                            materialNames={task.materialNames}
+                        />
+                    ) : null}
 
                     {UUID_PATTERN.test(task.id) ? (
                         <QualityIncidentsPanel

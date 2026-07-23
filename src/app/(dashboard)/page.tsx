@@ -4,6 +4,8 @@ import Link from 'next/link';
 import { useMemo, useState } from 'react';
 
 import { useGetTasksDashboardQuery } from '@/src/services/api/tasksDashboardApi';
+import MaterialChips from '@/src/components/tasks/MaterialChips';
+import { taskMatchesMaterialSearch } from '@/src/utils/materialAccounting';
 import type {
     TaskDashboardColumn,
     TaskDashboardTask,
@@ -67,7 +69,7 @@ function getColumnTheme(index: number) {
 }
 
 function getTaskTitle(task: TaskDashboardTask) {
-    return task.workTypeName || task.materialName || 'Задача заказа';
+    return task.workTypeName || task.materialNames?.[0] || 'Задача заказа';
 }
 
 function getOrderLabel(task: TaskDashboardTask) {
@@ -181,7 +183,7 @@ function TaskCard({ task }: { task: TaskDashboardTask }) {
             </dl>
 
             <div className="mt-3 flex flex-wrap gap-1 border-t border-slate-100 pt-2.5 text-[9px] font-semibold text-slate-600">
-                <span className="rounded-md bg-slate-100 px-2 py-1">{task.materialName || 'Без материала'}</span>
+                <MaterialChips materialNames={task.materialNames} compact />
                 <span className="rounded-md bg-slate-100 px-2 py-1">Цвет: {task.colorCode || '—'}</span>
                 <span className="rounded-md bg-slate-100 px-2 py-1">{formatNumber(task.quantity)} ед.</span>
                 <span className="rounded-md bg-slate-100 px-2 py-1">Зубы: {getTeethLabel(task)}</span>
@@ -248,14 +250,19 @@ export default function Dashboard() {
     }, [selectedStatusId, selectedStatusKey, selectedStatusLabel, statusOptions]);
 
     const visibleColumns = useMemo(() => {
-        if (!selectedStatusKey || selectedStatusId) return columns;
-
-        return columns.filter((column) => {
+        const statusColumns = !selectedStatusKey || selectedStatusId ? columns : columns.filter((column) => {
             const value = column.statusId || column.statusCode;
 
             return value === selectedStatusKey;
         });
-    }, [columns, selectedStatusId, selectedStatusKey]);
+
+        if (!search.trim()) return statusColumns;
+
+        return statusColumns.map((column) => {
+            const tasks = column.tasks.filter((task) => taskMatchesMaterialSearch(task, search));
+            return { ...column, tasks, count: tasks.length };
+        });
+    }, [columns, search, selectedStatusId, selectedStatusKey]);
 
     const visibleTaskCount = visibleColumns.reduce(
         (count, column) => count + column.tasks.length,
@@ -339,7 +346,7 @@ export default function Dashboard() {
                         <input
                             value={search}
                             onChange={(event) => setSearch(event.target.value)}
-                            placeholder="Заказ, пациент, клиника, врач"
+                            placeholder="Заказ, пациент, клиника, врач, материал"
                             className="min-h-11 w-full rounded-xl border border-slate-200 px-3 text-sm outline-none transition focus:border-violet-500 focus:ring-2 focus:ring-violet-100"
                         />
                     </label>

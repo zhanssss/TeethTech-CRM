@@ -126,6 +126,8 @@ export default function LaboratoryWorkflowsPage() {
     const [toStatusId, setToStatusId] = useState('');
     const [requiredRole, setRequiredRole] = useState('');
     const [stepSortOrder, setStepSortOrder] = useState('0');
+    const [materialReportRequired, setMaterialReportRequired] = useState(false);
+    const [allowUnplannedMaterials, setAllowUnplannedMaterials] = useState(false);
     const [serverWorkflowError, setServerWorkflowError] = useState('');
     const [statusDraftId, setStatusDraftId] = useState('');
     const [statusCode, setStatusCode] = useState('');
@@ -218,6 +220,8 @@ export default function LaboratoryWorkflowsPage() {
                 toStatusId,
                 requiredRole: requiredRole.trim(),
                 sortOrder: Number(stepSortOrder) || 0,
+                materialReportRequired,
+                allowUnplannedMaterials,
             }).unwrap();
             setRequiredRole('');
             setStepSortOrder('0');
@@ -488,6 +492,16 @@ export default function LaboratoryWorkflowsPage() {
                                 className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-violet-500 focus:bg-white focus:ring-2 focus:ring-violet-100"
                             />
                         </label>
+
+                        <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
+                            <input type="checkbox" checked={materialReportRequired} onChange={(event) => setMaterialReportRequired(event.target.checked)} className="mt-0.5 accent-violet-600" />
+                            <span><strong className="block text-sm text-slate-700">Материальный отчёт обязателен</strong><span className="mt-1 block text-xs text-slate-500">Переход нельзя подтвердить без ненулевых строк расхода.</span></span>
+                        </label>
+
+                        <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
+                            <input type="checkbox" checked={allowUnplannedMaterials} onChange={(event) => setAllowUnplannedMaterials(event.target.checked)} className="mt-0.5 accent-violet-600" />
+                            <span><strong className="block text-sm text-slate-700">Разрешить внеплановые материалы</strong><span className="mt-1 block text-xs text-slate-500">Сотрудник сможет выбрать другую активную номенклатуру.</span></span>
+                        </label>
                     </div>
 
                     <button
@@ -515,7 +529,7 @@ export default function LaboratoryWorkflowsPage() {
                                 <div className="min-w-0">
                                     <div className="flex items-center gap-2"><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-violet-50 text-xs font-black text-violet-700">{index + 1}</span><p className="truncate text-sm font-bold text-slate-800"><span className="rounded-lg bg-slate-100 px-2 py-1">{step.fromStatusName}</span><span className="mx-2 text-violet-500">→</span><span className="rounded-lg bg-violet-50 px-2 py-1 text-violet-700">{step.toStatusName}</span></p></div>
                                     <p className="mt-1 text-xs text-slate-500">
-                                        Ответственный: {step.requiredRole} · порядок {step.sortOrder}
+                                        Ответственный: {step.requiredRole} · порядок {step.sortOrder} · отчёт {step.materialReportRequired ? 'обязателен' : 'необязателен'} · внеплановые {step.allowUnplannedMaterials ? 'разрешены' : 'запрещены'}
                                     </p>
                                 </div>
                                 <button

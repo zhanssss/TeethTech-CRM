@@ -14,6 +14,7 @@ import {
     OrderGetApiResponse,
     OrderKanbanColumn,
     UpdateOrderArgs,
+    UpdateTaskMaterialsArgs,
     UpdateTaskStatusArgs,
 } from '@/src/types/order.types';
 
@@ -26,6 +27,9 @@ import type {
     GetOrderEmployeeKanbanArgs,
     GetTaskHistoryArgs,
     TaskAssignment,
+    MaterialAccounting,
+    MaterialPlanItem,
+    MaterialUsageHistoryItem,
     TaskHistoryResponse,
     UpdateTaskAssignmentArgs,
 } from '@/src/types/task.types';
@@ -38,7 +42,7 @@ type CreateOrderMutationArgs = CreateOrderDto & WithNotificationOptions;
 type UpdateTaskStatusMutationArgs = UpdateTaskStatusArgs & WithNotificationOptions;
 type AssignTaskMutationArgs = AssignTaskArgs & WithNotificationOptions;
 
-function buildCreateOrderBody(body: CreateOrderDto): CreateOrderRequest {
+export function buildCreateOrderBody(body: CreateOrderDto): CreateOrderRequest {
     return {
         ...body,
         tasks: body.tasks.map(({
@@ -47,7 +51,7 @@ function buildCreateOrderBody(body: CreateOrderDto): CreateOrderRequest {
             toothNumbers,
             orderId,
             colorId,
-            materialId,
+            materialIds,
             pricePerUnit,
             discountPercent,
             assignmentMode,
@@ -57,7 +61,7 @@ function buildCreateOrderBody(body: CreateOrderDto): CreateOrderRequest {
             quantity,
             toothNumbers,
             colorId,
-            materialId,
+            materialIds: Array.from(new Set(materialIds)),
             pricePerUnit,
             discountPercent,
             assignmentMode,
@@ -145,9 +149,54 @@ export const ordersApi = teethTechApi.injectEndpoints({
                 notification,
             }),
             invalidatesTags: (_result, _error, { taskId }) => [
+                'Orders',
                 'OrderKanban',
                 'Tasks',
                 { type: 'TaskHistory', id: taskId },
+                { type: 'TaskMaterialPlan', id: taskId },
+                { type: 'TaskMaterialUsages', id: taskId },
+                { type: 'TaskMaterialAccounting', id: taskId },
+            ],
+        }),
+
+        updateTaskMaterials: builder.mutation<void, UpdateTaskMaterialsArgs>({
+            query: ({ taskId, materialIds }) => ({
+                url: `/tasks/${taskId}`,
+                method: 'PATCH',
+                body: { materialIds: Array.from(new Set(materialIds)) },
+            }),
+            invalidatesTags: (_result, _error, { taskId }) => [
+                'Tasks',
+                'OrderKanban',
+                { type: 'TaskMaterialPlan', id: taskId },
+                { type: 'TaskHistory', id: taskId },
+            ],
+        }),
+
+        getTaskMaterialPlan: builder.query<MaterialPlanItem[], string>({
+            query: (taskId) => `/tasks/${taskId}/material-plan`,
+            transformResponse: (response: MaterialPlanItem[] | { items?: MaterialPlanItem[] }) => (
+                Array.isArray(response) ? response : response.items ?? []
+            ),
+            providesTags: (_result, _error, taskId) => [
+                { type: 'TaskMaterialPlan', id: taskId },
+            ],
+        }),
+
+        getTaskMaterialUsages: builder.query<MaterialUsageHistoryItem[], string>({
+            query: (taskId) => `/tasks/${taskId}/material-usages`,
+            transformResponse: (response: MaterialUsageHistoryItem[] | { items?: MaterialUsageHistoryItem[]; content?: MaterialUsageHistoryItem[] }) => (
+                Array.isArray(response) ? response : response.items ?? response.content ?? []
+            ),
+            providesTags: (_result, _error, taskId) => [
+                { type: 'TaskMaterialUsages', id: taskId },
+            ],
+        }),
+
+        getTaskMaterialAccounting: builder.query<MaterialAccounting, string>({
+            query: (taskId) => `/tasks/${taskId}/material-accounting`,
+            providesTags: (_result, _error, taskId) => [
+                { type: 'TaskMaterialAccounting', id: taskId },
             ],
         }),
 
@@ -242,6 +291,10 @@ export const {
     useGetOrderKanbanQuery,
     useUpdateOrderStatusMutation,
     useUpdateTaskStatusMutation,
+    useUpdateTaskMaterialsMutation,
+    useGetTaskMaterialPlanQuery,
+    useGetTaskMaterialUsagesQuery,
+    useGetTaskMaterialAccountingQuery,
     useAssignTaskMutation,
     useGetTaskAssignmentQuery,
     useUpdateTaskAssignmentMutation,

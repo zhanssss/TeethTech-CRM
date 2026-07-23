@@ -3,6 +3,7 @@ type ErrorData = {
     detail?: unknown;
     error?: unknown;
     title?: unknown;
+    businessMessage?: unknown;
 };
 
 const SUCCESS_MESSAGES: Record<string, string | null> = {
@@ -16,6 +17,7 @@ const SUCCESS_MESSAGES: Record<string, string | null> = {
     deleteOrder: 'Заказ удалён',
     updateOrderStatus: 'Статус заказа обновлён',
     updateTaskStatus: 'Статус задачи обновлён',
+    updateTaskMaterials: 'Материалы задачи сохранены',
     assignTask: 'Исполнитель назначен',
     updateTaskAssignment: 'План ответственных сохранён',
     addTask: 'Задача добавлена',
@@ -93,6 +95,7 @@ function getServerMessage(data: unknown) {
 
     const errorData = data as ErrorData;
     return (
+        readText(errorData.businessMessage) ||
         readText(errorData.message) ||
         readText(errorData.detail) ||
         readText(errorData.error) ||
@@ -128,7 +131,7 @@ export function getApiErrorMessage(error: unknown, endpoint = '') {
     }
     if (status === 502) return serverMessage || 'Не удалось подключиться к серверу';
     if (typeof status === 'number' && status >= 500) {
-        return 'Сервис временно недоступен. Попробуйте позже';
+        return serverMessage || 'Сервис временно недоступен. Попробуйте позже';
     }
     if (status === 'FETCH_ERROR' || status === 'TIMEOUT_ERROR') {
         return 'Нет соединения с сервером. Проверьте сеть и повторите попытку';

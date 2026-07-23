@@ -80,7 +80,7 @@ function stripOrderFiles(payload: CreateOrderDto): CreateOrderDto {
             toothNumbers: task.toothNumbers,
             orderId: task.orderId,
             colorId: task.colorId,
-            materialId: task.materialId,
+            materialIds: task.materialIds,
             pricePerUnit: task.pricePerUnit,
             discount: task.discount,
             discountPercent: 0,

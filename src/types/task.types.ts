@@ -236,6 +236,8 @@ export interface Task {
     priority?: string;
     type?: string;
     material?: string;
+    materialIds?: string[];
+    materialNames?: string[];
     color?: string;
     taskType?: string;
     abutment?: string | number;
@@ -264,7 +266,8 @@ export type TaskDashboardTask = {
     clinicName: string;
     doctorName: string;
     workTypeName: string;
-    materialName: string;
+    materialIds: string[];
+    materialNames: string[];
     colorCode: string;
     quantity: number;
     toothNumbers: number[];
@@ -305,7 +308,9 @@ export type EmployeeKanbanTask = {
     orderId: string;
     workTypeName: string;
     workTypeCode: string;
-    materialName: string;
+    workTypeId?: string;
+    materialIds: string[];
+    materialNames: string[];
     colorCode: string;
     quantity: number;
     totalAmount: number;
@@ -446,4 +451,56 @@ export type ResolveQualityIncidentArgs = {
     taskId: string;
     incidentId: string;
     resolutionComment: string;
+};
+
+export type MaterialPlanItem = {
+    nomenclatureId: string;
+    nomenclatureName: string;
+    unit: string;
+    remainingStandardQuantity: number;
+    remainingWasteQuantity: number;
+    remainingReservedQuantity: number;
+};
+
+export type MaterialUsageRequest = {
+    nomenclatureId: string;
+    issuedQuantity: number;
+    consumedQuantity: number;
+    wasteQuantity: number;
+    returnedQuantity: number;
+    note?: string;
+};
+
+export type MaterialUsageHistoryItem = MaterialUsageRequest & {
+    id?: string;
+    materialReportId: string;
+    nomenclatureName: string;
+    unit: string;
+    createdAt: string;
+    employeeName: string;
+    previousStatusName: string;
+    nextStatusName: string;
+};
+
+export type MaterialAccountingItem = {
+    nomenclatureId: string;
+    nomenclatureName: string;
+    unit: string;
+    plannedStandardQuantity: number;
+    plannedWasteQuantity: number;
+    plannedTotalQuantity: number;
+    issuedQuantity: number;
+    actualConsumedQuantity: number;
+    actualWasteQuantity: number;
+    returnedQuantity: number;
+    actualWriteOffQuantity: number;
+    varianceQuantity: number;
+    finalizedCost: number;
+};
+
+export type MaterialAccounting = {
+    taskId: string;
+    finalized: boolean;
+    finalizedAt: string | null;
+    items: MaterialAccountingItem[];
 };
