@@ -11,8 +11,123 @@ export type FinanceReport = {
     totalDiscounts: number;
     netRevenue: number;
     totalPayroll: number;
+    materialCost?: number;
+    inventoryPurchases?: number;
     grossProfit: number;
     marginPercentage: number;
+    orderAccounting?: FinanceOrderAccounting;
+    salaryAccounting?: FinanceSalaryAccounting;
+    warehouseAccounting?: FinanceWarehouseAccounting;
+    paymentAccounting?: FinancePaymentAccounting;
+    reconciliation?: FinanceReconciliation;
+};
+
+export type FinanceOrderLine = {
+    orderNumber: string;
+    clinicName: string;
+    patientName: string;
+    workType: string;
+    technicianName: string;
+    quantity: number;
+    pricePerUnit: number;
+    grossAmount: number;
+    discountPercent: number;
+    discountAmount: number;
+    netAmount: number;
+    salaryEarnedAmount: number;
+    salaryStatementId?: string | null;
+    completedAt: string;
+};
+
+export type FinanceOrderAccounting = {
+    completedTaskCount: number;
+    grossAmount: number;
+    discountAmount: number;
+    netWorkAmount: number;
+    lines: FinanceOrderLine[];
+};
+
+export type FinanceSalaryLine = {
+    employeeName: string;
+    startDate: string;
+    endDate: string;
+    paymentType: string;
+    status: string;
+    baseSalaryAmount: number;
+    pieceworkAmount: number;
+    grossAccruedAmount: number;
+    carryInAmount: number;
+    carryOutAmount: number;
+    totalAmount: number;
+    totalTasksCount: number;
+    paidAt?: string | null;
+};
+
+export type FinanceSalaryAccounting = {
+    statementCount: number;
+    paidTaskCount: number;
+    baseSalaryAmount: number;
+    pieceworkAmount: number;
+    grossAccruedAmount: number;
+    carryInAmount: number;
+    carryOutAmount: number;
+    totalPaidAmount: number;
+    lines: FinanceSalaryLine[];
+};
+
+export type FinanceWarehouseLine = {
+    createdAt: string;
+    movementType: string;
+    referenceType: string;
+    referenceId?: string | null;
+    nomenclatureName: string;
+    unit: string;
+    quantity: number;
+    standardQuantity: number;
+    wasteQuantity: number;
+    totalCost: number;
+    standardCost: number;
+    wasteCost: number;
+    reason?: string | null;
+};
+
+export type FinanceWarehouseAccounting = {
+    materialWriteOffCount: number;
+    materialWriteOffCost: number;
+    materialStandardCost: number;
+    materialWasteCost: number;
+    materialWriteOffQuantity: number;
+    purchaseReceiptCount: number;
+    purchaseReceiptCost: number;
+    lines: FinanceWarehouseLine[];
+};
+
+export type FinancePaymentLine = {
+    paidAt: string;
+    invoiceNumber: string;
+    orderNumber: string;
+    clinicName: string;
+    amount: number;
+    paymentMethod: string;
+    externalReference?: string | null;
+};
+
+export type FinancePaymentAccounting = {
+    paymentCount: number;
+    receivedAmount: number;
+    lines: FinancePaymentLine[];
+};
+
+export type FinanceReconciliation = {
+    balanced: boolean;
+    netWorkMinusPayments: number;
+    materialCostDifference: number;
+    payrollDifference: number;
+    completedTasksWithoutSalaryStatement: number;
+    completedTasksWithoutMaterialWriteOff: number;
+    stockWriteOffsWithoutCompletedTask: number;
+    paymentsWithoutOrder: number;
+    warnings: string[];
 };
 
 export type SalaryPaymentType = 'FIXED' | 'PIECEWORK' | 'HYBRID';

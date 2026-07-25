@@ -4,6 +4,7 @@ import { type FormEvent, useMemo, useState } from 'react';
 import { usePathname } from 'next/navigation';
 
 import { useGetFinanceReportQuery } from '@/src/services/api/financeApi';
+import FinanceReportDashboard from '@/src/components/accounting/FinanceReportDashboard';
 import {
     useConfirmSalaryStatementMutation,
     useCreateSalaryStatementMutation,
@@ -22,13 +23,6 @@ import type {
     SalaryStatementTask,
 } from '@/src/types/finance.types';
 import ConfirmDialog from '@/src/components/ui/ConfirmDialog';
-
-type SummaryCardProps = {
-    title: string;
-    value: string;
-    description: string;
-    accentClassName: string;
-};
 
 type SalaryUserOption = {
     id: string;
@@ -100,10 +94,6 @@ function formatMoney(value?: number | null) {
     return `${(value ?? 0).toLocaleString('ru-RU')} ₸`;
 }
 
-function formatPercent(value?: number | null) {
-    return `${(value ?? 0).toLocaleString('ru-RU', { maximumFractionDigits: 1 })}%`;
-}
-
 function formatDateTime(value?: string | null) {
     if (!value) return 'Не указано';
 
@@ -135,25 +125,6 @@ function getUserName(users: SalaryUserOption[], userId: string) {
 function getInitialPaymentType(user?: SalaryUserOption): SalaryPaymentType {
     if (user?.salaryType === 'PER_UNIT') return 'PIECEWORK';
     return 'FIXED';
-}
-
-function SummaryCard({
-    title,
-    value,
-    description,
-    accentClassName,
-}: SummaryCardProps) {
-    return (
-        <article className={`rounded-lg border border-slate-200 border-l-4 bg-white p-4 shadow-sm sm:p-5 ${accentClassName}`}>
-            <p className="text-sm font-medium text-slate-500">{title}</p>
-            <p className="mt-2 text-2xl font-black text-slate-900 sm:text-3xl">
-                {value}
-            </p>
-            <p className="mt-2 text-xs font-medium text-slate-400">
-                {description}
-            </p>
-        </article>
-    );
 }
 
 function UserSelect({
@@ -195,6 +166,10 @@ export default function AccountingPage() {
     const isPayrollPage = pathname === '/accounting/payroll';
     const [reportStart, setReportStart] = useState(getDefaultStartDate);
     const [reportEnd, setReportEnd] = useState(getDefaultEndDate);
+    const [reportRequest, setReportRequest] = useState(() => ({
+        startDate: toApiDate(getDefaultStartDate()),
+        endDate: toApiDate(getDefaultEndDate()),
+    }));
     const [selectedConfigUserId, setSelectedConfigUserId] = useState('');
     const [paymentTypeDraft, setPaymentTypeDraft] = useState<SalaryPaymentType | undefined>();
     const [baseSalaryDraft, setBaseSalaryDraft] = useState<string | undefined>();
@@ -224,13 +199,6 @@ export default function AccountingPage() {
     const firstUserId = users[0]?.id ?? '';
     const configUserId = selectedConfigUserId || firstUserId;
     const statementEmployeeId = selectedStatementEmployeeId || firstUserId;
-    const reportRequest = useMemo(
-        () => ({
-            startDate: toApiDate(reportStart),
-            endDate: toApiDate(reportEnd),
-        }),
-        [reportEnd, reportStart]
-    );
     const historyRequest = useMemo(
         () => ({
             start: toApiDate(statementStart),
@@ -282,32 +250,20 @@ export default function AccountingPage() {
         ? getUserName(users, statementEmployeeId)
         : 'Сотрудник';
     const displayedStatementTasks: SalaryStatementTask[] = statementTasks ?? statement?.tasks ?? [];
-    const summaryCards = [
-        {
-            title: 'Валовая выручка',
-            value: formatMoney(report.grossRevenue),
-            description: `${report.totalCompletedTasks} завершенных задач`,
-            accentClassName: 'border-l-emerald-500',
-        },
-        {
-            title: 'Скидки',
-            value: formatMoney(report.totalDiscounts),
-            description: 'Суммарные скидки клиникам',
-            accentClassName: 'border-l-amber-500',
-        },
-        {
-            title: 'ФОТ мастеров',
-            value: formatMoney(report.totalPayroll),
-            description: 'Начисления за выбранный период',
-            accentClassName: 'border-l-purple-500',
-        },
-        {
-            title: 'Чистая прибыль',
-            value: formatMoney(report.grossProfit),
-            description: `Маржинальность ${formatPercent(report.marginPercentage)}`,
-            accentClassName: report.grossProfit >= 0 ? 'border-l-blue-500' : 'border-l-red-500',
-        },
-    ];
+    const handleGenerateReport = () => {
+        const nextRequest = {
+            startDate: toApiDate(reportStart),
+            endDate: toApiDate(reportEnd),
+        };
+        if (
+            nextRequest.startDate === reportRequest.startDate
+            && nextRequest.endDate === reportRequest.endDate
+        ) {
+            void refetchReport();
+            return;
+        }
+        setReportRequest(nextRequest);
+    };
 
     const handleConfigUserChange = (userId: string) => {
         setSelectedConfigUserId(userId);
@@ -397,7 +353,7 @@ export default function AccountingPage() {
                 <div>
                     <p className="text-[10px] font-black uppercase tracking-[.18em] text-violet-600">Финансовый центр</p><h1 className="mt-1 text-3xl font-black text-slate-950 dark:text-white">Финансовый отчёт</h1>
                     <p className="mt-1 text-sm text-slate-500">
-                        Выручка, скидки, фонд оплаты труда и прибыль за выбранный период
+                        Ордера, оплаты, зарплаты, склад и бухгалтерская сверка за выбранный период
                     </p>
                 </div>
 
@@ -406,7 +362,7 @@ export default function AccountingPage() {
                         ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
                         : 'border-red-200 bg-red-50 text-red-700'
                 }`}>
-                    Чистый доход:{' '}
+                    Получено оплат:{' '}
                     <span className="font-black">{formatMoney(report.netRevenue)}</span>
                 </div>
             </header>
@@ -439,11 +395,11 @@ export default function AccountingPage() {
 
                     <button
                         type="button"
-                        onClick={() => refetchReport()}
+                        onClick={handleGenerateReport}
                         disabled={isReportFetching}
                         className="inline-flex min-h-11 items-center justify-center rounded-xl bg-blue-600 px-5 text-sm font-bold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300"
                     >
-                        {isReportFetching ? 'Обновление...' : 'Обновить отчет'}
+                        {isReportFetching ? 'Формирование…' : 'Сформировать отчет'}
                     </button>
                 </div>
 
@@ -458,11 +414,7 @@ export default function AccountingPage() {
                 </p>
             </section>
 
-            <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-                {summaryCards.map((card) => (
-                    <SummaryCard key={card.title} {...card} />
-                ))}
-            </section>
+            <FinanceReportDashboard report={report} isLoading={isReportFetching} />
                 </>
             )}
 
