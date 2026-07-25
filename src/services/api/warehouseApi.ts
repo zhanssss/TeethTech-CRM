@@ -19,9 +19,6 @@ import type {
     StockMovement,
     StockOverview,
     UpdateInventoryItemRequest, UpdateProcurementSupplierRequest, CreateProcurementSupplierRequest,
-    Warehouse,
-    WarehousesPage,
-    WarehousesQueryParams,
 } from '@/src/types/warehouse.types';
 import {formatPhoneNumber} from '@/src/utils/phone';
 
@@ -488,28 +485,6 @@ export const warehouseApi = teethTechApi.injectEndpoints({
                 }
             },
         }),
-        getWarehouses: builder.query<
-            WarehousesPage,
-            WarehousesQueryParams | void
-        >({
-            query: (params) => ({
-                url: '/warehouses',
-                params: params
-                    ? Object.fromEntries(
-                        Object.entries(params).filter(
-                            ([, value]) => value !== undefined
-                        )
-                    )
-                    : undefined,
-            }),
-            providesTags: (result) => [
-                { type: 'Warehouses', id: 'LIST' },
-                ...(result?.content ?? []).map(({ id }) => ({
-                    type: 'Warehouses' as const,
-                    id,
-                })),
-            ],
-        }),
     }),
 });
 
@@ -539,5 +514,4 @@ export const {
     useUpdateInventoryItemMutation,
     useCreateProcurementSupplierMutation,
     useUpdateProcurementSupplierMutation,
-    useGetWarehousesQuery,
 } = warehouseApi;

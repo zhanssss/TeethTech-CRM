@@ -149,6 +149,7 @@ export type ProcurementOrderItem = {
     orderedQuantity: number;
     receivedQuantity: number;
     unitPrice: number;
+    receivedAmount: number;
 };
 
 export type ProcurementOrder = {
@@ -156,11 +157,11 @@ export type ProcurementOrder = {
     number: string;
     supplierId: string;
     supplierName: string;
-    warehouseId: string;
     status: string;
     expectedAt: string | null;
     receivedAt: string | null;
     totalAmount: number;
+    receivedAmount: number;
     items: ProcurementOrderItem[];
 };
 
@@ -184,8 +185,7 @@ export type ProcurementOrdersQueryParams = {
 
 export type CreateProcurementOrderRequest = {
     supplierId: string;
-    warehouseId: string;
-    expectedAt: string;
+    expectedAt?: string;
     items: Array<{
         nomenclatureId: string;
         quantity: number;
@@ -194,36 +194,11 @@ export type CreateProcurementOrderRequest = {
 };
 
 export type ReceiveProcurementOrderRequest = {
+    receiptId: string;
     items: Array<{
         itemId: string;
         quantity: number;
         lotNumber: string;
-        expiresAt: string;
+        expiresAt?: string;
     }>;
-};
-
-export type Warehouse = {
-    id: string;
-    name: string;
-    address: string;
-    active: boolean;
-};
-
-export type WarehousesQueryParams = {
-    activeOnly?: boolean;
-    page?: number;
-    size?: number;
-    sort?: string | string[];
-};
-
-export type WarehousesPage = {
-    content: Warehouse[];
-    number: number;
-    size: number;
-    numberOfElements: number;
-    totalPages: number;
-    totalElements: number;
-    first: boolean;
-    last: boolean;
-    empty: boolean;
 };

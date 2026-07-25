@@ -13,14 +13,12 @@ import {
     useReceiveProcurementOrderMutation,
     useSubmitProcurementOrderMutation,
     useUpdateProcurementSupplierMutation,
-    useGetWarehousesQuery,
 } from '@/src/services/api/warehouseApi';
 import type {
     NomenclatureItem,
     ProcurementOrder,
     ProcurementOrderItem,
     ProcurementSupplier,
-    Warehouse,
 } from '@/src/types/warehouse.types';
 import {formatDateTime, formatQuantity, getApiErrorMessage, shortId} from './warehouseUtils';
 
@@ -114,19 +112,14 @@ function getDefaultExpectedAt() {
 function CreateOrderModal({
                               suppliers,
                               nomenclature,
-                              warehouses,
                               onClose,
                               onCreated,
                           }: {
     suppliers: ProcurementSupplier[];
     nomenclature: NomenclatureItem[];
-    warehouses: Warehouse[];
     onClose: () => void;
     onCreated: (order: ProcurementOrder) => void;
 }) {
-    const [warehouseId, setWarehouseId] = useState(
-        () => warehouses.find((warehouse) => warehouse.active)?.id ?? ''
-    );
     const [supplierId, setSupplierId] = useState('');
     const [expectedAt, setExpectedAt] = useState(getDefaultExpectedAt);
     const [items, setItems] = useState<OrderItemDraft[]>([
@@ -158,10 +151,8 @@ function CreateOrderModal({
         event.preventDefault();
         setError('');
 
-        if (!supplierId || !warehouseId || !expectedAt) {
-            setError(
-                'Выберите поставщика, склад и ожидаемую дату'
-            );
+        if (!supplierId || !expectedAt) {
+            setError('Выберите поставщика и ожидаемую дату');
             return;
         }
 
@@ -193,7 +184,6 @@ function CreateOrderModal({
         try {
             const created = await createOrder({
                 supplierId,
-                warehouseId,
                 expectedAt: expectedDate.toISOString(),
                 items: parsedItems,
             }).unwrap();
@@ -220,7 +210,7 @@ function CreateOrderModal({
                     {error && <div
                         className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
 
-                    <div className="grid gap-4 md:grid-cols-3">
+                    <div className="grid gap-4 md:grid-cols-2">
                         <label className="space-y-1.5 text-sm font-bold text-slate-700">
                             <span>Поставщик</span>
                             <select required value={supplierId} onChange={(event) => setSupplierId(event.target.value)}
@@ -229,32 +219,6 @@ function CreateOrderModal({
                                 {suppliers.filter((supplier) => supplier.active).map((supplier) => (
                                     <option key={supplier.id} value={supplier.id}>{supplier.name}</option>
                                 ))}
-                            </select>
-                        </label>
-                        <label className="space-y-1.5 text-sm font-bold text-slate-700">
-                            <span>Склад</span>
-
-                            <select
-                                required
-                                value={warehouseId}
-                                onChange={(event) => setWarehouseId(event.target.value)}
-                                className={fieldClassName}
-                            >
-                                <option value="">Выберите склад</option>
-
-                                {warehouses
-                                    .filter((warehouse) => warehouse.active)
-                                    .map((warehouse) => (
-                                        <option
-                                            key={warehouse.id}
-                                            value={warehouse.id}
-                                        >
-                                            {warehouse.name}
-                                            {warehouse.address
-                                                ? ` — ${warehouse.address}`
-                                                : ''}
-                                        </option>
-                                    ))}
                             </select>
                         </label>
                         <label className="space-y-1.5 text-sm font-bold text-slate-700">
@@ -495,6 +459,7 @@ function ReceiptModal({
         ]))
     );
     const [error, setError] = useState('');
+    const [receiptId] = useState(() => crypto.randomUUID());
     const [receiveOrder, receiveState] = useReceiveProcurementOrderMutation();
 
     const updateItem = (itemId: string, field: keyof ReceiptItemDraft, value: string) => {
@@ -538,6 +503,7 @@ function ReceiptModal({
             const received = await receiveOrder({
                 id: order.id,
                 body: {
+                    receiptId,
                     items: selectedItems.map(({itemId, quantity, lotNumber, expiresAt}) => ({
                         itemId,
                         quantity,
@@ -656,11 +622,10 @@ function OrderDetailModal({
                 </button>
             </div>
             <div className="min-h-0 overflow-y-auto p-5 sm:p-6">
-                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                     {[
                         ['Ожидается', formatDateTime(order.expectedAt)],
                         ['Принят', formatDateTime(order.receivedAt)],
-                        ['UUID склада', order.warehouseId],
                         ['Сумма', formatMoney(order.totalAmount)],
                     ].map(([label, value]) => (
                         <div key={label} className="rounded-xl bg-slate-50 p-3">
@@ -724,19 +689,11 @@ export default function ProcurementPanel() {
     const suppliersQuery = useGetProcurementSuppliersQuery();
     const nomenclatureQuery = useGetNomenclatureQuery({activeOnly: true, page: 0, size: 1000});
     const [submitOrder, submitState] = useSubmitProcurementOrderMutation();
-    const warehousesQuery = useGetWarehousesQuery({
-        activeOnly: true,
-        page: 0,
-        size: 100,
-        sort: 'name,ASC',
-    });
-
     const orders = useMemo(
         () => ordersQuery.data?.content ?? [],
         [ordersQuery.data?.content]
     );
     const suppliers = suppliersQuery.data ?? [];
-    const warehouses = warehousesQuery.data?.content ?? [];
     const selectedOrder = orders.find((order) => order.id === selectedOrderId);
     const filteredOrders = useMemo(() => {
         const needle = search.trim().toLocaleLowerCase('ru-RU');
@@ -750,8 +707,7 @@ export default function ProcurementPanel() {
     const loadError =
         ordersQuery.error
         ?? suppliersQuery.error
-        ?? nomenclatureQuery.error
-        ?? warehousesQuery.error;
+        ?? nomenclatureQuery.error;
     const handleSubmitOrder = async () => {
         if (!selectedOrder) return;
         try {
@@ -812,17 +768,13 @@ export default function ProcurementPanel() {
                             <button type="button" onClick={() => setCreateOrderOpen(true)} disabled={
                                 suppliersQuery.isLoading
                                 || nomenclatureQuery.isLoading
-                                || warehousesQuery.isLoading
                                 || suppliers.filter((supplier) => supplier.active).length === 0
                                 || (nomenclatureQuery.data?.length ?? 0) === 0
-                                || warehouses.length === 0
                             }
                                     title={
                                         suppliers.filter((supplier) => supplier.active).length === 0
                                             ? 'Сначала добавьте активного поставщика'
-                                            : warehouses.length === 0
-                                                ? 'Нет доступных складов'
-                                                : undefined
+                                            : undefined
                                     }
                                     className="rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-bold text-white shadow-lg shadow-violet-950/15 hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-50">+
                                 Новый заказ
@@ -953,7 +905,6 @@ export default function ProcurementPanel() {
                 <CreateOrderModal
                     suppliers={suppliers}
                     nomenclature={nomenclatureQuery.data ?? []}
-                    warehouses={warehouses}
                     onClose={() => setCreateOrderOpen(false)}
                     onCreated={() => {
                         setCreateOrderOpen(false);
