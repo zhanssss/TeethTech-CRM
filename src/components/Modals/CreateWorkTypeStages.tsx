@@ -1,6 +1,6 @@
 'use client';
 
-import {useState} from 'react';
+import {useMemo, useRef, useState} from 'react';
 import {useSelector} from 'react-redux';
 
 import {
@@ -31,6 +31,7 @@ import type {Role} from '@/src/types/role.types';
 
 import {
     useCreateWorkflowWorkTypesMutation,
+    useGetWorkflowStatusesQuery,
 } from '@/src/services/api/workflowApi';
 
 import {
@@ -39,7 +40,14 @@ import {
 
 import type {
     CreateWorkflowWorkTypesDTO,
+    WorkflowStatus,
 } from '@/src/types/workflow.types';
+import {
+    findSimilarWorkflowStatus,
+    isProtectedWorkflowStatus,
+    normalizeWorkflowStageValue,
+    searchWorkflowStatuses,
+} from '@/src/utils/workflowStageMatching';
 
 type CreateWorkTypeStagesProps = {
     isOpen: boolean;
@@ -54,6 +62,7 @@ type IntermediateStage = Omit<
     'initial' | 'terminal' | 'review'
 > & {
     clientId: string;
+    existingStatusId?: string;
 };
 
 type WorkTypeForm = Omit<
@@ -131,6 +140,23 @@ function createIntermediateStage(): IntermediateStage {
         colorHex: '#3B82F6',
         requiredRole: '',
     };
+}
+
+function hasDuplicateIntermediateStages(stages: IntermediateStage[]) {
+    return stages.some((stage, index) =>
+        stages.slice(index + 1).some((candidate) => {
+            const code = normalizeWorkflowStageValue(stage.code);
+            const name = normalizeWorkflowStageValue(stage.name);
+
+            return (
+                Boolean(code) &&
+                code === normalizeWorkflowStageValue(candidate.code)
+            ) || (
+                Boolean(name) &&
+                name === normalizeWorkflowStageValue(candidate.name)
+            );
+        }),
+    );
 }
 
 type RoleSelectProps = {
@@ -243,6 +269,9 @@ function SystemStageRow({
 type SortableStageRowProps = {
     stage: IntermediateStage;
     index: number;
+    existingStatuses: WorkflowStatus[];
+    statusesLoading: boolean;
+    statusesError: boolean;
     roles: Role[];
     rolesLoading: boolean;
     onChange: (
@@ -250,17 +279,236 @@ type SortableStageRowProps = {
         patch: Partial<IntermediateStage>,
     ) => void;
     onDelete: (id: string) => void;
+    onUseExisting: (id: string, status: WorkflowStatus) => void;
     canCreate: boolean;
     onCreateRequest: () => void;
 };
 
+type StageIdentityFieldsProps = {
+    stage: IntermediateStage;
+    index: number;
+    existingStatuses: WorkflowStatus[];
+    statusesLoading: boolean;
+    statusesError: boolean;
+    onChange: (
+        id: string,
+        patch: Partial<IntermediateStage>,
+    ) => void;
+    onUseExisting: (id: string, status: WorkflowStatus) => void;
+};
+
+function StageIdentityFields({
+                                 stage,
+                                 index,
+                                 existingStatuses,
+                                 statusesLoading,
+                                 statusesError,
+                                 onChange,
+                                 onUseExisting,
+                             }: StageIdentityFieldsProps) {
+    const [activeField, setActiveField] =
+        useState<'code' | 'name' | null>(null);
+    const codeInputRef = useRef<HTMLInputElement>(null);
+    const nameInputRef = useRef<HTMLInputElement>(null);
+    const query = activeField === 'code' ? stage.code : stage.name;
+    const matches = useMemo(
+        () => searchWorkflowStatuses(query, existingStatuses),
+        [existingStatuses, query],
+    );
+    const selectedStatus = existingStatuses.find(
+        (status) => status.id === stage.existingStatusId,
+    );
+    const similarMatch = stage.existingStatusId
+        ? undefined
+        : findSimilarWorkflowStatus(stage, existingStatuses);
+    const similarStatus = existingStatuses.find(
+        (status) => status.id === similarMatch?.status.id,
+    );
+    const similarStatusIsProtected =
+        similarStatus ? isProtectedWorkflowStatus(similarStatus) : false;
+
+    const changeIdentity = (
+        patch: Pick<Partial<IntermediateStage>, 'code' | 'name'>,
+    ) => {
+        onChange(stage.clientId, {
+            ...patch,
+            existingStatusId: undefined,
+        });
+    };
+
+    const focusSimilarField = () => {
+        const target = similarMatch?.matchedBy === 'code'
+            ? codeInputRef.current
+            : nameInputRef.current;
+
+        target?.focus();
+    };
+
+    return (
+        <div className="relative min-w-0">
+            <div className="grid min-w-0 gap-2 sm:grid-cols-[110px_minmax(140px,1fr)]">
+                <input
+                    ref={codeInputRef}
+                    required
+                    type="text"
+                    autoComplete="off"
+                    value={stage.code}
+                    onFocus={() => setActiveField('code')}
+                    onBlur={() => setActiveField(null)}
+                    onChange={(event) =>
+                        changeIdentity({code: event.target.value})
+                    }
+                    placeholder="CODE"
+                    aria-label={`Код промежуточного этапа ${index + 1}`}
+                    className="h-10 min-w-0 rounded-lg border border-slate-200 bg-slate-50 px-3 font-mono text-xs font-bold uppercase outline-none transition focus:border-violet-500 focus:bg-white"
+                />
+
+                <input
+                    ref={nameInputRef}
+                    required
+                    type="text"
+                    autoComplete="off"
+                    value={stage.name}
+                    onFocus={() => setActiveField('name')}
+                    onBlur={() => setActiveField(null)}
+                    onChange={(event) =>
+                        changeIdentity({name: event.target.value})
+                    }
+                    placeholder={`Промежуточный этап ${index + 1}`}
+                    aria-label={`Название промежуточного этапа ${index + 1}`}
+                    className="h-10 min-w-0 rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm font-medium outline-none transition focus:border-violet-500 focus:bg-white"
+                />
+            </div>
+
+            {activeField && (
+                <div className="absolute left-0 right-0 top-[calc(100%+0.4rem)] z-40 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl">
+                    {statusesLoading ? (
+                        <p className="px-3 py-2.5 text-xs font-semibold text-slate-400">
+                            Загружаем существующие этапы…
+                        </p>
+                    ) : statusesError ? (
+                        <p className="px-3 py-2.5 text-xs font-semibold text-red-600">
+                            Не удалось загрузить существующие этапы.
+                        </p>
+                    ) : matches.length > 0 ? (
+                        <div className="max-h-56 overflow-y-auto py-1">
+                            {matches.map(({status}) => {
+                                const fullStatus = existingStatuses.find(
+                                    (item) => item.id === status.id,
+                                );
+                                const protectedStatus =
+                                    isProtectedWorkflowStatus(status);
+
+                                if (!fullStatus) return null;
+
+                                return protectedStatus ? (
+                                    <div
+                                        key={status.id}
+                                        className="flex items-center justify-between gap-3 px-3 py-2 text-left"
+                                    >
+                                        <span className="min-w-0">
+                                            <span className="block truncate text-sm font-bold text-slate-500">
+                                                {status.name}
+                                            </span>
+                                            <span className="block truncate font-mono text-[10px] font-bold text-slate-400">
+                                                {status.code}
+                                            </span>
+                                        </span>
+                                        <span className="shrink-0 text-[10px] font-bold text-slate-400">
+                                            Уже добавлен
+                                        </span>
+                                    </div>
+                                ) : (
+                                    <button
+                                        key={status.id}
+                                        type="button"
+                                        className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left transition hover:bg-violet-50"
+                                        onMouseDown={(event) => {
+                                            event.preventDefault();
+                                            onUseExisting(stage.clientId, fullStatus);
+                                            setActiveField(null);
+                                        }}
+                                    >
+                                        <span className="min-w-0">
+                                            <span className="block truncate text-sm font-bold text-slate-700">
+                                                {status.name}
+                                            </span>
+                                            <span className="block truncate font-mono text-[10px] font-bold text-slate-400">
+                                                {status.code}
+                                            </span>
+                                        </span>
+                                        <span className="shrink-0 text-[10px] font-bold text-violet-600">
+                                            Выбрать
+                                        </span>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    ) : (
+                        <p className="px-3 py-2.5 text-xs font-semibold text-slate-400">
+                            Совпадений нет. Можно оставить новые код и название.
+                        </p>
+                    )}
+                </div>
+            )}
+
+            {selectedStatus && (
+                <div className="mt-2 flex flex-wrap items-center gap-2 rounded-lg bg-emerald-50 px-3 py-2 text-[11px] font-semibold text-emerald-700">
+                    <span>✓ Используется существующий этап</span>
+                    <span className="font-mono">{selectedStatus.code}</span>
+                </div>
+            )}
+
+            {similarStatus && (
+                <div className="mt-2 rounded-xl border border-amber-200 bg-amber-50 p-3">
+                    <p className="text-xs font-bold text-amber-900">
+                        Похожий этап уже существует: {similarStatus.name}{' '}
+                        <span className="font-mono text-[11px]">
+                            ({similarStatus.code})
+                        </span>
+                    </p>
+                    <p className="mt-1 text-[11px] leading-4 text-amber-700">
+                        {similarStatusIsProtected
+                            ? 'Этот системный этап уже добавлен в маршрут автоматически. Измените введённый код или название.'
+                            : 'Код и название этапа используются вместе. Измените введённое значение или выберите существующий этап.'}
+                    </p>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                        {!similarStatusIsProtected && (
+                            <button
+                                type="button"
+                                onClick={() =>
+                                    onUseExisting(stage.clientId, similarStatus)
+                                }
+                                className="rounded-lg bg-amber-600 px-3 py-1.5 text-[11px] font-bold text-white transition hover:bg-amber-700"
+                            >
+                                Использовать существующий
+                            </button>
+                        )}
+                        <button
+                            type="button"
+                            onClick={focusSimilarField}
+                            className="rounded-lg border border-amber-300 bg-white px-3 py-1.5 text-[11px] font-bold text-amber-800 transition hover:bg-amber-100"
+                        >
+                            Изменить введённое
+                        </button>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
+
 function SortableStageRow({
                               stage,
                               index,
+                              existingStatuses,
+                              statusesLoading,
+                              statusesError,
                               roles,
                               rolesLoading,
                               onChange,
                               onDelete,
+                              onUseExisting,
                               canCreate,
                               onCreateRequest,
                           }: SortableStageRowProps) {
@@ -295,7 +543,7 @@ function SortableStageRow({
                     : 'border-slate-200'
             }`}
         >
-            <div className="grid items-center gap-2 md:grid-cols-[32px_110px_minmax(140px,1fr)_180px_48px_36px]">
+            <div className="grid items-start gap-2 md:grid-cols-[32px_minmax(260px,1fr)_180px_48px_36px]">
                 <button
                     type="button"
                     {...attributes}
@@ -306,30 +554,14 @@ function SortableStageRow({
                     ⋮⋮
                 </button>
 
-                <input
-                    required
-                    type="text"
-                    value={stage.code}
-                    onChange={(event) =>
-                        onChange(stage.clientId, {
-                            code: event.target.value,
-                        })
-                    }
-                    placeholder="CODE"
-                    className="h-10 min-w-0 rounded-lg border border-slate-200 bg-slate-50 px-3 font-mono text-xs font-bold uppercase outline-none transition focus:border-violet-500 focus:bg-white"
-                />
-
-                <input
-                    required
-                    type="text"
-                    value={stage.name}
-                    onChange={(event) =>
-                        onChange(stage.clientId, {
-                            name: event.target.value,
-                        })
-                    }
-                    placeholder={`Промежуточный этап ${index + 1}`}
-                    className="h-10 min-w-0 rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm font-medium outline-none transition focus:border-violet-500 focus:bg-white"
+                <StageIdentityFields
+                    stage={stage}
+                    index={index}
+                    existingStatuses={existingStatuses}
+                    statusesLoading={statusesLoading}
+                    statusesError={statusesError}
+                    onChange={onChange}
+                    onUseExisting={onUseExisting}
                 />
 
                 <RoleSelect
@@ -424,6 +656,14 @@ export default function CreateWorkTypeStages({
         isError: rolesError,
     } = useGetRolesQuery(undefined, {skip: !canViewRoles});
 
+    const {
+        data: existingStatuses = [],
+        isLoading: statusesLoading,
+        isFetching: statusesFetching,
+        isError: statusesError,
+        refetch: refetchStatuses,
+    } = useGetWorkflowStatusesQuery(undefined, {skip: !isOpen});
+
     const [
         createWorkflowWorkTypes,
         {
@@ -481,6 +721,20 @@ export default function CreateWorkTypeStages({
         );
     };
 
+    const useExistingStage = (
+        id: string,
+        status: WorkflowStatus,
+    ) => {
+        updateIntermediateStage(id, {
+            existingStatusId: status.id,
+            code: status.code,
+            name: status.name,
+            description: status.description ?? '',
+            colorHex: status.colorHex || '#3B82F6',
+        });
+        setFormError('');
+    };
+
     const handleDragEnd = (
         event: DragEndEvent,
     ) => {
@@ -525,19 +779,16 @@ export default function CreateWorkTypeStages({
 
     const buildIntermediatePayload = (
         stage: IntermediateStage,
-    ): WorkflowStage => {
-        const {
-            clientId,
-            ...stageData
-        } = stage;
-
-        return {
-            ...stageData,
-            initial: false,
-            terminal: false,
-            review: false,
-        };
-    };
+    ): WorkflowStage => ({
+        code: stage.code.trim(),
+        name: stage.name.trim(),
+        description: stage.description.trim(),
+        colorHex: stage.colorHex,
+        requiredRole: stage.requiredRole,
+        initial: false,
+        terminal: false,
+        review: false,
+    });
 
     const resetForm = () => {
         setFormData(initialFormData);
@@ -551,6 +802,35 @@ export default function CreateWorkTypeStages({
     ) => {
         event.preventDefault();
         setFormError('');
+
+        if (statusesError) {
+            setFormError(
+                'Не удалось проверить этапы на дубликаты. Повторите загрузку списка этапов.',
+            );
+            return;
+        }
+
+        const unresolvedSimilarStage = intermediateStages
+            .filter((stage) => !stage.existingStatusId)
+            .map((stage) => ({
+                stage,
+                match: findSimilarWorkflowStatus(stage, existingStatuses),
+            }))
+            .find(({match}) => Boolean(match));
+
+        if (unresolvedSimilarStage?.match) {
+            setFormError(
+                `Этап «${unresolvedSimilarStage.stage.name || unresolvedSimilarStage.stage.code}» похож на существующий «${unresolvedSimilarStage.match.status.name}» (${unresolvedSimilarStage.match.status.code}). Используйте существующий этап или измените код и название.`,
+            );
+            return;
+        }
+
+        if (hasDuplicateIntermediateStages(intermediateStages)) {
+            setFormError(
+                'В маршруте повторяются коды или названия промежуточных этапов. Используйте каждый этап только один раз.',
+            );
+            return;
+        }
 
         const normalizedIntermediateStages =
             intermediateStages.map(
@@ -697,7 +977,7 @@ export default function CreateWorkTypeStages({
                                 </h3>
 
                                 <p className="text-[11px] text-slate-400">
-                                    Перетаскиваются только промежуточные
+                                    Введите новый этап или выберите существующий по коду либо названию
                                 </p>
                             </div>
 
@@ -777,6 +1057,15 @@ export default function CreateWorkTypeStages({
                                                         index={
                                                             index
                                                         }
+                                                        existingStatuses={
+                                                            existingStatuses
+                                                        }
+                                                        statusesLoading={
+                                                            statusesLoading
+                                                        }
+                                                        statusesError={
+                                                            statusesError
+                                                        }
                                                         roles={
                                                             roles
                                                         }
@@ -797,6 +1086,9 @@ export default function CreateWorkTypeStages({
                                                         }
                                                         onDelete={
                                                             deleteIntermediateStage
+                                                        }
+                                                        onUseExisting={
+                                                            useExistingStage
                                                         }
                                                     />
                                                 ),
@@ -881,6 +1173,22 @@ export default function CreateWorkTypeStages({
                         </p>
                     )}
 
+                    {statusesError && (
+                        <div className="flex flex-col gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-700 sm:flex-row sm:items-center sm:justify-between">
+                            <span>
+                                Не удалось загрузить существующие этапы. Проверка дубликатов недоступна.
+                            </span>
+                            <button
+                                type="button"
+                                onClick={() => void refetchStatuses()}
+                                disabled={statusesFetching}
+                                className="shrink-0 rounded-lg bg-white px-3 py-1.5 font-bold text-amber-800 transition hover:bg-amber-100 disabled:cursor-wait disabled:opacity-60"
+                            >
+                                {statusesFetching ? 'Загружаем…' : 'Повторить'}
+                            </button>
+                        </div>
+                    )}
+
                     {formError && (
                         <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-medium text-red-700">
                             {formError}
@@ -907,7 +1215,9 @@ export default function CreateWorkTypeStages({
                         type="submit"
                         disabled={
                             creating ||
-                            rolesLoading
+                            rolesLoading ||
+                            statusesLoading ||
+                            statusesError
                         }
                         className="rounded-lg bg-violet-600 px-5 py-2 text-xs font-bold text-white transition hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-50"
                     >

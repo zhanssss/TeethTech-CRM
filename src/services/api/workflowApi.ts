@@ -48,7 +48,7 @@ export const workflowApi = teethTechApi.injectEndpoints({
                 method: 'POST',
                 body,
             }),
-            invalidatesTags: ['Workflow']
+            invalidatesTags: ['Workflow', 'WorkTypes']
         })
     }),
 });
