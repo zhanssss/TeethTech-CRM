@@ -162,27 +162,6 @@ function getRowError(row: ReportRow) {
     return '';
 }
 
-function getWasteWarning(row: ReportRow) {
-    const issued = parseQuantity(row.issuedQuantity) ?? 0;
-    const waste = parseQuantity(row.wasteQuantity) ?? 0;
-    const exceedsPlanned = waste > row.remainingPlannedWasteQuantity;
-    const actualPercent = issued > 0 ? (waste / issued) * 100 : 0;
-    const exceedsPercent = row.wasteLimitPercent != null
-        && actualPercent > row.wasteLimitPercent;
-
-    if (!exceedsPlanned && !exceedsPercent) return '';
-
-    const reasons = [
-        exceedsPlanned
-            ? `доступный остаток плановых потерь (${formatQuantity(row.remainingPlannedWasteQuantity)} ${row.unit})`
-            : '',
-        exceedsPercent
-            ? `лимит ${formatQuantity(row.wasteLimitPercent ?? 0)}% от выданного`
-            : '',
-    ].filter(Boolean);
-    return `Потери превышают ${reasons.join(' и ')}. Проверьте значение перед отправкой.`;
-}
-
 function QuantityInput({
     label,
     unit,
@@ -238,7 +217,7 @@ export default function TaskMaterialTransitionModal({
     const [materialReportId] = useState(createMaterialReportId);
     const [screen, setScreen] = useState<'form' | 'review'>('form');
     const [comment, setComment] = useState(defaultComment);
-    const [rowDrafts, setRowDrafts] = useState<ReportRow[] | null>(null);
+    const [rows, setRows] = useState<ReportRow[]>([]);
     const [measurementConfirmed, setMeasurementConfirmed] = useState(false);
     const [selectedNomenclatureId, setSelectedNomenclatureId] = useState('');
     const [nomenclatureSearch, setNomenclatureSearch] = useState('');
@@ -279,25 +258,9 @@ export default function TaskMaterialTransitionModal({
     const isReportLoading = planQuery.isLoading
         || usagesQuery.isLoading
         || accountingQuery.isLoading;
-    const hasLoadError = planQuery.isError
+    const hasReportLoadError = planQuery.isError
         || usagesQuery.isError
-        || accountingQuery.isError
-        || statusesQuery.isError;
-    const isWorkflowLoading = statusesQuery.isLoading;
-    const baseRows = useMemo(() => {
-        const accountingById = new Map(
-            accounting?.items.map((item) => [item.nomenclatureId, item]) ?? []
-        );
-        return plan.map((item) => (
-            createRow(item, accountingById.get(item.nomenclatureId), usages)
-        ));
-    }, [
-        accounting,
-        plan,
-        usages,
-    ]);
-    const rows = rowDrafts ?? baseRows;
-
+        || accountingQuery.isError;
     const duplicateIds = rows.length !== new Set(
         rows.map((row) => row.nomenclatureId)
     ).size;
@@ -306,12 +269,16 @@ export default function TaskMaterialTransitionModal({
         ? 'Одна номенклатура не может быть добавлена в отчёт дважды.'
         : rowErrors.find(Boolean) ?? '';
     const canReview = (!materialReportRequired || rows.length > 0)
-        && !accounting?.finalized
         && !formError
         && (rows.length === 0 || measurementConfirmed)
-        && !isReportLoading
-        && !isWorkflowLoading
-        && !hasLoadError;
+        && (rows.length === 0 || (
+            !accounting?.finalized
+            && !isReportLoading
+            && !hasReportLoadError
+        ));
+    const availablePlan = useMemo(() => plan.filter(
+        (item) => !rows.some((row) => row.nomenclatureId === item.nomenclatureId)
+    ), [plan, rows]);
     const availableNomenclature = useMemo(() => {
         const search = nomenclatureSearch.trim().toLocaleLowerCase('ru-RU');
         return nomenclature.filter((item) => (
@@ -325,14 +292,31 @@ export default function TaskMaterialTransitionModal({
         field: QuantityField | 'note',
         value: string
     ) => {
-        setRowDrafts((current) => (current ?? rows).map((row) => (
+        setRows((current) => current.map((row) => (
             row.key === key ? { ...row, [field]: value } : row
         )));
         setMeasurementConfirmed(false);
         setSubmitError('');
     };
 
-    const addMaterial = () => {
+    const addPlannedMaterial = () => {
+        if (
+            !selectedNomenclatureId
+            || rows.some((row) => row.nomenclatureId === selectedNomenclatureId)
+        ) return;
+        const item = plan.find(
+            (candidate) => candidate.nomenclatureId === selectedNomenclatureId
+        );
+        if (!item) return;
+        const accountingItem = accounting?.items.find(
+            (candidate) => candidate.nomenclatureId === item.nomenclatureId
+        );
+        setRows((current) => [...current, createRow(item, accountingItem, usages)]);
+        setSelectedNomenclatureId('');
+        setMeasurementConfirmed(false);
+    };
+
+    const addUnplannedMaterial = () => {
         if (
             !selectedNomenclatureId
             || rows.some((row) => row.nomenclatureId === selectedNomenclatureId)
@@ -341,7 +325,7 @@ export default function TaskMaterialTransitionModal({
             (candidate) => candidate.id === selectedNomenclatureId
         );
         if (!item) return;
-        setRowDrafts((current) => [...(current ?? rows), {
+        setRows((current) => [...current, {
             key: `extra-${item.id}`,
             nomenclatureId: item.id,
             nomenclatureName: item.name,
@@ -363,8 +347,8 @@ export default function TaskMaterialTransitionModal({
         setMeasurementConfirmed(false);
     };
 
-    const removeExtraMaterial = (key: string) => {
-        setRowDrafts((current) => (current ?? rows).filter((row) => row.key !== key));
+    const removeMaterial = (key: string) => {
+        setRows((current) => current.filter((row) => row.key !== key));
         setMeasurementConfirmed(false);
         setSubmitError('');
     };
@@ -430,9 +414,9 @@ export default function TaskMaterialTransitionModal({
             </header>
 
             <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-5">
-                {hasLoadError ? (
-                    <div className="mb-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700" role="alert">
-                        Не удалось получить актуальный план, историю расходов или настройки перехода. Переход заблокирован.
+                {hasReportLoadError ? (
+                    <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800" role="alert">
+                        Не удалось загрузить данные материального учёта. Можно продолжить переход без отчёта или повторить загрузку.
                         <button type="button" className="ml-2 font-black underline" onClick={retryLoading}>
                             Повторить
                         </button>
@@ -461,8 +445,31 @@ export default function TaskMaterialTransitionModal({
                 {screen === 'form' ? (
                     <>
                         <p className="mb-4 text-sm text-slate-600">
-                            Сверьте фактически выданное количество и отдельно внесите полезный расход, потери и возврат. Потери не рассчитываются автоматически.
+                            Добавьте только те материалы, с которыми работали на этом этапе. Если материалы не использовались, переход можно выполнить без отчёта.
                         </p>
+
+                        <div className="mb-4 flex flex-col gap-2 rounded-xl border border-violet-100 bg-violet-50/40 p-3 sm:flex-row">
+                            <select
+                                value={selectedNomenclatureId}
+                                onChange={(event) => setSelectedNomenclatureId(event.target.value)}
+                                className="min-h-10 min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-3 text-xs"
+                            >
+                                <option value="">Выберите использованный материал…</option>
+                                {availablePlan.map((item) => (
+                                    <option key={item.nomenclatureId} value={item.nomenclatureId}>
+                                        {item.nomenclatureName} · {item.unit}
+                                    </option>
+                                ))}
+                            </select>
+                            <button
+                                type="button"
+                                onClick={addPlannedMaterial}
+                                disabled={!selectedNomenclatureId}
+                                className="rounded-lg bg-violet-600 px-4 py-2 text-xs font-black text-white disabled:bg-slate-300"
+                            >
+                                Добавить в отчёт
+                            </button>
+                        </div>
 
                         {allowUnplannedMaterials ? (
                             <div className="mb-4 grid gap-2 rounded-xl border border-violet-100 bg-violet-50/40 p-3 sm:grid-cols-[minmax(180px,.8fr)_minmax(220px,1fr)_auto]">
@@ -489,7 +496,7 @@ export default function TaskMaterialTransitionModal({
                                 </select>
                                 <button
                                     type="button"
-                                    onClick={addMaterial}
+                                    onClick={addUnplannedMaterial}
                                     disabled={!selectedNomenclatureId || nomenclatureQuery.isLoading}
                                     className="rounded-lg bg-violet-600 px-4 py-2 text-xs font-black text-white disabled:bg-slate-300"
                                 >
@@ -506,7 +513,6 @@ export default function TaskMaterialTransitionModal({
                             <div className="space-y-3">
                                 {rows.map((row, index) => {
                                     const error = rowErrors[index];
-                                    const warning = getWasteWarning(row);
                                     return (
                                         <article
                                             key={row.key}
@@ -521,38 +527,16 @@ export default function TaskMaterialTransitionModal({
                                                         Единица измерения: {row.unit}
                                                     </p>
                                                 </div>
-                                                {!row.isPlanned ? (
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => removeExtraMaterial(row.key)}
-                                                        className="text-xs font-bold text-red-600"
-                                                    >
-                                                        Удалить внеплановую строку
-                                                    </button>
-                                                ) : null}
+                                                <button
+                                                    type="button"
+                                                    onClick={() => removeMaterial(row.key)}
+                                                    className="text-xs font-bold text-red-600"
+                                                >
+                                                    Убрать из отчёта
+                                                </button>
                                             </div>
 
-                                            <dl className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-6">
-                                                {[
-                                                    ['План на задачу', row.plannedTaskQuantity],
-                                                    ['Использовано ранее', row.alreadyConsumedQuantity],
-                                                    ['Потери ранее', row.alreadyWasteQuantity],
-                                                    ['Остаток резерва', row.remainingReservedQuantity],
-                                                    ['Плановые потери', row.plannedWasteQuantity],
-                                                    ['Остаток план. потерь', row.remainingPlannedWasteQuantity],
-                                                ].map(([label, value]) => (
-                                                    <div key={String(label)} className="rounded-lg bg-slate-50 px-3 py-2">
-                                                        <dt className="text-[9px] font-black uppercase tracking-wide text-slate-400">
-                                                            {label}
-                                                        </dt>
-                                                        <dd className="mt-1 text-xs font-black text-slate-800">
-                                                            {formatQuantity(Number(value))} {row.unit}
-                                                        </dd>
-                                                    </div>
-                                                ))}
-                                            </dl>
-
-                                            <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                                            <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                                                 <QuantityInput
                                                     label="Выдано"
                                                     unit={row.unit}
@@ -601,11 +585,6 @@ export default function TaskMaterialTransitionModal({
                                                     {error}
                                                 </p>
                                             ) : null}
-                                            {warning ? (
-                                                <p className="mt-3 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-black text-amber-900" role="status">
-                                                    ⚠ {warning}
-                                                </p>
-                                            ) : null}
                                         </article>
                                     );
                                 })}
@@ -617,8 +596,8 @@ export default function TaskMaterialTransitionModal({
                                     : 'border-slate-200 bg-slate-50 text-slate-600'
                             }`}>
                                 {materialReportRequired
-                                    ? 'В материальном плане нет номенклатуры. Для этого перехода отчёт обязателен.'
-                                    : 'В материальном плане нет номенклатуры. Для этого перехода материальный отчёт не требуется.'}
+                                    ? 'Для этого перехода нужен отчёт: добавьте хотя бы один использованный материал.'
+                                    : 'На этом этапе материалы не указаны. Переход будет выполнен без материального отчёта.'}
                             </p>
                         )}
 
@@ -688,14 +667,6 @@ export default function TaskMaterialTransitionModal({
                                 </table>
                             </div>
                         ) : null}
-                        {rows.map((row) => {
-                            const warning = getWasteWarning(row);
-                            return warning ? (
-                                <p key={row.key} className="mt-3 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-black text-amber-900">
-                                    ⚠ {row.nomenclatureName}: {warning}
-                                </p>
-                            ) : null;
-                        })}
                         <dl className="mt-4 rounded-xl bg-slate-50 p-4 text-xs">
                             <dt className="font-black uppercase tracking-wide text-slate-400">
                                 Комментарий к переходу

@@ -148,7 +148,7 @@ export default function TaskMaterialAccountingPanel({
             </div>
 
             <div className="mt-5 border-t border-slate-100 pt-4">
-                <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-500">История по этапам</h4>
+                <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-500">История использованных материалов</h4>
                 {isUsagesLoading ? <p className="mt-3 text-xs text-slate-400">Загрузка истории...</p> : usageGroups.length ? (
                     <div className="mt-3 space-y-3">{usageGroups.map(([reportId, rows]) => {
                         const first = rows[0];
@@ -159,7 +159,7 @@ export default function TaskMaterialAccountingPanel({
                             </article>
                         );
                     })}</div>
-                ) : <p className="mt-3 text-xs text-slate-400">Материальные отчёты ещё не отправлялись</p>}
+                ) : <p className="mt-3 text-xs text-slate-400">На этапах задачи материалы ещё не использовались</p>}
             </div>
         </section>
     );
