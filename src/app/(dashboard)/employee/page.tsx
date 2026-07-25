@@ -4,12 +4,10 @@ import Link from 'next/link';
 import { useSelector } from 'react-redux';
 import EmployeeMiniCalendar from '@/src/components/employee/EmployeeMiniCalendar';
 import EmployeeTasksKanban from '@/src/components/employee/EmployeeTasksKanban';
-import ErrorState from '@/src/components/ui/ErrorState';
 import type { RootState } from '@/src/lib/store';
 
 export default function EmployeePage() {
-    const { name, role } = useSelector((state: RootState) => state.auth);
-    if (role === 'ADMIN' || role === 'DISPATCHER') return <ErrorState title="Рабочая зона">Раздел доступен сотрудникам производства.</ErrorState>;
+    const { name } = useSelector((state: RootState) => state.auth);
 
     const today = new Intl.DateTimeFormat('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date());
     return <div className="mx-auto w-full max-w-[1500px] space-y-6 pb-10">

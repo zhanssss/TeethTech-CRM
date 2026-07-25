@@ -2,6 +2,13 @@
 
 import TeethTechLogo from '@/src/components/branding/TeethTechLogo'
 import { logout } from '@/src/features/auth/authSlice'
+import {
+	canAccessManagementZone,
+	canAccessWorkZone,
+	getManagementRedirectPath,
+	normalizeAuthRoles,
+	WORKSPACE_STORAGE_KEY
+} from '@/src/features/auth/authUtils'
 import { useNotifications } from '@/src/features/notifications/useNotifications'
 import { AppDispatch, RootState } from '@/src/lib/store'
 import { teethTechApi } from '@/src/services/teethTechApi'
@@ -50,13 +57,20 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 	const searchParams = useSearchParams()
 	const dispatch = useDispatch<AppDispatch>()
 	const router = useRouter()
-	const { role } = useSelector((state: RootState) => state.auth)
+	const { role, roles } = useSelector((state: RootState) => state.auth)
 	const { notifyError, notifySuccess } = useNotifications()
 	const [isLoggingOut, setIsLoggingOut] = useState(false)
 	const [groupExpansion, setGroupExpansion] = useState<Record<string, boolean>>({})
+	const normalizedRoles = normalizeAuthRoles(
+		roles.length > 0 ? roles : role ? [role] : []
+	)
+	const canUseWorkZone = canAccessWorkZone(roles, role)
+	const canUseManagementZone = canAccessManagementZone(roles, role)
+	const isWorkZone = pathname.startsWith('/employee') || !canUseManagementZone
+	const managementPath = getManagementRedirectPath(roles, role)
 
 	const menuItems: MenuItem[] = (() => {
-		if (role === 'TECHNICIAN') {
+		if (isWorkZone) {
 			return [
 				{ name: 'Рабочая зона', href: '/employee', exact: true },
 				{ name: 'Календарь', href: '/employee/calendar' },
@@ -64,45 +78,46 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 			]
 		}
 
-		if (role === 'FINANCIER') {
-			return [
-				{ name: 'Финансовый отчёт', href: '/accounting', exact: true },
-				{ name: 'Зарплаты', href: '/accounting/payroll', exact: true },
-				{ name: 'Счета', href: '/accounting/invoices' }
-			]
+		const items: MenuItem[] = []
+		const pushUnique = (item: MenuItem) => {
+			if (!items.some((existing) => existing.href === item.href)) {
+				items.push(item)
+			}
 		}
+		const hasAdmin = normalizedRoles.includes('ADMIN')
+		const hasDispatcher = normalizedRoles.includes('DISPATCHER')
+		const hasFinancier = normalizedRoles.includes('FINANCIER')
+		const hasChiefTechnician =
+			normalizedRoles.includes('CHIEF_TECHNICIAN')
+			|| normalizedRoles.includes('HEAD_TECHNICIAN')
 
-		if (role === 'CHIEF_TECHNICIAN') {
-			return [
-				{ name: 'Зарплатные планы', href: '/accounting/payroll', exact: true },
-				{
-					name: 'Лаборатория',
-					href: '/laboratory',
-					children: [
-						{ name: 'Типы работ', href: '/laboratory/work-types' },
-						{ name: 'Роли', href: '/laboratory/roles' }
-					]
-				}
-			]
-		}
-
-		const items: MenuItem[] = [
-			{ name: 'Дэшборд', href: '/' },
-			{ name: 'Заказы', href: '/orders',
-                children:
-                    [{ name: 'Реестр', href: '/orders' }]},
-                    // [{ name: 'Производственная доска', href: '/tasks' }] },
-			{ name: 'Аналитика', href: '/analytics' },
-			{ name: 'Склад', href: '/warehouse', children: [{ name: 'Обзор', href: '/warehouse?tab=overview' }, { name: 'Закупки', href: '/warehouse?tab=procurement' }, { name: 'Номенклатура', href: '/warehouse?tab=nomenclature' }, { name: 'Инвентаризация', href: '/warehouse?tab=inventory' }] },
-			{
+		if (hasAdmin || hasDispatcher) {
+			pushUnique({ name: 'Дэшборд', href: '/' })
+			pushUnique({
+				name: 'Заказы',
+				href: '/orders',
+				children: [{ name: 'Реестр', href: '/orders' }]
+			})
+			pushUnique({ name: 'Аналитика', href: '/analytics' })
+			pushUnique({
+				name: 'Склад',
+				href: '/warehouse',
+				children: [
+					{ name: 'Обзор', href: '/warehouse?tab=overview' },
+					{ name: 'Закупки', href: '/warehouse?tab=procurement' },
+					{ name: 'Номенклатура', href: '/warehouse?tab=nomenclature' },
+					{ name: 'Инвентаризация', href: '/warehouse?tab=inventory' }
+				]
+			})
+			pushUnique({
 				name: 'Клиники',
 				href: '/clinics',
 				children: [
 					{ name: 'Реестр', href: '/clinics' },
 					{ name: 'Пациенты', href: '/clinics/patients' }
 				]
-			},
-			{
+			})
+			pushUnique({
 				name: 'Лаборатория',
 				href: '/laboratory',
 				children: [
@@ -110,24 +125,34 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 					{ name: 'Сотрудники', href: '/laboratory/employees' },
 					{ name: 'Цвета', href: '/laboratory/colors' },
 					{ name: 'Типы работ', href: '/laboratory/work-types' },
-					...(role === 'ADMIN'
+					...(hasAdmin || hasChiefTechnician
 						? [{ name: 'Роли', href: '/laboratory/roles' }]
 						: [])
 				]
-			}
-		]
+			})
+		}
 
-		if (role === 'ADMIN') {
-			items.push({
-				name: 'Зарплатные планы',
-				href: '/accounting/payroll',
-				exact: true
+		if (hasFinancier) {
+			pushUnique({ name: 'Финансовый отчёт', href: '/accounting', exact: true })
+			pushUnique({ name: 'Зарплаты', href: '/accounting/payroll', exact: true })
+			pushUnique({ name: 'Счета', href: '/accounting/invoices' })
+		}
+
+		if (hasChiefTechnician) {
+			pushUnique({ name: 'Зарплатные планы', href: '/accounting/payroll', exact: true })
+			pushUnique({
+				name: 'Лаборатория',
+				href: '/laboratory',
+				children: [
+					{ name: 'Типы работ', href: '/laboratory/work-types' },
+					{ name: 'Роли', href: '/laboratory/roles' }
+				]
 			})
-			items.push({
-				name: 'Интеграции',
-				href: '/settings/integrations',
-				exact: true
-			})
+		}
+
+		if (hasAdmin) {
+			pushUnique({ name: 'Зарплатные планы', href: '/accounting/payroll', exact: true })
+			pushUnique({ name: 'Интеграции', href: '/settings/integrations', exact: true })
 		}
 
 		return items
@@ -168,6 +193,11 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 		}
 	}
 
+	const handleWorkspaceChange = (workspace: 'work' | 'management') => {
+		window.localStorage.setItem(WORKSPACE_STORAGE_KEY, workspace)
+		handleNavigate()
+	}
+
 	const toggleGroup = (href: string, isExpanded: boolean) => {
 		setGroupExpansion(current => ({
 			...current,
@@ -194,7 +224,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 			}`}
 		>
 			<div className="flex h-full w-[min(18rem,85vw)] flex-col bg-[#ffffff] text-slate-900 shadow-2xl dark:bg-[#09090b] dark:text-white lg:w-64 lg:shadow-none">
-				<div className="flex items-center justify-between border-b border-slate-200 p-4 dark:border-slate-800 sm:p-6">
+				<div className="flex h-[6.5rem] shrink-0 items-center justify-between border-b border-slate-200 px-4 dark:border-slate-800 sm:px-6">
 					<TeethTechLogo
 						className="w-40 sm:w-full"
 						priority
@@ -211,6 +241,40 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 						</svg>
 					</button>
 				</div>
+
+				{canUseWorkZone && canUseManagementZone && (
+					<div className="border-b border-slate-200 p-3 dark:border-slate-800">
+						<p className="mb-2 px-1 text-[10px] font-black uppercase tracking-[.16em] text-slate-400">
+							Зона работы
+						</p>
+						<div className="grid grid-cols-2 gap-1 rounded-xl bg-slate-100 p-1 dark:bg-slate-800">
+							<Link
+								href="/employee"
+								onClick={() => handleWorkspaceChange('work')}
+								aria-current={isWorkZone ? 'page' : undefined}
+								className={`rounded-lg px-2 py-2 text-center text-xs font-bold transition ${
+									isWorkZone
+										? 'bg-white text-violet-700 shadow-sm dark:bg-slate-700 dark:text-violet-300'
+										: 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
+								}`}
+							>
+								Рабочая
+							</Link>
+							<Link
+								href={managementPath}
+								onClick={() => handleWorkspaceChange('management')}
+								aria-current={!isWorkZone ? 'page' : undefined}
+								className={`rounded-lg px-2 py-2 text-center text-xs font-bold transition ${
+									!isWorkZone
+										? 'bg-white text-violet-700 shadow-sm dark:bg-slate-700 dark:text-violet-300'
+										: 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
+								}`}
+							>
+								Управление
+							</Link>
+						</div>
+					</div>
+				)}
 
 				<nav className="flex-1 space-y-1.5 overflow-y-auto p-3">
 					{menuItems.map(item => {

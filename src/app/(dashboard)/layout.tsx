@@ -6,7 +6,12 @@ import { useSelector } from 'react-redux';
 
 import Sidebar from '@/src/components/layout/Sidebar';
 import Header from '@/src/components/layout/Header';
-import { getAuthRedirectPath } from '@/src/features/auth/authUtils';
+import {
+    canAccessWorkZone,
+    getAuthRedirectPath,
+    normalizeAuthRoles,
+    WORKSPACE_STORAGE_KEY,
+} from '@/src/features/auth/authUtils';
 import { RootState } from '@/src/lib/store';
 import ChatNotifications from '@/src/components/Chat/ChatNotifications';
 import ChatButton from '@/src/components/Chat/ChatButton';
@@ -24,20 +29,19 @@ export default function DashboardLayout({
     const router = useRouter();
     const pathname = usePathname();
     const { isAuthenticated, isInitialized, role, roles } = useSelector((state: RootState) => state.auth);
-    const normalizedJwtRoles = roles.map((item) =>
-        item.toUpperCase().replace(/^ROLE_/u, '')
+    const normalizedJwtRoles = normalizeAuthRoles(
+        roles.length > 0 ? roles : role ? [role] : []
     );
     const isPayrollPage = pathname.startsWith('/accounting/payroll');
+    const canViewAccounting = normalizedJwtRoles.includes('FINANCIER');
     const canViewPayroll =
-        role === 'ADMIN'
-        || role === 'FINANCIER'
-        || role === 'CHIEF_TECHNICIAN'
-        || normalizedJwtRoles.some((item) =>
+        normalizedJwtRoles.some((item) =>
             ['ADMIN', 'FINANCIER', 'CHIEF_TECHNICIAN', 'HEAD_TECHNICIAN'].includes(item)
         );
     const canViewRoles =
         normalizedJwtRoles.includes('ADMIN')
         || normalizedJwtRoles.includes('CHIEF_TECHNICIAN');
+    const canViewWorkZone = canAccessWorkZone(roles, role);
 
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
@@ -74,6 +78,30 @@ export default function DashboardLayout({
     }, [isAuthenticated, isInitialized, router]);
 
     useEffect(() => {
+        if (!isAuthenticated) return;
+
+        if (pathname.startsWith('/employee')) {
+            window.localStorage.setItem(WORKSPACE_STORAGE_KEY, 'work');
+            return;
+        }
+
+        if (
+            pathname === '/'
+            || [
+                '/orders',
+                '/analytics',
+                '/warehouse',
+                '/clinics',
+                '/laboratory',
+                '/accounting',
+                '/tv-dashboard',
+            ].some((prefix) => pathname.startsWith(prefix))
+        ) {
+            window.localStorage.setItem(WORKSPACE_STORAGE_KEY, 'management');
+        }
+    }, [isAuthenticated, pathname]);
+
+    useEffect(() => {
         if (
             isInitialized &&
             isAuthenticated &&
@@ -81,12 +109,12 @@ export default function DashboardLayout({
             pathname.startsWith('/accounting') &&
             (
                 (isPayrollPage && !canViewPayroll)
-                || (!isPayrollPage && role !== 'FINANCIER')
+                || (!isPayrollPage && !canViewAccounting)
             )
         ) {
-            router.replace(getAuthRedirectPath(role));
+            router.replace(getAuthRedirectPath(role, roles));
         }
-    }, [canViewPayroll, isAuthenticated, isInitialized, isPayrollPage, pathname, role, router]);
+    }, [canViewAccounting, canViewPayroll, isAuthenticated, isInitialized, isPayrollPage, pathname, role, roles, router]);
 
     useEffect(() => {
         if (
@@ -96,9 +124,21 @@ export default function DashboardLayout({
             && pathname.startsWith('/laboratory/roles')
             && !canViewRoles
         ) {
-            router.replace(getAuthRedirectPath(role));
+            router.replace(getAuthRedirectPath(role, roles));
         }
-    }, [canViewRoles, isAuthenticated, isInitialized, pathname, role, router]);
+    }, [canViewRoles, isAuthenticated, isInitialized, pathname, role, roles, router]);
+
+    useEffect(() => {
+        if (
+            isInitialized
+            && isAuthenticated
+            && role
+            && pathname.startsWith('/employee')
+            && !canViewWorkZone
+        ) {
+            router.replace(getAuthRedirectPath(role, roles));
+        }
+    }, [canViewWorkZone, isAuthenticated, isInitialized, pathname, role, roles, router]);
 
     const isAccountingAccessDenied =
         isAuthenticated &&
@@ -106,14 +146,24 @@ export default function DashboardLayout({
         pathname.startsWith('/accounting') &&
         (
             (isPayrollPage && !canViewPayroll)
-            || (!isPayrollPage && role !== 'FINANCIER')
+            || (!isPayrollPage && !canViewAccounting)
         );
     const isRolesAccessDenied =
         isAuthenticated
         && pathname.startsWith('/laboratory/roles')
         && !canViewRoles;
+    const isWorkZoneAccessDenied =
+        isAuthenticated
+        && pathname.startsWith('/employee')
+        && !canViewWorkZone;
 
-    if (!isInitialized || !isAuthenticated || isAccountingAccessDenied || isRolesAccessDenied) return null;
+    if (
+        !isInitialized
+        || !isAuthenticated
+        || isAccountingAccessDenied
+        || isRolesAccessDenied
+        || isWorkZoneAccessDenied
+    ) return null;
 
     return (
         <div className="relative flex h-dvh w-full overflow-hidden bg-slate-50 dark:bg-[#09090b]">

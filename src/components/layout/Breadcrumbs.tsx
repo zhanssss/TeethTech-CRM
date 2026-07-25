@@ -73,9 +73,9 @@ export default function Breadcrumbs() {
     return (
         <nav
             aria-label="Навигационный путь"
-            className="relative z-30 shrink-0 border-b border-slate-200/80 bg-white/70 px-4 py-2 backdrop-blur dark:border-slate-800 dark:bg-[#09090b]/70 sm:px-6 lg:px-8"
+            className="relative z-30 flex h-10 shrink-0 items-center border-b border-slate-200/80 bg-[var(--app-background)] px-4 dark:border-slate-800 sm:px-6 lg:px-8"
         >
-            <ol className="flex min-w-0 items-center gap-1.5 overflow-x-auto whitespace-nowrap [scrollbar-width:none]">
+            <ol className="flex w-full min-w-0 items-center gap-1.5 overflow-x-auto whitespace-nowrap [scrollbar-width:none]">
                 {crumbs.map((crumb, index) => {
                     const isCurrent = index === crumbs.length - 1;
 

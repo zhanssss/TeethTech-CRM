@@ -1,6 +1,7 @@
 'use client'
 
 import { RootState } from '@/src/lib/store'
+import { normalizeAuthRoles } from '@/src/features/auth/authUtils'
 import Link from 'next/link'
 import { useEffect, useRef, useState } from 'react'
 import { useSelector } from 'react-redux'
@@ -12,9 +13,8 @@ type HeaderProps = {
 }
 
 export default function Header({ onMenuClick, isMenuOpen = false }: HeaderProps) {
-	const { name, role } = useSelector((state: RootState) => state.auth)
+	const { name, role, roles } = useSelector((state: RootState) => state.auth)
 	const { totalUnreadCount } = useSelector((state: RootState) => state.chat)
-	const canOpenTvDashboard = role === 'ADMIN' || role === 'DISPATCHER'
 	const [isProfileOpen, setIsProfileOpen] = useState(false)
 	const profileRef = useRef<HTMLDivElement | null>(null)
 	const roleLabels: Record<string, string> = {
@@ -22,9 +22,20 @@ export default function Header({ onMenuClick, isMenuOpen = false }: HeaderProps)
 		CHIEF_TECHNICIAN: 'Главный техник',
 		DISPATCHER: 'Диспетчер',
 		TECHNICIAN: 'Техник',
-		FINANCIER: 'Финансист'
+		FINANCIER: 'Финансист',
+		PROSTHETIST: 'Протезист'
 	}
-	const roleLabel = roleLabels[role ?? ''] ?? role ?? 'Роль не указана'
+	const normalizedRoles = normalizeAuthRoles(
+		roles.length > 0 ? roles : role ? [role] : []
+	)
+	const canOpenTvDashboard =
+		normalizedRoles.includes('ADMIN')
+		|| normalizedRoles.includes('DISPATCHER')
+	const roleLabel = normalizedRoles.length > 0
+		? normalizedRoles
+			.map((item) => roleLabels[item] ?? item.replaceAll('_', ' ').toLocaleLowerCase('ru-RU'))
+			.join(' · ')
+		: 'Роль не указана'
 
 	useEffect(() => {
 		if (!isProfileOpen) return
@@ -47,7 +58,7 @@ export default function Header({ onMenuClick, isMenuOpen = false }: HeaderProps)
 	}, [isProfileOpen])
 
 	return (
-		<header className="relative z-50 flex h-16 shrink-0 items-center justify-between border-b border-slate-200/80 bg-white/90 px-4 backdrop-blur-xl dark:border-slate-800 dark:bg-[#09090b]/90 sm:px-6 lg:px-8">
+		<header className="relative z-50 flex h-16 shrink-0 items-center justify-between bg-[var(--app-background)] px-4 sm:px-6 lg:px-8">
 			{!isMenuOpen && (
 				<button
 					type="button"

@@ -7,7 +7,11 @@ import { useRouter } from 'next/navigation';
 import TeethTechLogo from '@/src/components/branding/TeethTechLogo';
 import ThemeToggle from '@/src/components/layout/ThemeToggle';
 import { setUser } from '@/src/features/auth/authSlice';
-import { getAuthRedirectPath, normalizeAuthRole } from '@/src/features/auth/authUtils';
+import {
+    getAuthRedirectPath,
+    normalizeAuthRole,
+    WORKSPACE_STORAGE_KEY,
+} from '@/src/features/auth/authUtils';
 import { useNotifications } from '@/src/features/notifications/useNotifications';
 import type { AppDispatch } from '@/src/lib/store';
 import { useLoginUserMutation } from '@/src/services/api/authApi';
@@ -57,7 +61,13 @@ export default function LoginPage() {
                 })
             );
 
-            router.push(getAuthRedirectPath(role));
+            router.push(
+                getAuthRedirectPath(
+                    role,
+                    response.roles,
+                    window.localStorage.getItem(WORKSPACE_STORAGE_KEY),
+                )
+            );
         } catch (requestError) {
             console.error('Ошибка входа:', requestError);
         }
