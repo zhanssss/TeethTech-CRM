@@ -213,16 +213,23 @@ export default function TvDashboardPage() {
                 )}
             </main>
 
-            <footer className={`relative flex h-10 shrink-0 items-center justify-between border-t px-5 pt-1 text-[10px] font-bold text-slate-500 ${light ? 'border-slate-200 bg-white' : 'border-white/10 bg-slate-950'}`}>
-                {screenCount > 1 && (
-                    <div className={`absolute inset-x-0 top-0 h-1 overflow-hidden ${light ? 'bg-slate-200' : 'bg-white/10'}`} aria-label="До смены набора колонок">
-                        <span
-                            key={rotationCycle}
-                            className="tv-dashboard-rotation-progress block h-full origin-left bg-gradient-to-r from-violet-600 via-fuchsia-500 to-cyan-400"
-                            style={{ animationDuration: `${SCREEN_ROTATION_MS}ms` }}
-                        />
-                    </div>
-                )}
+            {screenCount > 1 && (
+                <div
+                    className={`relative h-2 shrink-0 overflow-hidden border-y ${light ? 'border-violet-200 bg-violet-100' : 'border-violet-400/20 bg-slate-900'}`}
+                    role="progressbar"
+                    aria-label="До смены набора колонок"
+                    aria-valuemin={0}
+                    aria-valuemax={100}
+                >
+                    <span
+                        key={`${safeScreen}-${rotationCycle}`}
+                        className="tv-dashboard-rotation-progress absolute inset-y-0 left-0 w-full origin-left bg-gradient-to-r from-violet-600 via-fuchsia-500 to-cyan-400"
+                        style={{ animationDuration: `${SCREEN_ROTATION_MS}ms` }}
+                    />
+                </div>
+            )}
+
+            <footer className={`flex h-9 shrink-0 items-center justify-between border-t px-5 text-[10px] font-bold text-slate-500 ${light ? 'border-slate-200 bg-white' : 'border-white/10 bg-slate-950'}`}>
                 <span className="flex items-center gap-2"><i className={`h-2 w-2 rounded-full ${isFetching ? 'animate-pulse bg-amber-400' : 'bg-emerald-400'}`} />{isFetching ? 'Обновляем данные…' : 'Данные актуальны'} · автообновление каждые 30 секунд</span>
                 {screenCount > 1 && <div className="flex items-center gap-2"><span>Экран {safeScreen + 1} из {screenCount}</span>{Array.from({ length: screenCount }).map((_, index) => <button key={index} type="button" onClick={() => selectScreen(index)} className={`h-1.5 rounded-full transition-all ${safeScreen === index ? 'w-6 bg-violet-500' : light ? 'w-2 bg-slate-300' : 'w-2 bg-slate-700'}`} aria-label={`Экран ${index + 1}`} />)}</div>}
                 <span>Показывается до {TASKS_PER_COLUMN} задач на этап</span>

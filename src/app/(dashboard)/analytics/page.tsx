@@ -3,6 +3,8 @@
 import ErrorState from '@/src/components/ui/ErrorState';
 import StageLoadAnalytics from '@/src/components/analytics/StageLoadAnalytics';
 import { useGetAnalyticsQuery } from '@/src/services/api/analyticsApi';
+import type { RootState } from '@/src/lib/store';
+import { useSelector } from 'react-redux';
 
 const metricIcons = {
     completed: <path d="m5 12 4 4L19 6" />,
@@ -71,6 +73,7 @@ function formatChange(value: number, suffix = '') { return `${value > 0 ? '+' : 
 
 export default function AnalyticsPage() {
     const { data, isLoading, isFetching, isError, refetch } = useGetAnalyticsQuery();
+    const userId = useSelector((state: RootState) => state.auth.id);
 
     if (isLoading) return <div className="space-y-4" aria-busy="true"><div className="h-20 animate-pulse rounded-2xl bg-slate-200" /><div className="grid gap-4 md:grid-cols-4">{[0, 1, 2, 3].map((item) => <div key={item} className="h-36 animate-pulse rounded-2xl bg-slate-200" />)}</div><div className="h-[420px] animate-pulse rounded-2xl bg-slate-200" /></div>;
 
@@ -95,7 +98,7 @@ export default function AnalyticsPage() {
             </section>
 
             <div className="grid gap-4 xl:grid-cols-[minmax(0,1.7fr)_minmax(300px,0.75fr)]">
-                <StageLoadAnalytics stageLoads={data.stageLoads} />
+                <StageLoadAnalytics stageLoads={data.stageLoads} userId={userId} />
                 <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-1">
                     <MaterialDistribution shares={data.materialShares} />
                     <section className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-[0_1px_2px_rgba(15,23,42,0.03)] sm:p-6">
