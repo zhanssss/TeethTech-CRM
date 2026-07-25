@@ -5,7 +5,7 @@ import { useGetColorsQuery } from '@/src/services/api/laboratory/colorsApi';
 import { useGetWorkTypesQuery } from '@/src/services/api/laboratory/workTypesApi';
 import { useGetUsersQuery } from '@/src/services/api/usersApi';
 
-type ModuleIconName = 'employees' | 'colors' | 'workTypes' | 'workflow';
+type ModuleIconName = 'employees' | 'colors' | 'workTypes';
 
 const modules: {
     title: string;
@@ -17,7 +17,6 @@ const modules: {
     { title: 'Сотрудники', description: 'Команда, роли, специализации и загрузка', href: '/laboratory/employees', icon: 'employees', tone: 'bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300' },
     { title: 'Цвета', description: 'Справочник оттенков для лабораторных работ', href: '/laboratory/colors', icon: 'colors', tone: 'bg-fuchsia-100 text-fuchsia-700 dark:bg-fuchsia-500/15 dark:text-fuchsia-300' },
     { title: 'Типы работ', description: 'Каталог выполняемых лабораторных работ', href: '/laboratory/work-types', icon: 'workTypes', tone: 'bg-blue-100 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300' },
-    { title: 'Workflow', description: 'Этапы производства и маршруты задач', href: '/laboratory/workflows', icon: 'workflow', tone: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300' },
 ];
 
 function ModuleIcon({ name }: { name: ModuleIconName }) {
@@ -54,14 +53,7 @@ function ModuleIcon({ name }: { name: ModuleIconName }) {
         );
     }
 
-    return (
-        <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" className={iconClassName} strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="5" cy="6" r="2" />
-            <circle cx="19" cy="6" r="2" />
-            <circle cx="12" cy="18" r="2" />
-            <path d="M7 6h10M18 8c0 5-6 4-6 8M6 8c0 5 6 4 6 8" />
-        </svg>
-    );
+    return null;
 }
 
 export default function LaboratoryPage() {
@@ -88,7 +80,7 @@ export default function LaboratoryPage() {
 
             <section className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm sm:p-6">
                 <div><h1 className="text-xl font-black text-slate-950">Управление лабораторией</h1><p className="mt-1 text-sm text-slate-500">Выберите рабочий раздел — вся навигация также доступна в боковом меню.</p></div>
-                <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                     {modules.map((module) => <Link key={module.href} href={module.href} className="group relative overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 p-5 transition hover:-translate-y-1 hover:border-violet-300 hover:bg-white hover:shadow-xl hover:shadow-violet-950/10"><span className={`flex h-10 w-10 items-center justify-center rounded-xl transition-transform duration-200 group-hover:scale-105 ${module.tone}`}><ModuleIcon name={module.icon} /></span><h2 className="mt-5 text-base font-black text-slate-900 group-hover:text-violet-700">{module.title}</h2><p className="mt-2 min-h-10 text-xs leading-5 text-slate-500">{module.description}</p><span className="mt-5 inline-flex items-center gap-2 text-xs font-bold text-violet-600">Открыть раздел <span className="transition-transform group-hover:translate-x-1">→</span></span></Link>)}
                 </div>
             </section>

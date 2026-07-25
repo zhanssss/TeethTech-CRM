@@ -18,13 +18,13 @@ type StatusOption = {
 };
 
 const statusThemes = [
-    { border: 'border-slate-300', dot: 'bg-slate-500', badge: 'bg-slate-100 text-slate-700', glow: 'from-slate-500/10' },
-    { border: 'border-blue-300', dot: 'bg-blue-500', badge: 'bg-blue-50 text-blue-700', glow: 'from-blue-500/10' },
-    { border: 'border-cyan-300', dot: 'bg-cyan-500', badge: 'bg-cyan-50 text-cyan-700', glow: 'from-cyan-500/10' },
-    { border: 'border-amber-300', dot: 'bg-amber-500', badge: 'bg-amber-50 text-amber-700', glow: 'from-amber-500/10' },
-    { border: 'border-violet-300', dot: 'bg-violet-500', badge: 'bg-violet-50 text-violet-700', glow: 'from-violet-500/10' },
-    { border: 'border-emerald-300', dot: 'bg-emerald-500', badge: 'bg-emerald-50 text-emerald-700', glow: 'from-emerald-500/10' },
-    { border: 'border-rose-300', dot: 'bg-rose-500', badge: 'bg-rose-50 text-rose-700', glow: 'from-rose-500/10' },
+    { border: 'border-slate-300 dark:border-slate-700', dot: 'bg-slate-500', badge: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200', glow: 'from-slate-500/10 dark:from-slate-500/15' },
+    { border: 'border-blue-300 dark:border-blue-500/40', dot: 'bg-blue-500', badge: 'bg-blue-50 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300', glow: 'from-blue-500/10 dark:from-blue-500/15' },
+    { border: 'border-cyan-300 dark:border-cyan-500/40', dot: 'bg-cyan-500', badge: 'bg-cyan-50 text-cyan-700 dark:bg-cyan-500/15 dark:text-cyan-300', glow: 'from-cyan-500/10 dark:from-cyan-500/15' },
+    { border: 'border-amber-300 dark:border-amber-500/40', dot: 'bg-amber-500', badge: 'bg-amber-50 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300', glow: 'from-amber-500/10 dark:from-amber-500/15' },
+    { border: 'border-violet-300 dark:border-violet-500/40', dot: 'bg-violet-500', badge: 'bg-violet-50 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300', glow: 'from-violet-500/10 dark:from-violet-500/15' },
+    { border: 'border-emerald-300 dark:border-emerald-500/40', dot: 'bg-emerald-500', badge: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300', glow: 'from-emerald-500/10 dark:from-emerald-500/15' },
+    { border: 'border-rose-300 dark:border-rose-500/40', dot: 'bg-rose-500', badge: 'bg-rose-50 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300', glow: 'from-rose-500/10 dark:from-rose-500/15' },
 ];
 
 const dateFormatter = new Intl.DateTimeFormat('ru-RU', {
@@ -132,8 +132,8 @@ function TaskCard({ task }: { task: TaskDashboardTask }) {
     return (
         <Link
             href={`/orders/${task.orderId}`}
-            className={`group relative block overflow-hidden rounded-xl border bg-white p-3 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-violet-300 hover:shadow-lg hover:shadow-violet-950/10 ${
-                task.isOverdue ? 'border-red-200' : 'border-slate-200'
+            className={`group relative block overflow-hidden rounded-xl border bg-white p-3 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-violet-300 hover:shadow-lg hover:shadow-violet-950/10 dark:bg-slate-900 dark:hover:border-violet-500/60 dark:hover:shadow-black/30 ${
+                task.isOverdue ? 'border-red-200 dark:border-red-500/50' : 'border-slate-200 dark:border-slate-700'
             }`}
         >
             <span className={`absolute inset-y-0 left-0 w-1 ${task.isOverdue ? 'bg-red-500' : 'bg-violet-500 opacity-0 transition group-hover:opacity-100'}`} />
@@ -196,8 +196,8 @@ function CompactTaskCard({ task }: { task: TaskDashboardTask }) {
     return (
         <Link
             href={`/orders/${task.orderId}`}
-            className={`group flex min-w-0 items-center gap-2.5 rounded-xl border bg-white p-2.5 transition hover:border-violet-300 hover:shadow-md ${
-                task.isOverdue ? 'border-red-200 bg-red-50/40' : 'border-slate-200'
+            className={`group flex min-w-0 items-center gap-2.5 rounded-xl border bg-white p-2.5 transition hover:border-violet-300 hover:shadow-md dark:bg-slate-900/90 dark:hover:border-violet-500/60 ${
+                task.isOverdue ? 'border-red-200 bg-red-50/40 dark:border-red-500/50 dark:bg-red-950/20' : 'border-slate-200 dark:border-slate-700'
             }`}
         >
             <span className={`h-8 w-1 shrink-0 rounded-full ${task.isOverdue ? 'bg-red-500' : 'bg-violet-500'}`} />
@@ -210,7 +210,7 @@ function CompactTaskCard({ task }: { task: TaskDashboardTask }) {
                         {task.clinicName || 'Без клиники'}
                     </span>
                 </div>
-                <p className="mt-0.5 truncate text-xs font-black text-slate-900">
+                <p className="mt-0.5 truncate text-xs font-black text-slate-900 dark:text-slate-100">
                     {getTaskTitle(task)}
                 </p>
             </div>
@@ -484,14 +484,14 @@ export default function Dashboard() {
                             return (
                                 <section
                                     key={column.statusId || column.statusCode || column.statusName}
-                                    className={`min-w-0 overflow-hidden rounded-2xl border bg-slate-50/80 shadow-sm ${theme.border}`}
+                                    className={`min-w-0 overflow-hidden rounded-2xl border bg-slate-50/80 shadow-sm dark:bg-slate-950/70 dark:shadow-black/20 ${theme.border}`}
                                 >
-                                    <header className={`border-b border-slate-200 bg-gradient-to-r ${theme.glow} to-white px-3 py-2.5`}>
+                                    <header className={`border-b border-slate-200 bg-gradient-to-r ${theme.glow} to-white px-3 py-2.5 dark:border-slate-800 dark:to-slate-900`}>
                                         <div className="flex items-center justify-between gap-3">
                                             <div className="flex min-w-0 items-center gap-2.5">
                                                 <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${theme.dot}`} />
                                                 <div className="min-w-0">
-                                                    <h3 className="truncate text-xs font-black text-slate-900">{column.statusName || column.statusCode}</h3>
+                                                    <h3 className="truncate text-xs font-black text-slate-900 dark:text-slate-100">{column.statusName || column.statusCode}</h3>
                                                     <p className="truncate text-[9px] uppercase tracking-wider text-slate-400">{column.statusCode}</p>
                                                 </div>
                                             </div>
@@ -501,7 +501,7 @@ export default function Dashboard() {
                                     <div className="space-y-1.5 p-2">
                                         {visibleTasks.map((task) => <CompactTaskCard key={task.id} task={task} />)}
                                         {visibleTasks.length === 0 && (
-                                            <div className="rounded-xl border border-dashed border-slate-200 bg-white px-3 py-7 text-center text-xs text-slate-400">Нет задач</div>
+                                            <div className="rounded-xl border border-dashed border-slate-200 bg-white px-3 py-7 text-center text-xs text-slate-400 dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-500">Нет задач</div>
                                         )}
                                     </div>
                                     {hiddenCount > 0 && (
@@ -511,7 +511,7 @@ export default function Dashboard() {
                                                 handleStatusChange(column.statusId || column.statusCode);
                                                 setFlowView('kanban');
                                             }}
-                                            className="w-full border-t border-slate-200 bg-white px-3 py-2 text-[10px] font-black text-violet-700 transition hover:bg-violet-50"
+                                            className="w-full border-t border-slate-200 bg-white px-3 py-2 text-[10px] font-black text-violet-700 transition hover:bg-violet-50 dark:border-slate-800 dark:bg-slate-900 dark:text-violet-300 dark:hover:bg-violet-500/10"
                                         >
                                             Показать ещё {hiddenCount} задач →
                                         </button>

@@ -313,10 +313,10 @@ const guides: Guide[] = [
         id: 'workflow',
         kind: 'workflow',
         category: 'Конфигурация',
-        title: 'Настроить маршрут производства',
-        result: 'Новые задачи выбранного типа будут проходить этапы в правильном порядке и назначаться нужным ролям.',
-        path: 'Лаборатория → Workflow',
-        href: '/laboratory/workflows',
+        title: 'Создать тип работы с маршрутом',
+        result: 'Новые задачи выбранного типа будут проходить заданные при создании этапы в правильном порядке.',
+        path: 'Лаборатория → Типы работ',
+        href: '/laboratory/work-types',
         duration: '10 минут',
         roles: ['ADMIN', 'CHIEF_TECHNICIAN'],
         steps: [
@@ -327,16 +327,16 @@ const guides: Guide[] = [
                 check: 'Для каждого этапа известны вход, выход и ответственная роль.',
             },
             {
-                title: 'Создайте переходы по порядку',
-                action: 'Для каждого шага задайте исходный статус, следующий статус, порядок и требуемую роль.',
-                example: 'Моделирование → Фрезеровка · порядок 2 · роль TECHNICIAN',
-                check: 'Нет тупиков, пропущенных или дублирующихся переходов.',
+                title: 'Создайте тип работы и его этапы',
+                action: 'Укажите тип работы, добавьте этапы в нужном порядке и назначьте ответственную роль.',
+                example: 'Моделирование → Фрезеровка · роль TECHNICIAN',
+                check: 'После создания карточка типа работы показывает полный маршрут в окне «Подробнее».',
             },
             {
-                title: 'Настройте материальный контроль',
-                action: 'Отметьте шаги, где отчёт обязателен, и отдельно решите, разрешены ли незапланированные материалы.',
-                example: 'Перед «Готово»: материальный отчёт обязателен',
-                check: 'Финальный переход нельзя выполнить без полного отчёта.',
+                title: 'Проверьте созданный маршрут',
+                action: 'В карточке типа работы нажмите «Подробнее» и сверьте последовательность этапов и ответственные роли.',
+                example: 'Новая → Моделирование → Фрезеровка → Контроль → Готово',
+                check: 'Все этапы отображаются в правильном порядке; редактирования и удаления отдельных этапов нет.',
             },
             {
                 title: 'Пройдите тестовый заказ',
@@ -465,7 +465,7 @@ function GuidePreview({ kind, step }: { kind: GuideKind; step: number }) {
 
     if (kind === 'workflow') {
         return (
-            <BrowserFrame title="Workflow · Коронка">
+            <BrowserFrame title="Тип работы · Коронка">
                 <div className="space-y-2 bg-slate-50 p-4">{['Новая', 'Моделирование', 'Фрезеровка', 'Контроль', 'Готово'].map((status, index) => <div key={status} className={`flex items-center gap-3 rounded-xl border p-2.5 ${index === Math.min(step + 1, 4) ? 'border-violet-300 bg-violet-50' : 'border-slate-200 bg-white'}`}><span className="flex h-6 w-6 items-center justify-center rounded-full bg-slate-900 text-[8px] font-black text-white">{index + 1}</span><span className="flex-1 text-[10px] font-black text-slate-700">{status}</span>{index < 4 && <span className="text-[8px] text-slate-400">TECHNICIAN →</span>}</div>)}</div>
             </BrowserFrame>
         );

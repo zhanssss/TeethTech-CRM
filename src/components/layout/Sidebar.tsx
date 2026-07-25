@@ -79,7 +79,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 					name: 'Лаборатория',
 					href: '/laboratory',
 					children: [
-						{ name: 'Workflow', href: '/laboratory/workflows' },
+						{ name: 'Типы работ', href: '/laboratory/work-types' },
 						{ name: 'Роли', href: '/laboratory/roles' }
 					]
 				}
@@ -110,7 +110,6 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 					{ name: 'Сотрудники', href: '/laboratory/employees' },
 					{ name: 'Цвета', href: '/laboratory/colors' },
 					{ name: 'Типы работ', href: '/laboratory/work-types' },
-					{ name: 'Workflow', href: '/laboratory/workflows' },
 					...(role === 'ADMIN'
 						? [{ name: 'Роли', href: '/laboratory/roles' }]
 						: [])

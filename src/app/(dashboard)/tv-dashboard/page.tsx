@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 
+import { useAppTheme } from '@/src/hooks/useAppTheme';
 import { useGetTasksDashboardQuery } from '@/src/services/api/tasksDashboardApi';
 import type { TaskDashboardTask } from '@/src/types/task.types';
 
@@ -101,7 +102,8 @@ function Metric({
 export default function TvDashboardPage() {
     const [now, setNow] = useState(() => new Date());
     const [screen, setScreen] = useState(0);
-    const [theme, setTheme] = useState<'light' | 'dark'>('light');
+    const [rotationCycle, setRotationCycle] = useState(0);
+    const { theme, setTheme } = useAppTheme();
     const light = theme === 'light';
     const { data, isLoading, isError, isFetching, refetch } = useGetTasksDashboardQuery(undefined, {
         pollingInterval: 30_000,
@@ -124,9 +126,17 @@ export default function TvDashboardPage() {
 
     useEffect(() => {
         if (screenCount <= 1) return;
-        const timer = window.setInterval(() => setScreen((current) => (current + 1) % screenCount), SCREEN_ROTATION_MS);
-        return () => window.clearInterval(timer);
-    }, [screenCount]);
+        const timer = window.setTimeout(() => {
+            setScreen((current) => (current + 1) % screenCount);
+            setRotationCycle((current) => current + 1);
+        }, SCREEN_ROTATION_MS);
+        return () => window.clearTimeout(timer);
+    }, [rotationCycle, screenCount]);
+
+    const selectScreen = (index: number) => {
+        setScreen(index);
+        setRotationCycle((current) => current + 1);
+    };
 
     const openFullscreen = async () => {
         if (!document.fullscreenElement) await document.documentElement.requestFullscreen();
@@ -203,9 +213,18 @@ export default function TvDashboardPage() {
                 )}
             </main>
 
-            <footer className={`flex h-9 shrink-0 items-center justify-between border-t px-5 text-[10px] font-bold text-slate-500 ${light ? 'border-slate-200 bg-white' : 'border-white/10 bg-slate-950'}`}>
+            <footer className={`relative flex h-10 shrink-0 items-center justify-between border-t px-5 pt-1 text-[10px] font-bold text-slate-500 ${light ? 'border-slate-200 bg-white' : 'border-white/10 bg-slate-950'}`}>
+                {screenCount > 1 && (
+                    <div className={`absolute inset-x-0 top-0 h-1 overflow-hidden ${light ? 'bg-slate-200' : 'bg-white/10'}`} aria-label="До смены набора колонок">
+                        <span
+                            key={rotationCycle}
+                            className="tv-dashboard-rotation-progress block h-full origin-left bg-gradient-to-r from-violet-600 via-fuchsia-500 to-cyan-400"
+                            style={{ animationDuration: `${SCREEN_ROTATION_MS}ms` }}
+                        />
+                    </div>
+                )}
                 <span className="flex items-center gap-2"><i className={`h-2 w-2 rounded-full ${isFetching ? 'animate-pulse bg-amber-400' : 'bg-emerald-400'}`} />{isFetching ? 'Обновляем данные…' : 'Данные актуальны'} · автообновление каждые 30 секунд</span>
-                {screenCount > 1 && <div className="flex items-center gap-2"><span>Экран {safeScreen + 1} из {screenCount}</span>{Array.from({ length: screenCount }).map((_, index) => <button key={index} type="button" onClick={() => setScreen(index)} className={`h-1.5 rounded-full transition-all ${safeScreen === index ? 'w-6 bg-violet-500' : 'w-2 bg-slate-700'}`} aria-label={`Экран ${index + 1}`} />)}</div>}
+                {screenCount > 1 && <div className="flex items-center gap-2"><span>Экран {safeScreen + 1} из {screenCount}</span>{Array.from({ length: screenCount }).map((_, index) => <button key={index} type="button" onClick={() => selectScreen(index)} className={`h-1.5 rounded-full transition-all ${safeScreen === index ? 'w-6 bg-violet-500' : light ? 'w-2 bg-slate-300' : 'w-2 bg-slate-700'}`} aria-label={`Экран ${index + 1}`} />)}</div>}
                 <span>Показывается до {TASKS_PER_COLUMN} задач на этап</span>
             </footer>
         </div>

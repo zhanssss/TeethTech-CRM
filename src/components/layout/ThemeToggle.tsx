@@ -1,31 +1,13 @@
 'use client'
 
-import { useSyncExternalStore } from 'react'
-
-const THEME_EVENT = 'teethtech-theme-change'
-
-function subscribe(callback: () => void) {
-	window.addEventListener(THEME_EVENT, callback)
-	return () => window.removeEventListener(THEME_EVENT, callback)
-}
-
-function getSnapshot() {
-	return document.documentElement.classList.contains('dark')
-}
-
-function getServerSnapshot() {
-	return false
-}
+import { useAppTheme } from '@/src/hooks/useAppTheme'
 
 export default function ThemeToggle() {
-	const isDark = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot)
+	const { theme, setTheme } = useAppTheme()
+	const isDark = theme === 'dark'
 
 	const toggleTheme = () => {
-		const nextTheme = isDark ? 'light' : 'dark'
-		document.documentElement.classList.toggle('dark', nextTheme === 'dark')
-		document.documentElement.style.colorScheme = nextTheme
-		localStorage.setItem('teethtech-theme', nextTheme)
-		window.dispatchEvent(new Event(THEME_EVENT))
+		setTheme(isDark ? 'light' : 'dark')
 	}
 
 	return (

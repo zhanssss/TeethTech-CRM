@@ -177,6 +177,17 @@ body {
   transform-origin: left center;
 }
 
+@keyframes tv-dashboard-rotation-progress {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+
+.tv-dashboard-rotation-progress {
+  animation-name: tv-dashboard-rotation-progress;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+}
+
 @layer base {
   html,
   body {

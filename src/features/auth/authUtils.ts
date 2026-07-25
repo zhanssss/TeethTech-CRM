@@ -16,7 +16,7 @@ export function normalizeAuthRole(roles: string[] = []): AuthRole {
 export function getAuthRedirectPath(role: AuthRole) {
     if (role === 'TECHNICIAN') return '/employee';
     if (role === 'FINANCIER') return '/accounting';
-    if (role === 'CHIEF_TECHNICIAN') return '/laboratory/workflows';
+    if (role === 'CHIEF_TECHNICIAN') return '/laboratory/work-types';
 
     return '/orders';
 }

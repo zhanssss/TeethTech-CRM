@@ -21,7 +21,6 @@ const segmentLabels: Record<string, string> = {
     chats: 'Сообщения',
     tasks: 'Задачи',
     'work-types': 'Типы работ',
-    workflows: 'Workflow',
     roles: 'Роли',
     colors: 'Цвета',
     'knowledge-base': 'База знаний',

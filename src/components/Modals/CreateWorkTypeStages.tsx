@@ -102,8 +102,8 @@ const SYSTEM_STAGES: Record<
     },
 
     REVIEW: {
-        code: 'REVIEW',
-        name: 'На проверке',
+        code: 'WAITING_FOR_APPROVAL',
+        name: 'Ожидание проверки',
         description: 'Проверка результата работы',
         colorHex: '#8B5CF6',
         initial: false,
@@ -112,8 +112,8 @@ const SYSTEM_STAGES: Record<
     },
 
     DONE: {
-        code: 'DONE',
-        name: 'Готово',
+        code: 'ORDER_CLOSED',
+        name: 'Завершено',
         description: 'Рабочий процесс завершён',
         colorHex: '#10B981',
         initial: false,

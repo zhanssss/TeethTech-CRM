@@ -2,13 +2,21 @@
 
 import {useMemo, useState} from 'react';
 
-import {useGetWorkTypesQuery} from '@/src/services/api/laboratory/workTypesApi';
+import {
+    useDeleteWorkTypeMutation,
+    useGetWorkTypesQuery,
+} from '@/src/services/api/laboratory/workTypesApi';
 
 import CreateWorkTypeStages from '@/src/components/Modals/CreateWorkTypeStages';
+import WorkTypeDetailsModal from '@/src/components/laboratory/WorkTypeDetailsModal';
+import ConfirmDialog from '@/src/components/ui/ConfirmDialog';
 import ErrorState from '@/src/components/ui/ErrorState';
+import type {WorkTypes} from '@/src/types/laboratory-types/workTypes.types';
 
 export default function LaboratoryWorkTypesPage() {
     const [stagesModalOpen, setStagesModalOpen] = useState(false);
+    const [selectedWorkType, setSelectedWorkType] = useState<WorkTypes | null>(null);
+    const [workTypeToDelete, setWorkTypeToDelete] = useState<WorkTypes | null>(null);
     const [search, setSearch] = useState('');
 
     const {
@@ -16,6 +24,24 @@ export default function LaboratoryWorkTypesPage() {
         isLoading,
         isError,
     } = useGetWorkTypesQuery();
+    const [deleteWorkType, {isLoading: isDeleting}] =
+        useDeleteWorkTypeMutation();
+
+    const handleDeleteWorkType = async () => {
+        if (!workTypeToDelete) return;
+
+        try {
+            await deleteWorkType(workTypeToDelete.id).unwrap();
+
+            if (selectedWorkType?.id === workTypeToDelete.id) {
+                setSelectedWorkType(null);
+            }
+
+            setWorkTypeToDelete(null);
+        } catch {
+            // Ошибка уже отображается глобальным обработчиком API.
+        }
+    };
 
     const filteredItems = useMemo(() => {
         const query = search
@@ -308,14 +334,28 @@ export default function LaboratoryWorkTypesPage() {
                                                 )}
                                             </div>
 
-                                            <div className="mt-4 flex items-center justify-between border-t border-slate-200 pt-3">
+                                            <div className="mt-4 flex items-center justify-between gap-2 border-t border-slate-200 pt-3">
                                                 <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
                                                     Тип работы
                                                 </span>
 
-                                                <span className="text-xs font-bold text-violet-600 opacity-0 transition group-hover:opacity-100">
-                                                    Подробнее →
-                                                </span>
+                                                <div className="flex items-center gap-1">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setWorkTypeToDelete(item)}
+                                                        aria-label={`Удалить тип работы ${item.name}`}
+                                                        className="rounded-lg px-2.5 py-1.5 text-xs font-bold text-red-500 transition hover:bg-red-50 hover:text-red-700"
+                                                    >
+                                                        Удалить
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setSelectedWorkType(item)}
+                                                        className="rounded-lg bg-violet-50 px-3 py-1.5 text-xs font-bold text-violet-700 transition hover:bg-violet-100"
+                                                    >
+                                                        Подробнее →
+                                                    </button>
+                                                </div>
                                             </div>
                                         </article>
                                     ))}
@@ -328,6 +368,33 @@ export default function LaboratoryWorkTypesPage() {
             <CreateWorkTypeStages
                 isOpen={stagesModalOpen}
                 onClose={() => setStagesModalOpen(false)}
+            />
+
+            {selectedWorkType && (
+                <WorkTypeDetailsModal
+                    workType={selectedWorkType}
+                    onClose={() => setSelectedWorkType(null)}
+                    onDelete={setWorkTypeToDelete}
+                />
+            )}
+
+            <ConfirmDialog
+                open={workTypeToDelete !== null}
+                title="Удалить тип работы?"
+                description={
+                    <>
+                        Тип работы{' '}
+                        <strong className="font-semibold text-slate-700">
+                            {workTypeToDelete?.name}
+                        </strong>{' '}
+                        и связанный с ним производственный маршрут будут удалены.
+                        Это действие нельзя отменить.
+                    </>
+                }
+                confirmLabel="Удалить тип работы"
+                isLoading={isDeleting}
+                onClose={() => setWorkTypeToDelete(null)}
+                onConfirm={handleDeleteWorkType}
             />
         </>
     );
