@@ -526,22 +526,22 @@ export default function PersonalNotesCard({
         return hasPersonalNoteText(draft) ? 'Ожидает сохранения' : 'Новая заметка';
     }, [draft, status]);
     const containerClassName = variant === 'modal'
-        ? 'fixed bottom-24 right-4 z-[80] flex h-[min(640px,calc(100dvh-7rem))] w-[min(760px,calc(100vw-2rem))] flex-col overflow-hidden rounded-[28px] border border-amber-200/80 bg-white shadow-[0_28px_80px_-22px_rgba(15,23,42,.55)] dark:border-amber-500/25 dark:bg-slate-900 sm:right-6'
-        : 'flex h-[min(680px,calc(100dvh-10rem))] min-h-[560px] w-full flex-col overflow-hidden rounded-[24px] border border-amber-200/80 bg-white shadow-sm dark:border-amber-500/25 dark:bg-slate-900';
+        ? 'fixed bottom-24 right-4 z-[80] flex h-[min(680px,calc(100dvh-7rem))] w-[min(820px,calc(100vw-2rem))] flex-col overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-[0_28px_80px_-22px_rgba(15,23,42,.55)] dark:border-slate-700 dark:bg-slate-900 sm:right-6'
+        : 'flex h-[calc(100dvh-8.5rem)] min-h-[600px] w-full flex-col overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900';
 
     return (
         <section
             aria-label="Личные заметки"
             className={containerClassName}
         >
-                    <header className="flex min-h-[72px] items-center gap-3 bg-gradient-to-r from-amber-500 to-orange-500 px-4 text-white">
+                    <header className="flex min-h-[72px] items-center gap-3 bg-gradient-to-r from-violet-600 to-indigo-600 px-4 text-white">
                         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white/15">
                             <NoteIcon name="note" />
                         </span>
                         <div className="min-w-0 flex-1">
                             <h2 className="text-sm font-black">Личные заметки</h2>
-                            <p className="mt-0.5 text-[11px] text-amber-50">
-                                Только для вашей учётной записи
+                            <p className="mt-0.5 text-[11px] text-violet-100">
+                                Личный диалог с вашими записями
                             </p>
                         </div>
                         <button
@@ -578,7 +578,7 @@ export default function PersonalNotesCard({
                                     value={search}
                                     onChange={(event) => setSearch(event.target.value)}
                                     placeholder="Поиск заметок"
-                                    className="h-10 w-full rounded-xl border border-slate-200 bg-white pl-9 pr-3 text-sm outline-none transition focus:border-amber-400 focus:ring-2 focus:ring-amber-100 dark:border-slate-700 dark:bg-slate-900"
+                                    className="h-10 w-full rounded-xl border border-slate-200 bg-white pl-9 pr-3 text-sm outline-none transition focus:border-violet-400 focus:ring-2 focus:ring-violet-100 dark:border-slate-700 dark:bg-slate-900 dark:focus:ring-violet-500/15"
                                 />
                             </label>
 
@@ -622,7 +622,7 @@ export default function PersonalNotesCard({
                                             disabled={status === 'saving' || isDeleting}
                                             className={`mb-1 w-full rounded-xl p-3 text-left transition disabled:cursor-wait ${
                                                 selected
-                                                    ? 'bg-amber-100 text-amber-950 dark:bg-amber-500/15 dark:text-amber-100'
+                                                    ? 'bg-violet-100 text-violet-950 dark:bg-violet-500/15 dark:text-violet-100'
                                                     : 'hover:bg-white dark:hover:bg-slate-900'
                                             }`}
                                         >
@@ -680,7 +680,7 @@ export default function PersonalNotesCard({
                                     <span
                                         className={`h-2 w-2 shrink-0 rounded-full ${
                                             status === 'saving'
-                                                ? 'animate-pulse bg-amber-500'
+                                                ? 'animate-pulse bg-violet-500'
                                                 : status === 'saved'
                                                     ? 'bg-emerald-500'
                                                     : status === 'error'
@@ -748,7 +748,7 @@ export default function PersonalNotesCard({
                                 </div>
                             </div>
 
-                            <footer className="border-t border-amber-100 bg-amber-50/70 px-4 py-2.5 text-[10px] leading-4 text-amber-800 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-200">
+                            <footer className="border-t border-slate-200 bg-slate-50 px-4 py-2.5 text-[10px] leading-4 text-slate-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-400">
                                 Не храните здесь пароли, медицинские документы и другие секретные данные.
                             </footer>
                         </div>
