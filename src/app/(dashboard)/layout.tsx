@@ -34,6 +34,9 @@ export default function DashboardLayout({
     );
     const isPayrollPage = pathname.startsWith('/accounting/payroll');
     const canViewAccounting = normalizedJwtRoles.includes('FINANCIER');
+    const canViewDocuments = normalizedJwtRoles.some((item) =>
+        ['ADMIN', 'FINANCIER'].includes(item)
+    );
     const canViewPayroll =
         normalizedJwtRoles.some((item) =>
             ['ADMIN', 'FINANCIER', 'CHIEF_TECHNICIAN', 'HEAD_TECHNICIAN'].includes(item)
@@ -94,12 +97,25 @@ export default function DashboardLayout({
                 '/clinics',
                 '/laboratory',
                 '/accounting',
+                '/documents',
                 '/tv-dashboard',
             ].some((prefix) => pathname.startsWith(prefix))
         ) {
             window.localStorage.setItem(WORKSPACE_STORAGE_KEY, 'management');
         }
     }, [isAuthenticated, pathname]);
+
+    useEffect(() => {
+        if (
+            isInitialized
+            && isAuthenticated
+            && role
+            && pathname.startsWith('/documents')
+            && !canViewDocuments
+        ) {
+            router.replace(getAuthRedirectPath(role, roles));
+        }
+    }, [canViewDocuments, isAuthenticated, isInitialized, pathname, role, roles, router]);
 
     useEffect(() => {
         if (
@@ -152,6 +168,10 @@ export default function DashboardLayout({
         isAuthenticated
         && pathname.startsWith('/laboratory/roles')
         && !canViewRoles;
+    const isDocumentsAccessDenied =
+        isAuthenticated
+        && pathname.startsWith('/documents')
+        && !canViewDocuments;
     const isWorkZoneAccessDenied =
         isAuthenticated
         && pathname.startsWith('/employee')
@@ -162,6 +182,7 @@ export default function DashboardLayout({
         || !isAuthenticated
         || isAccountingAccessDenied
         || isRolesAccessDenied
+        || isDocumentsAccessDenied
         || isWorkZoneAccessDenied
     ) return null;
 

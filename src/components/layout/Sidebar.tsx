@@ -14,7 +14,7 @@ import { AppDispatch, RootState } from '@/src/lib/store'
 import { teethTechApi } from '@/src/services/teethTechApi'
 import Link from 'next/link'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 
 type MenuItem = {
@@ -32,6 +32,28 @@ type SidebarProps = {
 	onClose: () => void
 }
 
+function getMenuSection(item: MenuItem) {
+	if (
+		item.href === '/'
+		|| item.href.startsWith('/orders')
+		|| item.href.startsWith('/analytics')
+		|| item.href.startsWith('/tv-dashboard')
+	) return 'Основное'
+	if (item.href.startsWith('/employee')) return 'Основное'
+	if (
+		item.href.startsWith('/warehouse')
+		|| item.href.startsWith('/clinics')
+		|| item.href.startsWith('/laboratory')
+	) return 'Производство'
+	if (
+		item.href.startsWith('/accounting')
+		|| item.href.startsWith('/documents')
+	) return 'Финансы'
+	return 'Система'
+}
+
+const menuSectionOrder = ['Основное', 'Производство', 'Финансы', 'Система']
+
 function MenuIcon({ href }: { href: string }) {
 	const common = 'h-[18px] w-[18px] shrink-0'
 	if (href === '/') return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" className={common}><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z" strokeWidth="1.7" strokeLinejoin="round" /></svg>
@@ -47,6 +69,7 @@ function MenuIcon({ href }: { href: string }) {
 	if (href === '/accounting') return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" className={common}><path d="M4 20V10m5 10V4m5 16v-7m5 7V7" strokeWidth="1.8" strokeLinecap="round"/><path d="m3 6 5-3 5 5 7-5" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"/></svg>
 	if (href.startsWith('/accounting/payroll')) return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" className={common}><rect x="3" y="6" width="18" height="13" rx="3" strokeWidth="1.7"/><path d="M3 10h18M7 15h4" strokeWidth="1.7" strokeLinecap="round"/><circle cx="17" cy="15" r="1.5" strokeWidth="1.5"/></svg>
 	if (href.startsWith('/accounting/invoices')) return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" className={common}><path d="M6 3h12v18l-3-2-3 2-3-2-3 2V3Z" strokeWidth="1.7" strokeLinejoin="round"/><path d="M9 8h6M9 12h6M9 16h3" strokeWidth="1.7" strokeLinecap="round"/></svg>
+	if (href.startsWith('/documents')) return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" className={common}><path d="M6 3h9l4 4v14H6V3Z" strokeWidth="1.7" strokeLinejoin="round"/><path d="M14 3v5h5M9 12h7M9 16h7" strokeWidth="1.7" strokeLinecap="round"/></svg>
 	if (href.startsWith('/settings/integrations')) return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" className={common}><path d="M9 3v5m6-5v5M7 8h10v3a5 5 0 0 1-5 5v0a5 5 0 0 1-5-5V8Zm5 8v2a3 3 0 0 1-3 3H6" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
 	if (href.startsWith('/knowledge-base')) return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" className={common}><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H11v17H6.5A2.5 2.5 0 0 0 4 22V5.5ZM20 5.5A2.5 2.5 0 0 0 17.5 3H13v17h4.5A2.5 2.5 0 0 1 20 22V5.5Z" strokeWidth="1.7" strokeLinejoin="round"/></svg>
 	return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" className={common}><circle cx="12" cy="12" r="3" strokeWidth="1.7" /><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2.83 2.83-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6 1.7 1.7 0 0 0-.4 1.1V21h-4v-.09A1.7 1.7 0 0 0 8.6 19.4a1.7 1.7 0 0 0-1.88.34l-.06.06-2.83-2.83.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-1.5-1H3v-4h.09A1.7 1.7 0 0 0 4.6 9a1.7 1.7 0 0 0-.34-1.88l-.06-.06 2.83-2.83.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-.6 1.7 1.7 0 0 0 .4-1.1V3h4v.09A1.7 1.7 0 0 0 15.4 4.6" strokeWidth="1.5" strokeLinecap="round" /></svg>
@@ -61,6 +84,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 	const { notifyError, notifySuccess } = useNotifications()
 	const [isLoggingOut, setIsLoggingOut] = useState(false)
 	const [groupExpansion, setGroupExpansion] = useState<Record<string, boolean>>({})
+	const [openMenuSection, setOpenMenuSection] = useState<string | null>(null)
 	const normalizedRoles = normalizeAuthRoles(
 		roles.length > 0 ? roles : role ? [role] : []
 	)
@@ -73,8 +97,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 		if (isWorkZone) {
 			return [
 				{ name: 'Рабочая зона', href: '/employee', exact: true },
-				{ name: 'Календарь', href: '/employee/calendar' },
-				{ name: 'Аналитика', href: '/employee/analytics' }
+				{ name: 'Календарь', href: '/employee/calendar' }
 			]
 		}
 
@@ -138,6 +161,16 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 			pushUnique({ name: 'Счета', href: '/accounting/invoices' })
 		}
 
+		if (hasAdmin || hasFinancier) {
+			pushUnique({
+				name: 'Документы',
+				href: '/documents',
+				children: [
+					{ name: 'Акты выполненных работ', href: '/documents/completed-work-acts' }
+				]
+			})
+		}
+
 		if (hasChiefTechnician) {
 			pushUnique({ name: 'Зарплатные планы', href: '/accounting/payroll', exact: true })
 			pushUnique({
@@ -155,8 +188,23 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 			pushUnique({ name: 'Интеграции', href: '/settings/integrations', exact: true })
 		}
 
-		return items
+		return items.sort(
+			(left, right) =>
+				menuSectionOrder.indexOf(getMenuSection(left))
+				- menuSectionOrder.indexOf(getMenuSection(right))
+		)
 	})()
+	const activeMenuSection = getMenuSection(
+		menuItems.find(item =>
+			pathname === item.href
+			|| (!item.exact && pathname.startsWith(`${item.href}/`))
+		) ?? menuItems[0]
+	)
+	const expandedMenuSection = openMenuSection ?? activeMenuSection
+
+	useEffect(() => {
+		setOpenMenuSection(null)
+	}, [pathname, isWorkZone])
 
 	const handleLogout = async () => {
 		if (isLoggingOut) return
@@ -199,10 +247,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 	}
 
 	const toggleGroup = (href: string, isExpanded: boolean) => {
-		setGroupExpansion(current => ({
-			...current,
-			[href]: !isExpanded
-		}))
+		setGroupExpansion({ [href]: !isExpanded })
 	}
 
 	const isChildActive = (href: string) => {
@@ -224,9 +269,9 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 			}`}
 		>
 			<div className="flex h-full w-[min(18rem,85vw)] flex-col bg-[#ffffff] text-slate-900 shadow-2xl dark:bg-[#09090b] dark:text-white lg:w-64 lg:shadow-none">
-				<div className="flex h-[6.5rem] shrink-0 items-center justify-between border-b border-slate-200 px-4 dark:border-slate-800 sm:px-6">
+				<div className="flex h-28 shrink-0 items-center justify-between border-b border-slate-200 px-4 dark:border-slate-800">
 					<TeethTechLogo
-						className="w-40 sm:w-full"
+						className="w-44"
 						priority
 					/>
 
@@ -277,21 +322,49 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 				)}
 
 				<nav className="flex-1 space-y-1.5 overflow-y-auto p-3">
-					{menuItems.map(item => {
+					{menuItems.map((item, index) => {
 						const isParentActive =
 							pathname === item.href ||
 							(!item.exact && pathname.startsWith(`${item.href}/`)) ||
 							Boolean(item.children?.some(child => pathname === child.href.split('?')[0]))
 						const isGroupExpanded =
 							groupExpansion[item.href] ?? isParentActive
+						const section = getMenuSection(item)
+						const showSection = index === 0
+							|| getMenuSection(menuItems[index - 1]) !== section
 
 						return (
 							<div key={item.href}>
+								{showSection ? (
+									<button
+										type="button"
+										onClick={() => setOpenMenuSection(
+											expandedMenuSection === section ? '' : section
+										)}
+										aria-expanded={expandedMenuSection === section}
+										className={`${index === 0 ? 'mb-1' : 'mb-1 mt-2'} flex w-full items-center justify-between rounded-lg px-3 py-1.5 text-[9px] font-black uppercase tracking-[.16em] text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-200`}
+									>
+										<span>{section}</span>
+										<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" className={`h-3.5 w-3.5 transition-transform ${expandedMenuSection === section ? 'rotate-180' : ''}`} aria-hidden="true">
+											<path d="m7 10 5 5 5-5" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+										</svg>
+									</button>
+								) : null}
+								<div
+									inert={expandedMenuSection !== section}
+									aria-hidden={expandedMenuSection !== section}
+									className={`grid transition-[grid-template-rows,opacity] duration-200 ${
+										expandedMenuSection === section
+											? 'grid-rows-[1fr] opacity-100'
+											: 'grid-rows-[0fr] opacity-0'
+									}`}
+								>
+								<div className="min-h-0 overflow-hidden">
 								<div className={`flex items-center rounded-xl transition-colors ${isParentActive ? 'bg-violet-600 text-white shadow-lg shadow-violet-950/20' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-950 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white'}`}>
 								<Link
 									href={item.href}
 									onClick={handleNavigate}
-									className="flex min-w-0 flex-1 items-center gap-3 px-3 py-2.5 text-sm font-medium"
+										className="flex min-w-0 flex-1 items-center gap-3 px-3 py-2 text-sm font-medium"
 								>
 									<MenuIcon href={item.href} /><span className="truncate">{item.name}</span>
 								</Link>
@@ -331,7 +404,9 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 										</div>
 									</div>
 									</div>
-								)}
+									)}
+								</div>
+								</div>
 							</div>
 						)
 					})}

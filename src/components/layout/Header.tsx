@@ -36,7 +36,6 @@ export default function Header({ onMenuClick, isMenuOpen = false }: HeaderProps)
 			.map((item) => roleLabels[item] ?? item.replaceAll('_', ' ').toLocaleLowerCase('ru-RU'))
 			.join(' · ')
 		: 'Роль не указана'
-
 	useEffect(() => {
 		if (!isProfileOpen) return
 
@@ -84,6 +83,18 @@ export default function Header({ onMenuClick, isMenuOpen = false }: HeaderProps)
 
 			<div className="ml-auto flex min-w-0 items-center gap-1.5 sm:gap-3">
 				<ThemeToggle />
+				<Link
+					href="/notes"
+					aria-label="Открыть личные заметки"
+					title="Личные заметки"
+					className="group relative inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:border-violet-200 hover:bg-violet-50 hover:text-violet-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
+				>
+					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" className="h-5 w-5" aria-hidden="true">
+						<path d="M6 3h9l4 4v14H6V3Z" strokeWidth="1.8" strokeLinejoin="round"/>
+						<path d="M14 3v5h5M9 12h6M9 16h4" strokeWidth="1.8" strokeLinecap="round"/>
+					</svg>
+					<span className="pointer-events-none absolute right-0 top-[calc(100%+8px)] z-50 hidden whitespace-nowrap rounded-lg bg-slate-950 px-2.5 py-1.5 text-[10px] font-bold text-white shadow-xl group-hover:block group-focus-visible:block">Личные заметки</span>
+				</Link>
 				<Link
 					href="/knowledge-base"
 					aria-label="База знаний"

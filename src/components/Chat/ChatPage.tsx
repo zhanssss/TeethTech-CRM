@@ -782,12 +782,12 @@ export default function ChatPage() {
 				className={`group flex ${isMine ? 'justify-end' : 'justify-start'} mb-3.5`}
 			>
 				{!isMine ? (
-					<div className="mr-2 mt-auto hidden h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-indigo-600 text-[10px] font-black text-white shadow-sm sm:flex">
+					<div className="mr-2 mt-auto hidden h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 text-[10px] font-black text-white shadow-sm sm:flex">
 						{getInitials(message.senderName)}
 					</div>
 				) : null}
 				<div
-					className={`relative max-w-[84%] px-4 py-3 shadow-sm transition-all sm:max-w-[72%] ${messageContextMenu?.messageId === message.id ? 'ring-2 ring-violet-400 ring-offset-2 dark:ring-offset-slate-950' : ''} ${isMine ? 'rounded-[22px] rounded-br-md bg-gradient-to-br from-violet-600 to-indigo-600 text-white shadow-violet-500/10' : 'rounded-[22px] rounded-bl-md border border-slate-200/80 bg-white text-slate-800 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100'}`}
+					className={`relative max-w-[88%] px-3.5 py-2.5 shadow-sm transition-all sm:max-w-[72%] ${messageContextMenu?.messageId === message.id ? 'ring-2 ring-violet-400 ring-offset-2 dark:ring-offset-slate-950' : ''} ${isMine ? 'rounded-[18px] rounded-br-md bg-gradient-to-br from-violet-600 to-indigo-600 text-white shadow-violet-500/10' : 'rounded-[18px] rounded-bl-md border border-slate-200/80 bg-white text-slate-800 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100'}`}
 				>
 					{!isMine && activeConversation?.type === 'GROUP' ? (
 						<div className="mb-1 text-xs font-bold text-violet-600 dark:text-violet-300">
@@ -845,7 +845,7 @@ export default function ChatPage() {
 						</>
 					)}
 					<div
-						className={`mt-1.5 flex justify-end text-[10px] font-medium ${isMine ? 'text-violet-100' : 'text-slate-400'}`}
+					className={`mt-1 flex justify-end text-[10px] font-medium ${isMine ? 'text-violet-100' : 'text-slate-400'}`}
 					>
 						{formatChatTime(message.createdAt)}{isMine && !message.deleted ? '  ·  ✓✓' : ''}
 					</div>
@@ -868,10 +868,10 @@ export default function ChatPage() {
 	}
 
 	return (
-		<div className="relative flex h-[calc(100dvh-6.5rem)] min-h-[620px] flex-col overflow-hidden rounded-[30px] border border-slate-200/80 bg-white shadow-[0_24px_70px_-35px_rgba(15,23,42,.35)] dark:border-slate-800 dark:bg-slate-950 lg:flex-row">
-			<aside className="flex w-full flex-col border-b border-slate-200/80 bg-slate-50/80 dark:border-slate-800 dark:bg-slate-900/70 lg:w-[360px] lg:border-b-0 lg:border-r xl:w-[390px]">
-				<div className="border-b border-slate-200/80 p-5 dark:border-slate-800">
-					<div className="flex items-center justify-between">
+		<div className="relative flex h-[calc(100dvh-8.5rem)] min-h-[600px] flex-col overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-[0_20px_60px_-36px_rgba(15,23,42,.4)] dark:border-slate-800 dark:bg-slate-950 lg:flex-row">
+			<aside className={`${activeConversation ? 'hidden lg:flex' : 'flex'} w-full flex-col border-b border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900 lg:w-[360px] lg:border-b-0 lg:border-r xl:w-[390px]`}>
+				<div className="border-b border-slate-200/80 p-4 dark:border-slate-800">
+					<div className="flex items-center justify-between gap-3">
 						<div>
 							<div className="flex items-center gap-2">
 								<h1 className="text-xl font-black tracking-tight text-slate-950 dark:text-white">Сообщения</h1>
@@ -879,35 +879,32 @@ export default function ChatPage() {
 							</div>
 							<p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">Команда всегда на связи</p>
 						</div>
-						<button
-							type="button"
-							onClick={() => setIsCreateDirectOpen(true)}
-							className="flex h-10 items-center gap-2 rounded-xl bg-slate-950 px-3.5 text-sm font-bold text-white shadow-lg shadow-slate-950/10 transition hover:-translate-y-0.5 dark:bg-violet-600"
-						>
-							<PlusIcon /> Новый
-						</button>
+						<div className="flex shrink-0 items-center rounded-2xl border border-slate-200 bg-slate-50 p-1 dark:border-slate-700 dark:bg-slate-800">
+							<button
+								type="button"
+								onClick={() => setIsCreateDirectOpen(true)}
+								title="Новый личный чат"
+								className="flex h-9 items-center gap-1.5 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-3 text-xs font-black text-white shadow-sm shadow-violet-500/20 transition hover:-translate-y-0.5"
+							>
+								<PlusIcon />
+								<span>Чат</span>
+							</button>
+							<button
+								type="button"
+								onClick={() => setIsCreateGroupOpen(true)}
+								title="Создать группу"
+								className="flex h-9 items-center gap-1.5 rounded-xl px-3 text-xs font-black text-slate-600 transition hover:bg-white hover:text-violet-700 dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-violet-300"
+							>
+								<UsersIcon />
+								<span>Группа</span>
+							</button>
+						</div>
 					</div>
-					<label className="mt-4 flex h-11 items-center gap-2.5 rounded-2xl border border-slate-200 bg-white px-3.5 text-slate-400 shadow-sm transition focus-within:border-violet-300 focus-within:ring-4 focus-within:ring-violet-100 dark:border-slate-700 dark:bg-slate-800 dark:focus-within:ring-violet-500/10">
+					<label className="mt-4 flex h-11 items-center gap-2.5 rounded-full border border-slate-200 bg-slate-100 px-4 text-slate-400 transition focus-within:border-violet-300 focus-within:bg-white focus-within:ring-4 focus-within:ring-violet-100 dark:border-slate-700 dark:bg-slate-800 dark:focus-within:ring-violet-500/10">
 						<SearchIcon />
 						<input value={search} onChange={event => setSearch(event.target.value)} placeholder="Поиск диалогов" className="min-w-0 flex-1 bg-transparent text-sm text-slate-900 outline-none placeholder:text-slate-400 dark:text-white" />
 						<span className="rounded-md border border-slate-200 px-1.5 py-0.5 text-[10px] font-semibold dark:border-slate-700">⌘K</span>
 					</label>
-				</div>
-				<div className="flex gap-2 border-b border-slate-200/80 px-4 py-3 dark:border-slate-800">
-					<button
-						type="button"
-						onClick={() => setIsCreateDirectOpen(true)}
-						className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-violet-100 px-3 py-2 text-xs font-bold text-violet-700 transition hover:bg-violet-200 dark:bg-violet-500/15 dark:text-violet-300"
-					>
-						<PlusIcon /> Личный чат
-					</button>
-					<button
-						type="button"
-						onClick={() => setIsCreateGroupOpen(true)}
-						className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 transition hover:border-violet-200 hover:text-violet-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
-					>
-						<UsersIcon /> Группа
-					</button>
 				</div>
 				<div className="flex-1 overflow-y-auto p-2.5">
 					{isChatsLoading ? (
@@ -929,9 +926,9 @@ export default function ChatPage() {
 								key={chat.id}
 								type="button"
 								onClick={() => router.push(`/chats/${chat.id}`)}
-								className={`relative mb-1 flex w-full items-center gap-3 rounded-2xl border px-3 py-3 text-left transition-all ${activeConversationId === chat.id ? 'border-violet-200 bg-white shadow-[0_10px_30px_-18px_rgba(124,58,237,.55)] before:absolute before:bottom-3 before:left-0 before:top-3 before:w-1 before:rounded-r-full before:bg-violet-600 dark:border-violet-500/30 dark:bg-slate-800' : 'border-transparent hover:border-slate-200 hover:bg-white dark:hover:border-slate-700 dark:hover:bg-slate-800/70'}`}
+								className={`relative mb-1 flex w-full items-center gap-3 rounded-xl border px-3 py-3 text-left transition-all ${activeConversationId === chat.id ? 'border-violet-200 bg-violet-50 dark:border-violet-500/30 dark:bg-violet-500/10' : 'border-transparent hover:bg-slate-100 dark:hover:bg-slate-800/70'}`}
 							>
-								<div className={`relative flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br font-black text-white shadow-sm ${chat.type === 'GROUP' ? 'from-fuchsia-500 to-violet-600' : 'from-violet-500 to-indigo-600'}`}>
+								<div className={`relative flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-gradient-to-br font-black text-white shadow-sm ${chat.type === 'GROUP' ? 'from-fuchsia-500 to-violet-600' : 'from-violet-500 to-indigo-600'}`}>
 									{getInitials(chat.title)}
 									<span className="absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border-[3px] border-white bg-emerald-500 dark:border-slate-800" />
 								</div>
@@ -960,12 +957,15 @@ export default function ChatPage() {
 					)}
 				</div>
 			</aside>
-			<section className="relative flex min-w-0 flex-1 flex-col bg-white dark:bg-slate-950">
+			<section className={`${activeConversation ? 'flex' : 'hidden lg:flex'} relative min-w-0 flex-1 flex-col bg-white dark:bg-slate-950`}>
 				{activeConversation ? (
 					<>
-						<header className="flex min-h-[76px] items-center justify-between border-b border-slate-200/80 bg-white/90 px-4 py-3 backdrop-blur-xl dark:border-slate-800 dark:bg-slate-950/90 sm:px-6">
+						<header className="flex min-h-[70px] items-center justify-between border-b border-slate-200 bg-white/95 px-3 py-2 backdrop-blur-xl dark:border-slate-800 dark:bg-slate-950/95 sm:px-5">
 							<div className="flex items-center gap-3">
-								<div className="relative flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-500 to-indigo-600 font-black text-white shadow-lg shadow-violet-500/20">
+								{isMobile ? (
+									<button type="button" onClick={() => router.push('/chats')} className="flex h-10 w-10 items-center justify-center rounded-full text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800" aria-label="Вернуться к списку чатов"><BackIcon /></button>
+								) : null}
+								<div className="relative flex h-11 w-11 items-center justify-center rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 font-black text-white shadow-lg shadow-violet-500/20">
 									{getInitials(activeConversation.title)}
 									<span className="absolute -bottom-1 -right-1 h-4 w-4 rounded-full border-[3px] border-white bg-emerald-500 dark:border-slate-950" />
 								</div>
@@ -1004,20 +1004,11 @@ export default function ChatPage() {
 										<EditIcon /><span className="hidden xl:inline">Переименовать</span>
 									</button>
 								) : null}
-								{isMobile ? (
-									<button
-										type="button"
-										onClick={() => router.push('/chats')}
-										className="flex h-10 items-center gap-2 rounded-xl border border-slate-200 px-3 text-sm font-semibold text-slate-700 dark:border-slate-700 dark:text-slate-300"
-									>
-										<BackIcon /> Назад
-									</button>
-								) : null}
 							</div>
 						</header>
 						<div
 							ref={messageListRef}
-							className="flex-1 overflow-y-auto bg-[radial-gradient(circle_at_20%_0%,rgba(139,92,246,.08),transparent_28%),radial-gradient(circle_at_90%_30%,rgba(99,102,241,.06),transparent_25%)] bg-slate-50 p-4 dark:bg-[radial-gradient(circle_at_20%_0%,rgba(139,92,246,.12),transparent_28%)] dark:bg-slate-950 sm:p-6"
+							className="flex-1 overflow-y-auto bg-[radial-gradient(circle_at_20%_0%,rgba(139,92,246,.08),transparent_28%),radial-gradient(circle_at_90%_30%,rgba(99,102,241,.06),transparent_25%)] bg-violet-50/40 p-3 dark:bg-[radial-gradient(circle_at_20%_0%,rgba(139,92,246,.12),transparent_28%)] dark:bg-slate-950 sm:p-5"
 						>
 							<div className="flex min-h-full flex-col">
 							<div className="mt-auto" aria-hidden="true" />
@@ -1067,7 +1058,7 @@ export default function ChatPage() {
 									</button>
 								</div>
 							) : null}
-							<div className="rounded-[22px] border border-slate-200 bg-slate-50 p-2 shadow-sm transition focus-within:border-violet-300 focus-within:bg-white focus-within:ring-4 focus-within:ring-violet-100 dark:border-slate-700 dark:bg-slate-900 dark:focus-within:border-violet-500 dark:focus-within:bg-slate-900 dark:focus-within:ring-violet-500/10">
+							<div className="rounded-[22px] border border-slate-200 bg-white p-2 shadow-sm transition focus-within:border-violet-300 focus-within:ring-4 focus-within:ring-violet-100 dark:border-slate-700 dark:bg-slate-900 dark:focus-within:border-violet-500 dark:focus-within:ring-violet-500/10">
 							<textarea
 								ref={composerRef}
 								value={composer}
@@ -1121,7 +1112,7 @@ export default function ChatPage() {
 										type="button"
 										onClick={() => void handleSendMessage()}
 										disabled={!composer.trim() || isSendingMessage}
-										className="flex h-10 items-center gap-2 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-4 text-sm font-bold text-white shadow-lg shadow-violet-500/20 transition hover:-translate-y-0.5 disabled:translate-y-0 disabled:opacity-40"
+										className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-lg shadow-violet-500/20 transition hover:-translate-y-0.5 disabled:translate-y-0 disabled:opacity-40 sm:w-auto sm:px-4"
 									>
 										<span className="hidden sm:inline">Отправить</span><SendIcon />
 									</button>
