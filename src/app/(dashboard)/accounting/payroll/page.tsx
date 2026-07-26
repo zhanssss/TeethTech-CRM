@@ -30,7 +30,7 @@ import type {
 } from '@/src/types/finance.types';
 
 const inputClass =
-    'min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400';
+    'min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:border-violet-500 dark:focus:ring-violet-500/20 dark:disabled:bg-slate-800 dark:disabled:text-slate-500';
 const LAB_TIMEZONE_OFFSET = '+05:00';
 
 const treatmentLabels: Record<SalaryRuleTreatment, string> = {
@@ -182,7 +182,7 @@ function getRuleKey(rule: Pick<
 
 function Label({ children }: { children: React.ReactNode }) {
     return (
-        <span className="mb-1.5 block text-xs font-bold text-slate-500">
+        <span className="mb-1.5 block text-xs font-bold text-slate-500 dark:text-slate-400">
             {children}
         </span>
     );
@@ -200,7 +200,7 @@ function Toggle({
     disabled?: boolean;
 }) {
     return (
-        <label className="flex min-h-11 cursor-pointer items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-semibold text-slate-700">
+        <label className="flex min-h-11 cursor-pointer items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-semibold text-slate-700 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200">
             <input
                 type="checkbox"
                 checked={checked}
@@ -221,10 +221,10 @@ function StateNotice({
     children: React.ReactNode;
 }) {
     const styles = {
-        loading: 'border-blue-200 bg-blue-50 text-blue-700',
-        error: 'border-red-200 bg-red-50 text-red-700',
-        empty: 'border-slate-200 bg-slate-50 text-slate-600',
-        info: 'border-amber-200 bg-amber-50 text-amber-800',
+        loading: 'border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-500/30 dark:bg-blue-500/10 dark:text-blue-300',
+        error: 'border-red-200 bg-red-50 text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-300',
+        empty: 'border-slate-200 bg-slate-50 text-slate-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-300',
+        info: 'border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300',
     };
     return (
         <div className={`rounded-xl border px-4 py-3 text-sm font-medium ${styles[tone]}`}>
@@ -314,11 +314,11 @@ function RuleEditor({
                         <p className="text-xs font-black uppercase tracking-[0.18em] text-blue-600">
                             Правило этапа
                         </p>
-                        <h2 className="mt-1 text-xl font-black text-slate-900">
+                        <h2 className="mt-1 text-xl font-black text-slate-900 dark:text-white">
                             {rule ? 'Изменить правило' : 'Новое правило'}
                         </h2>
                     </div>
-                    <button type="button" onClick={onClose} className="rounded-lg px-3 py-2 text-slate-500 hover:bg-slate-100">
+                    <button type="button" onClick={onClose} className="rounded-lg px-3 py-2 text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800">
                         Закрыть
                     </button>
                 </div>
@@ -415,7 +415,7 @@ function RuleEditor({
                 {!canEdit && <div className="mt-4"><StateNotice tone="error">Недостаточно прав для изменения правила</StateNotice></div>}
 
                 <div className="mt-6 flex justify-end gap-3">
-                    <button type="button" onClick={onClose} className="min-h-11 rounded-xl border border-slate-200 px-4 text-sm font-bold text-slate-700 hover:bg-slate-50">
+                    <button type="button" onClick={onClose} className="min-h-11 rounded-xl border border-slate-200 px-4 text-sm font-bold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800">
                         Отмена
                     </button>
                     {canEdit && (
@@ -604,44 +604,44 @@ export default function FlexiblePayrollPage() {
             <header className="overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
                 <div className="flex flex-col gap-4 p-6 lg:flex-row lg:items-center lg:justify-between">
                     <div>
-                        <p className="text-xs font-black uppercase tracking-[0.18em] text-violet-600">Зарплата сотрудников</p>
+                        <p className="text-xs font-black uppercase tracking-[0.18em] text-violet-600 dark:text-violet-400">Зарплата сотрудников</p>
                         <h1 className="mt-1 text-3xl font-black text-slate-950 dark:text-white">Расчёт и зарплатные планы</h1>
-                        <p className="mt-2 max-w-3xl text-sm text-slate-500">
+                        <p className="mt-2 max-w-3xl text-sm text-slate-500 dark:text-slate-400">
                             Сначала проверьте расчёт, затем сформируйте ведомость. Настройки плана изменяются отдельно.
                         </p>
                     </div>
-                    <div className="flex rounded-2xl border border-slate-200 bg-slate-50 p-1.5">
+                    <div className="flex rounded-2xl border border-slate-200 bg-slate-50 p-1.5 dark:border-slate-700 dark:bg-slate-950">
                         <button
                             type="button"
                             onClick={() => setActiveSection('calculate')}
-                            className={`rounded-xl px-4 py-2.5 text-sm font-black transition ${activeSection === 'calculate' ? 'bg-violet-600 text-white shadow-md shadow-violet-200' : 'text-slate-500 hover:text-slate-800'}`}
+                            className={`rounded-xl px-4 py-2.5 text-sm font-black transition ${activeSection === 'calculate' ? 'bg-violet-600 text-white shadow-md shadow-violet-200 dark:shadow-violet-950' : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white'}`}
                         >
                             Рассчитать зарплату
                         </button>
                         <button
                             type="button"
                             onClick={() => setActiveSection('settings')}
-                            className={`rounded-xl px-4 py-2.5 text-sm font-black transition ${activeSection === 'settings' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
+                            className={`rounded-xl px-4 py-2.5 text-sm font-black transition ${activeSection === 'settings' ? 'bg-white text-slate-900 shadow-sm dark:bg-slate-800 dark:text-white' : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white'}`}
                         >
                             Настройка плана
                         </button>
                     </div>
                 </div>
-                <div className="grid grid-cols-3 border-t border-slate-100 bg-slate-50/70">
+                <div className="grid grid-cols-3 border-t border-slate-100 bg-slate-50/70 dark:border-slate-800 dark:bg-slate-950/70">
                     {[
                         ['1', 'Выберите сотрудника'],
                         ['2', activeSection === 'calculate' ? 'Укажите период' : 'Настройте оплату'],
                         ['3', activeSection === 'calculate' ? 'Проверьте и сформируйте' : 'Сохраните план'],
                     ].map(([number, label]) => (
-                        <div key={number} className="flex items-center justify-center gap-2 border-r border-slate-100 px-2 py-3 last:border-r-0">
-                            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-violet-100 text-[10px] font-black text-violet-700">{number}</span>
-                            <span className="hidden text-xs font-bold text-slate-600 sm:block">{label}</span>
+                        <div key={number} className="flex items-center justify-center gap-2 border-r border-slate-100 px-2 py-3 last:border-r-0 dark:border-slate-800">
+                            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-violet-100 text-[10px] font-black text-violet-700 dark:bg-violet-500/20 dark:text-violet-300">{number}</span>
+                            <span className="hidden text-xs font-bold text-slate-600 dark:text-slate-300 sm:block">{label}</span>
                         </div>
                     ))}
                 </div>
             </header>
 
-            <section className="rounded-[22px] border border-violet-200 bg-gradient-to-r from-violet-50 to-white p-5 shadow-sm">
+            <section className="rounded-[22px] border border-violet-200 bg-gradient-to-r from-violet-50 to-white p-5 shadow-sm dark:border-violet-500/30 dark:from-violet-950/35 dark:to-slate-900">
                 <div className="grid gap-4 lg:grid-cols-[1fr_auto] lg:items-end">
                     <label>
                         <Label>1. Для кого считаем зарплату</Label>
@@ -659,9 +659,9 @@ export default function FlexiblePayrollPage() {
                             ))}
                         </select>
                     </label>
-                    <div className="rounded-xl bg-white px-4 py-3 text-sm text-slate-500 shadow-sm">
-                        <span className="text-xs font-bold text-slate-400">Учётная запись</span>
-                        <p className="mt-0.5 font-semibold text-slate-700">{selectedEmployee?.email || 'Не выбрана'}</p>
+                    <div className="rounded-xl bg-white px-4 py-3 text-sm text-slate-500 shadow-sm dark:bg-slate-950 dark:text-slate-400">
+                        <span className="text-xs font-bold text-slate-400 dark:text-slate-500">Учётная запись</span>
+                        <p className="mt-0.5 font-semibold text-slate-700 dark:text-slate-200">{selectedEmployee?.email || 'Не выбрана'}</p>
                     </div>
                 </div>
                 {employeesQuery.isFetching && <div className="mt-4"><StateNotice tone="loading">Загрузка сотрудников…</StateNotice></div>}
@@ -672,16 +672,16 @@ export default function FlexiblePayrollPage() {
             </section>
 
             {activeSection === 'settings' && <>
-            <div className="rounded-2xl border border-blue-200 bg-blue-50 p-4">
-                <p className="text-sm font-black text-blue-900">Настройки меняют будущие расчёты</p>
-                <p className="mt-1 text-xs leading-5 text-blue-700">Здесь задаются оклад, ограничения и правила оплаты отдельных работ. Не изменяйте действующий план посреди закрываемого периода без согласования.</p>
+            <div className="rounded-2xl border border-blue-200 bg-blue-50 p-4 dark:border-violet-500/30 dark:bg-violet-500/10">
+                <p className="text-sm font-black text-blue-900 dark:text-violet-200">Настройки меняют будущие расчёты</p>
+                <p className="mt-1 text-xs leading-5 text-blue-700 dark:text-violet-300">Здесь задаются оклад, ограничения и правила оплаты отдельных работ. Не изменяйте действующий план посреди закрываемого периода без согласования.</p>
             </div>
 
-            <form onSubmit={handleSavePlan} className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+            <form onSubmit={handleSavePlan} className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-6">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
-                        <h2 className="text-lg font-black text-slate-900">План сотрудника</h2>
-                        <p className="mt-1 text-sm text-slate-500">Шаг 2 · Основная сумма, ограничения и срок действия</p>
+                        <h2 className="text-lg font-black text-slate-900 dark:text-white">План сотрудника</h2>
+                        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Шаг 2 · Основная сумма, ограничения и срок действия</p>
                     </div>
                     {planQuery.data && (
                         <span className={`rounded-full px-3 py-1 text-xs font-bold ${planQuery.data.active ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>
@@ -753,11 +753,11 @@ export default function FlexiblePayrollPage() {
                 )}
             </form>
 
-            <section className="overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-sm">
-                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 p-5">
+            <section className="overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 p-5 dark:border-slate-800">
                     <div>
-                        <h2 className="text-lg font-black text-slate-900">Доплаты за работы</h2>
-                        <p className="mt-1 text-sm text-slate-500">Укажите, за какую завершённую работу сотрудник получает дополнительную оплату</p>
+                        <h2 className="text-lg font-black text-slate-900 dark:text-white">Доплаты за работы</h2>
+                        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Укажите, за какую завершённую работу сотрудник получает дополнительную оплату</p>
                     </div>
                     {canEdit && planQuery.data && (
                         <button type="button" onClick={() => setEditingRule(null)} className="min-h-10 rounded-xl bg-blue-600 px-4 text-sm font-bold text-white hover:bg-blue-700">
@@ -784,18 +784,18 @@ export default function FlexiblePayrollPage() {
                 {rules.length > 0 && (
                     <div className="overflow-x-auto">
                         <table className="w-full min-w-[1350px] text-left">
-                            <thead className="border-b border-slate-200 bg-slate-50 text-[11px] uppercase tracking-wider text-slate-400">
+                            <thead className="border-b border-slate-200 bg-slate-50 text-[11px] uppercase tracking-wider text-slate-400 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-500">
                                 <tr>
                                     {['Название', 'Этап', 'Вид работы', 'Режим', 'Метод расчёта', 'Ставка', 'Приоритет', 'Период', 'Активность', 'Действия'].map((title) => (
                                         <th key={title} className="p-4 font-bold">{title}</th>
                                     ))}
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-slate-100">
+                            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                                 {rules.map((rule) => {
                                     const duplicate = rule.active && duplicateKeys.has(getRuleKey(rule));
                                     return (
-                                        <tr key={rule.id} className={duplicate ? 'bg-amber-50/70' : 'hover:bg-blue-50/30'}>
+                                        <tr key={rule.id} className={duplicate ? 'bg-amber-50/70 dark:bg-amber-500/10' : 'hover:bg-blue-50/30 dark:hover:bg-violet-500/5'}>
                                             <td className="p-4">
                                                 <div className="font-bold text-slate-800">{rule.name}</div>
                                                 {duplicate && <span className="mt-1 inline-block text-xs font-semibold text-amber-700">Неоднозначное правило</span>}
@@ -840,18 +840,18 @@ export default function FlexiblePayrollPage() {
             </section>
             </>}
 
-            {activeSection === 'calculate' && <section className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+            {activeSection === 'calculate' && <section className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-6">
                 <div>
                     <div className="flex flex-wrap items-start justify-between gap-3">
                         <div>
-                            <p className="text-[10px] font-black uppercase tracking-wider text-violet-600">Шаг 2</p>
-                            <h2 className="mt-1 text-lg font-black text-slate-900">Выберите расчётный период</h2>
-                            <p className="mt-1 text-sm text-slate-500">Система найдёт завершённые работы сотрудника и применит его зарплатный план</p>
+                            <p className="text-[10px] font-black uppercase tracking-wider text-violet-600 dark:text-violet-400">Шаг 2</p>
+                            <h2 className="mt-1 text-lg font-black text-slate-900 dark:text-white">Выберите расчётный период</h2>
+                            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Система найдёт завершённые работы сотрудника и применит его зарплатный план</p>
                         </div>
                         {planQuery.data ? (
-                            <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-right">
-                                <p className="text-[10px] font-black uppercase text-emerald-700">Используется план</p>
-                                <p className="text-xs font-black text-emerald-900">{planQuery.data.name}</p>
+                            <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-right dark:border-emerald-500/30 dark:bg-emerald-500/10">
+                                <p className="text-[10px] font-black uppercase text-emerald-700 dark:text-emerald-300">Используется план</p>
+                                <p className="text-xs font-black text-emerald-900 dark:text-emerald-200">{planQuery.data.name}</p>
                             </div>
                         ) : null}
                     </div>
@@ -869,7 +869,7 @@ export default function FlexiblePayrollPage() {
                         {previewQuery.isFetching ? 'Расчёт…' : 'Рассчитать'}
                     </button>
                 </div>
-                <p className="mt-2 text-xs text-slate-400">В расчёт попадут операции с 00:00 первого дня до 23:59 последнего дня.</p>
+                <p className="mt-2 text-xs text-slate-400 dark:text-slate-500">В расчёт попадут операции с 00:00 первого дня до 23:59 последнего дня.</p>
                 {previewPeriodError && <div className="mt-4"><StateNotice tone="error">{previewPeriodError}</StateNotice></div>}
                 {!previewQuery.data && !previewQuery.isFetching && !previewPeriodError && (
                     <div className="mt-5"><StateNotice tone="empty">После выбора периода нажмите «Рассчитать». Ведомость ещё не будет создана — сначала вы увидите предварительный результат.</StateNotice></div>
@@ -879,61 +879,61 @@ export default function FlexiblePayrollPage() {
                 {previewQuery.data && (
                     <>
                         <div className="mt-6 grid gap-3 lg:grid-cols-[1.25fr_1fr_1fr]">
-                            <article className="rounded-2xl bg-gradient-to-br from-emerald-600 to-teal-600 p-5 text-white shadow-lg shadow-emerald-100">
+                            <article className="rounded-2xl bg-gradient-to-br from-emerald-600 to-teal-600 p-5 text-white shadow-lg shadow-emerald-100 dark:shadow-emerald-950/50">
                                 <p className="text-[10px] font-black uppercase tracking-wider text-emerald-100">Итог к выплате</p>
                                 <p className="mt-2 text-3xl font-black">{formatMoney(previewQuery.data.payable)}</p>
                                 <p className="mt-2 text-xs leading-5 text-emerald-100">Сумма после применения плана, доплат и месячного лимита</p>
                             </article>
-                            <article className="rounded-2xl border border-slate-200 bg-white p-5">
-                                <p className="text-xs font-bold text-slate-500">Всего заработано</p>
-                                <p className="mt-2 text-2xl font-black text-slate-900">{formatMoney(previewQuery.data.grossAccrued)}</p>
-                                <p className="mt-2 text-xs text-slate-400">До применения ограничения выплаты</p>
+                            <article className="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-700 dark:bg-slate-950">
+                                <p className="text-xs font-bold text-slate-500 dark:text-slate-400">Всего заработано</p>
+                                <p className="mt-2 text-2xl font-black text-slate-900 dark:text-white">{formatMoney(previewQuery.data.grossAccrued)}</p>
+                                <p className="mt-2 text-xs text-slate-400 dark:text-slate-500">До применения ограничения выплаты</p>
                             </article>
-                            <article className="rounded-2xl border border-violet-200 bg-violet-50 p-5">
-                                <p className="text-xs font-bold text-violet-700">Состав начисления</p>
+                            <article className="rounded-2xl border border-violet-200 bg-violet-50 p-5 dark:border-violet-500/30 dark:bg-violet-500/10">
+                                <p className="text-xs font-bold text-violet-700 dark:text-violet-300">Состав начисления</p>
                                 <div className="mt-3 space-y-2 text-xs">
-                                    <div className="flex justify-between gap-3"><span className="text-slate-500">Оклад</span><strong className="text-slate-900">{formatMoney(previewQuery.data.baseSalary)}</strong></div>
-                                    <div className="flex justify-between gap-3"><span className="text-slate-500">Доплаты</span><strong className="text-violet-800">{formatMoney(previewQuery.data.extraAccrued)}</strong></div>
+                                    <div className="flex justify-between gap-3"><span className="text-slate-500 dark:text-slate-400">Оклад</span><strong className="text-slate-900 dark:text-white">{formatMoney(previewQuery.data.baseSalary)}</strong></div>
+                                    <div className="flex justify-between gap-3"><span className="text-slate-500 dark:text-slate-400">Доплаты</span><strong className="text-violet-800 dark:text-violet-300">{formatMoney(previewQuery.data.extraAccrued)}</strong></div>
                                 </div>
                             </article>
                         </div>
 
-                        <details className="mt-3 rounded-2xl border border-slate-200 bg-slate-50">
-                            <summary className="cursor-pointer list-none px-4 py-3 text-xs font-black text-slate-700">
+                        <details className="mt-3 rounded-2xl border border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-950">
+                            <summary className="cursor-pointer list-none px-4 py-3 text-xs font-black text-slate-700 dark:text-slate-200">
                                 Подробнее о лимитах и переносах
                             </summary>
-                            <dl className="grid gap-3 border-t border-slate-200 p-4 sm:grid-cols-2 lg:grid-cols-4">
+                            <dl className="grid gap-3 border-t border-slate-200 p-4 dark:border-slate-700 sm:grid-cols-2 lg:grid-cols-4">
                                 {[
                                     ['Перенос с прошлого периода', previewQuery.data.carryIn],
                                     ['Доступно с учётом переноса', previewQuery.data.available],
                                     ['Месячный лимит', previewQuery.data.monthlyCap],
                                     ['Перенос на следующий период', previewQuery.data.carryOut],
                                 ].map(([label, value]) => (
-                                    <div key={String(label)} className="rounded-xl bg-white p-3">
-                                        <dt className="text-[10px] font-bold text-slate-400">{label}</dt>
-                                        <dd className="mt-1 text-sm font-black text-slate-800">{formatMoney(value as number | null)}</dd>
+                                    <div key={String(label)} className="rounded-xl bg-white p-3 dark:bg-slate-900">
+                                        <dt className="text-[10px] font-bold text-slate-400 dark:text-slate-500">{label}</dt>
+                                        <dd className="mt-1 text-sm font-black text-slate-800 dark:text-slate-100">{formatMoney(value as number | null)}</dd>
                                     </div>
                                 ))}
                             </dl>
                         </details>
 
-                        <div className="mt-6 overflow-hidden rounded-2xl border border-slate-200">
-                            <div className="border-b border-slate-100 bg-slate-50 px-4 py-3"><p className="font-bold text-slate-800">Из чего сложилась зарплата</p><p className="mt-0.5 text-xs text-slate-500">Проверьте работы, количество, ставку и сумму до формирования ведомости</p></div>
+                        <div className="mt-6 overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-700">
+                            <div className="border-b border-slate-100 bg-slate-50 px-4 py-3 dark:border-slate-700 dark:bg-slate-950"><p className="font-bold text-slate-800 dark:text-slate-100">Из чего сложилась зарплата</p><p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">Проверьте работы, количество, ставку и сумму до формирования ведомости</p></div>
                             <div className="overflow-x-auto">
                                 <table className="w-full min-w-[1000px] text-left">
-                                    <thead className="border-b border-slate-200 text-[11px] uppercase tracking-wider text-slate-400">
+                                    <thead className="border-b border-slate-200 text-[11px] uppercase tracking-wider text-slate-400 dark:border-slate-700 dark:text-slate-500">
                                         <tr>
                                             {['Правило / задача', 'Этап', 'Вид работы', 'Метод', 'Объём', 'Ставка', 'Сумма', 'Состояние'].map((title) => (
                                                 <th key={title} className="p-4 font-bold">{title}</th>
                                             ))}
                                         </tr>
                                     </thead>
-                                    <tbody className="divide-y divide-slate-100">
+                                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                                         {previewQuery.data.accruals?.map((accrual, index) => {
                                             const isReview = accrual.treatment === 'REQUIRES_REVIEW';
                                             const isIncluded = accrual.treatment === 'INCLUDED_IN_BASE';
                                             return (
-                                                <tr key={accrual.id ?? `${accrual.taskId}-${index}`} className={isReview ? 'bg-amber-50/60' : ''}>
+                                                <tr key={accrual.id ?? `${accrual.taskId}-${index}`} className={isReview ? 'bg-amber-50/60 dark:bg-amber-500/10' : ''}>
                                                     <td className="p-4">
                                                         <div className="text-sm font-bold text-slate-800">{accrual.ruleName || accrual.taskId || 'Начисление'}</div>
                                                         {accrual.orderNumber && <div className="mt-1 text-xs text-slate-400">{accrual.orderNumber}</div>}
@@ -969,7 +969,7 @@ export default function FlexiblePayrollPage() {
                         </div>
 
                         {canEdit && (
-                            <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                            <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-950">
                                 <label>
                                     <Label>Название или комментарий к ведомости</Label>
                                     <input className={inputClass} value={statementComment} onChange={(e) => setStatementComment(e.target.value)} placeholder="Например, Зарплата за август" />
@@ -998,12 +998,12 @@ export default function FlexiblePayrollPage() {
 
             {deletingRule && (
                 <Modal>
-                    <h2 className="text-xl font-black text-slate-900">Удалить правило?</h2>
-                    <p className="mt-3 text-sm leading-6 text-slate-600">
+                    <h2 className="text-xl font-black text-slate-900 dark:text-white">Удалить правило?</h2>
+                    <p className="mt-3 text-sm leading-6 text-slate-600 dark:text-slate-300">
                         Правило «{deletingRule.name}» будет удалено. Исторические начисления и уже сформированные ведомости сохранятся.
                     </p>
                     <div className="mt-6 flex justify-end gap-3">
-                        <button type="button" onClick={() => setDeletingRule(null)} className="min-h-11 rounded-xl border border-slate-200 px-4 text-sm font-bold text-slate-700">Отмена</button>
+                        <button type="button" onClick={() => setDeletingRule(null)} className="min-h-11 rounded-xl border border-slate-200 px-4 text-sm font-bold text-slate-700 dark:border-slate-700 dark:text-slate-200">Отмена</button>
                         <button type="button" onClick={handleDeleteRule} disabled={deleteRuleState.isLoading} className="min-h-11 rounded-xl bg-red-600 px-5 text-sm font-bold text-white disabled:bg-slate-300">
                             {deleteRuleState.isLoading ? 'Удаление…' : 'Удалить'}
                         </button>
@@ -1013,15 +1013,15 @@ export default function FlexiblePayrollPage() {
 
             {showStatementConfirm && previewQuery.data && (
                 <Modal>
-                    <h2 className="text-xl font-black text-slate-900">Сформировать ведомость?</h2>
-                    <p className="mt-2 text-sm text-slate-500">После формирования начисления за период будут запечатаны.</p>
-                    <dl className="mt-5 space-y-3 rounded-2xl bg-slate-50 p-4 text-sm">
+                    <h2 className="text-xl font-black text-slate-900 dark:text-white">Сформировать ведомость?</h2>
+                    <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">После формирования начисления за период будут запечатаны.</p>
+                    <dl className="mt-5 space-y-3 rounded-2xl bg-slate-50 p-4 text-sm dark:bg-slate-950">
                         <div className="flex justify-between gap-3"><dt className="text-slate-500">Начислено</dt><dd className="font-black text-slate-900">{formatMoney(previewQuery.data.grossAccrued)}</dd></div>
                         <div className="flex justify-between gap-3"><dt className="text-slate-500">К выплате</dt><dd className="font-black text-emerald-700">{formatMoney(previewQuery.data.payable)}</dd></div>
                         <div className="flex justify-between gap-3"><dt className="text-slate-500">Перенос на следующий период</dt><dd className="font-black text-amber-700">{formatMoney(previewQuery.data.carryOut)}</dd></div>
                     </dl>
                     <div className="mt-6 flex justify-end gap-3">
-                        <button type="button" onClick={() => setShowStatementConfirm(false)} className="min-h-11 rounded-xl border border-slate-200 px-4 text-sm font-bold text-slate-700">Отмена</button>
+                        <button type="button" onClick={() => setShowStatementConfirm(false)} className="min-h-11 rounded-xl border border-slate-200 px-4 text-sm font-bold text-slate-700 dark:border-slate-700 dark:text-slate-200">Отмена</button>
                         <button type="button" onClick={handleCreateStatement} disabled={statementState.isLoading} className="min-h-11 rounded-xl bg-emerald-600 px-5 text-sm font-bold text-white disabled:bg-slate-300">
                             {statementState.isLoading ? 'Формирование…' : 'Подтвердить'}
                         </button>
