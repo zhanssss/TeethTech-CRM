@@ -280,3 +280,83 @@ body {
         display: none !important;
     }
 }
+
+@keyframes login-dental-float {
+  0%, 100% { transform: translateY(0) rotate(-1deg); }
+  50% { transform: translateY(-9px) rotate(1deg); }
+}
+
+@keyframes login-dental-tooth-float {
+  0%, 100% { transform: translateY(0) rotate(-1deg); }
+  50% { transform: translateY(-5px) rotate(1deg); }
+}
+
+@keyframes login-dental-scan {
+  0%, 100% { transform: translateY(-58px); opacity: 0; }
+  15%, 85% { opacity: 1; }
+  50% { transform: translateY(58px); opacity: .9; }
+}
+
+@keyframes login-dental-orbit {
+  to { transform: translate(-50%, -50%) rotate(360deg); }
+}
+
+@keyframes login-dental-pulse {
+  0%, 100% { opacity: .45; box-shadow: 0 0 0 0 rgb(110 231 183 / .35); }
+  50% { opacity: 1; box-shadow: 0 0 0 6px rgb(110 231 183 / 0); }
+}
+
+@keyframes login-dental-progress {
+  0% { width: 18%; opacity: .55; }
+  55%, 100% { width: 98%; opacity: 1; }
+}
+
+@keyframes login-dental-chip {
+  0%, 100% { opacity: .55; transform: translateY(0); }
+  50% { opacity: 1; transform: translateY(-2px); }
+}
+
+.login-dental-tooth {
+  animation: login-dental-tooth-float 4.5s ease-in-out infinite;
+  transform-origin: center;
+}
+
+.login-dental-scan {
+  animation: login-dental-scan 3.2s ease-in-out infinite;
+}
+
+.login-dental-orbit {
+  animation: login-dental-orbit 16s linear infinite;
+}
+
+.login-dental-pulse {
+  animation: login-dental-pulse 1.8s ease-in-out infinite;
+}
+
+.login-dental-float {
+  animation: login-dental-float 3.6s ease-in-out infinite;
+}
+
+.login-dental-float-delay {
+  animation-delay: -1.8s;
+}
+
+.login-dental-progress {
+  animation: login-dental-progress 3.2s ease-in-out infinite alternate;
+}
+
+.login-dental-chip {
+  animation: login-dental-chip 2.4s ease-in-out infinite;
+}
+
+.login-dental-grid {
+  background-image: radial-gradient(circle, rgb(221 214 254 / .8) 1px, transparent 1px);
+  background-size: 16px 16px;
+  mask-image: radial-gradient(circle at center, black, transparent 72%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .login-dental-scene * {
+    animation: none !important;
+  }
+}

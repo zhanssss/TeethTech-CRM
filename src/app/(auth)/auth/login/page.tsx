@@ -22,6 +22,72 @@ const platformFeatures = [
     'Склад, финансы и аналитика',
 ];
 
+function DentalTechAnimation() {
+    return (
+        <div
+            aria-hidden="true"
+            className="login-dental-scene pointer-events-none absolute h-44 w-52 opacity-60 xl:h-48 xl:w-56"
+            style={{ right: '1.5rem', top: '4.5rem' }}
+        >
+            <div className="absolute inset-0 rounded-[2rem] border border-white/10 bg-white/[0.025]" />
+            <span className="absolute left-4 top-4 h-4 w-4 border-l border-t border-violet-200/45" />
+            <span className="absolute right-4 top-4 h-4 w-4 border-r border-t border-violet-200/45" />
+            <span className="absolute bottom-4 right-4 h-4 w-4 border-b border-r border-violet-200/35" />
+            <div className="login-dental-grid absolute inset-x-8 bottom-14 top-8 opacity-10" />
+            <div className="login-dental-orbit absolute left-1/2 top-1/2 h-40 w-40 -translate-x-1/2 -translate-y-1/2 rounded-full border border-dashed border-violet-200/25">
+                <span className="absolute -top-1 left-1/2 h-2 w-2 rounded-full bg-violet-200 shadow-[0_0_12px_rgba(221,214,254,.65)]" />
+                <span className="absolute bottom-3 left-2 h-1.5 w-1.5 rounded-full bg-indigo-200/80" />
+            </div>
+            <div className="login-dental-chip absolute right-3 top-8 rounded-md border border-white/10 px-2 py-1 text-[7px] font-black tracking-widest text-violet-100/70">
+                3D · CAD
+            </div>
+            <div className="absolute left-4 top-12 space-y-1">
+                {[72, 48, 62].map((width, index) => (
+                    <span key={width} className="block h-0.5 rounded-full bg-violet-200/35" style={{ width: `${width / 2}px`, animationDelay: `${index * 180}ms` }} />
+                ))}
+            </div>
+            <div className="absolute left-1/2 top-1/2 h-36 w-36 -translate-x-1/2 -translate-y-1/2 overflow-hidden">
+                <div className="login-dental-tooth relative h-full w-full">
+                <svg
+                    viewBox="0 0 180 190"
+                    className="h-full w-full drop-shadow-[0_18px_30px_rgba(30,27,75,.35)]"
+                >
+                    <defs>
+                        <linearGradient id="login-tooth-fill" x1="35" y1="20" x2="145" y2="170" gradientUnits="userSpaceOnUse">
+                            <stop stopColor="#ffffff" />
+                            <stop offset="1" stopColor="#ddd6fe" />
+                        </linearGradient>
+                    </defs>
+                    <path
+                        d="M90 22c-17-11-42-9-55 8-14 18-8 43 0 62 9 22 13 61 27 70 16 10 15-39 28-39s12 49 28 39c14-9 18-48 27-70 8-19 14-44 0-62-13-17-38-19-55-8Z"
+                        fill="url(#login-tooth-fill)"
+                        stroke="white"
+                        strokeWidth="4"
+                    />
+                    <path d="M61 57c12-12 39-16 58 0" fill="none" stroke="#a78bfa" strokeWidth="5" strokeLinecap="round" opacity=".55" />
+                    <path d="M68 79c10-7 34-9 45 0" fill="none" stroke="#c4b5fd" strokeWidth="4" strokeLinecap="round" opacity=".45" />
+                </svg>
+                <div className="login-dental-scan absolute inset-x-2 top-1/2 h-px bg-gradient-to-r from-transparent via-violet-200 to-transparent shadow-[0_0_12px_rgba(221,214,254,.7)]" />
+                </div>
+            </div>
+            <div className="absolute bottom-4 left-5 flex items-center gap-2 rounded-full border border-white/10 px-2.5 py-1 text-[8px] font-black uppercase tracking-[.16em] text-violet-100/75">
+                <span className="login-dental-pulse h-1.5 w-1.5 rounded-full bg-emerald-300" />
+                Digital workflow
+            </div>
+            <div className="absolute bottom-9 right-5 w-14">
+                <div className="flex items-center justify-between text-[7px] font-black uppercase tracking-wider text-violet-100/80">
+                    <span>Scan</span><span>98%</span>
+                </div>
+                <div className="mt-1 h-0.5 overflow-hidden rounded-full bg-white/10">
+                    <span className="login-dental-progress block h-full rounded-full bg-gradient-to-r from-violet-300 to-indigo-200" />
+                </div>
+            </div>
+            <span className="login-dental-float absolute left-5 top-5 h-2 w-2 rounded-full bg-violet-200/70" />
+            <span className="login-dental-float login-dental-float-delay absolute right-6 top-9 h-2.5 w-2.5 rounded-full border border-violet-200/40" />
+        </div>
+    );
+}
+
 export default function LoginPage() {
     const dispatch = useDispatch<AppDispatch>();
     const router = useRouter();
@@ -104,7 +170,7 @@ export default function LoginPage() {
                             className="absolute bottom-20 right-14 h-24 w-24 rounded-3xl border border-white/10 bg-white/[0.04] rotate-12"
                         />
 
-                        <div className="relative">
+                        <div className="relative z-20">
                             <TeethTechLogo
                                 className="w-64"
                                 onDarkBackground
@@ -112,7 +178,9 @@ export default function LoginPage() {
                             />
                         </div>
 
-                        <div className="relative max-w-lg">
+                        <DentalTechAnimation />
+
+                        <div className="relative z-10 max-w-lg">
                             <span className="inline-flex rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-xs font-semibold tracking-wide text-violet-100 backdrop-blur-sm">
                                 Единое рабочее пространство
                             </span>
