@@ -1,11 +1,24 @@
 import { configureStore } from '@reduxjs/toolkit';
-import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render as rtlRender, screen, waitFor, within } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type {ReactNode} from 'react';
 
 import TelegramBotAdminPanel from '@/src/components/settings/TelegramBotAdminPanel';
 import TelegramNotificationsCard from '@/src/components/settings/TelegramNotificationsCard';
 import authReducer, { setUser } from '@/src/features/auth/authSlice';
+import ruMessages from '@/src/messages/ru';
+import {AppI18nProvider} from '@/src/i18n/provider';
+
+function render(ui: ReactNode) {
+    return rtlRender(ui, {
+        wrapper: ({children}) => (
+            <AppI18nProvider initialLocale="ru" initialMessages={ruMessages}>
+                {children}
+            </AppI18nProvider>
+        ),
+    });
+}
 
 const mocks = vi.hoisted(() => ({
     linkQuery: vi.fn(),
@@ -136,7 +149,7 @@ describe('Telegram notifications for current user', () => {
         render(<TelegramNotificationsCard />);
 
         expect(screen.getAllByText('Telegram подключён')).toHaveLength(2);
-        expect(screen.getByText('••••6789')).toBeInTheDocument();
+        expect(screen.getByText(/••••6789/u)).toBeInTheDocument();
         expect(screen.queryByText('123456789')).not.toBeInTheDocument();
     });
 

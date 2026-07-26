@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useMemo, useState } from 'react';
+import { useTranslations } from 'next-intl';
 
 import EmployeeAnalyticsPanel from '@/src/components/analytics/EmployeeAnalyticsPanel';
 import ErrorState from '@/src/components/ui/ErrorState';
@@ -15,18 +16,9 @@ import type {
     TaskStatus,
 } from '@/src/types/employee.types';
 import { mapUserToEmployee } from '@/src/utils/employeesUtils';
+import { useAppFormatters } from '@/src/i18n/provider';
 
 type ProfileTab = 'overview' | 'analytics';
-
-function getRoleLabel(role: EmployeeRole) {
-    const labels: Partial<Record<EmployeeRole, string>> = {
-        TECHNICIAN: 'Техник',
-        OPERATOR: 'Оператор',
-        DISPATCHER: 'Диспетчер',
-        ADMIN: 'Администратор',
-    };
-    return labels[role] ?? role;
-}
 
 function getRoleBadge(role: EmployeeRole) {
     switch (role) {
@@ -41,16 +33,6 @@ function getRoleBadge(role: EmployeeRole) {
     }
 }
 
-function getStatusLabel(status: EmployeeStatus) {
-    const labels: Record<EmployeeStatus, string> = {
-        ACTIVE: 'Активен',
-        BUSY: 'Занят',
-        OFFLINE: 'Не в сети',
-        FIRED: 'Уволен',
-    };
-    return labels[status] ?? status;
-}
-
 function getStatusBadge(status: EmployeeStatus) {
     switch (status) {
         case 'ACTIVE':
@@ -62,17 +44,6 @@ function getStatusBadge(status: EmployeeStatus) {
         default:
             return 'border-slate-200 bg-slate-100 text-slate-500';
     }
-}
-
-function getTaskStatusLabel(status: TaskStatus) {
-    const labels: Record<TaskStatus, string> = {
-        TODO: 'Нужно сделать',
-        MODELING: 'Моделирование',
-        MILLING: 'Фрезеровка',
-        POST_PROCESSING: 'Постобработка',
-        DONE: 'Готово',
-    };
-    return labels[status];
 }
 
 function getTaskStatusBadge(status: TaskStatus) {
@@ -92,19 +63,12 @@ function getTaskStatusBadge(status: TaskStatus) {
 
 function getPriorityMeta(priority: EmployeeTask['priority']) {
     const meta = {
-        LOW: { label: 'Низкий', className: 'bg-slate-100 text-slate-600' },
-        MEDIUM: { label: 'Средний', className: 'bg-blue-50 text-blue-700' },
-        HIGH: { label: 'Высокий', className: 'bg-amber-50 text-amber-700' },
-        URGENT: { label: 'Срочно', className: 'bg-red-50 text-red-700' },
+        LOW: { className: 'bg-slate-100 text-slate-600' },
+        MEDIUM: { className: 'bg-blue-50 text-blue-700' },
+        HIGH: { className: 'bg-amber-50 text-amber-700' },
+        URGENT: { className: 'bg-red-50 text-red-700' },
     };
     return meta[priority];
-}
-
-function formatDate(value: string) {
-    const date = new Date(value);
-    return Number.isNaN(date.getTime())
-        ? value
-        : new Intl.DateTimeFormat('ru-RU', { day: '2-digit', month: 'short', year: 'numeric' }).format(date);
 }
 
 function OverviewStat({ label, value, caption, tone = 'slate' }: {
@@ -130,6 +94,14 @@ function OverviewStat({ label, value, caption, tone = 'slate' }: {
 }
 
 export default function EmployeeDetailsPage() {
+    const t = useTranslations('employees.detail');
+    const formats = useAppFormatters();
+    const formatDate = (value: string) => {
+        const parsed = new Date(value);
+        return Number.isNaN(parsed.getTime())
+            ? value
+            : formats.date(parsed, {day: '2-digit', month: 'short', year: 'numeric'});
+    };
     const params = useParams<{ id: string | string[] }>();
     const id = Array.isArray(params.id) ? params.id[0] : params.id;
     const [activeTab, setActiveTab] = useState<ProfileTab>('overview');
@@ -155,19 +127,19 @@ export default function EmployeeDetailsPage() {
 
     if (isError) {
         return (
-            <ErrorState title="Профиль недоступен" onRetry={() => void refetch()} isRetrying={isFetching}>
-                Не удалось загрузить данные сотрудника.
+            <ErrorState title={t('unavailable')} onRetry={() => void refetch()} isRetrying={isFetching}>
+                {t('loadError')}
             </ErrorState>
         );
     }
 
     if (!employee) {
         return (
-            <ErrorState title="Сотрудник не найден">
+            <ErrorState title={t('notFound')}>
                 <div className="space-y-4">
-                    <p>Проверьте ссылку или вернитесь к списку сотрудников.</p>
+                    <p>{t('notFoundHint')}</p>
                     <Link href="/employees" className="inline-flex text-sm font-semibold text-blue-600 hover:underline">
-                        ← К сотрудникам
+                        {t('back')}
                     </Link>
                 </div>
             </ErrorState>
@@ -186,24 +158,26 @@ export default function EmployeeDetailsPage() {
                 <div className="h-1.5 bg-gradient-to-r from-blue-600 via-indigo-500 to-violet-500" />
                 <div className="p-5 sm:p-6">
                     <Link href="/employees" className="inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-[0.12em] text-blue-600 hover:text-blue-700">
-                        ← Сотрудники
+                        {t('employees')}
                     </Link>
 
                     <div className="mt-4 flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
                         <div className="flex min-w-0 items-center gap-4">
                             <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-blue-100 text-2xl font-bold text-blue-700 sm:h-20 sm:w-20 sm:text-3xl">
-                                {employee.name.trim().charAt(0).toUpperCase() || 'С'}
+                                {employee.name.trim().charAt(0).toUpperCase() || t('avatarFallback')}
                             </div>
                             <div className="min-w-0">
                                 <h1 className="truncate text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">{employee.name}</h1>
-                                <p className="mt-1 truncate text-sm text-slate-500">{employee.specialization || 'Специализация не указана'}</p>
+                                <p className="mt-1 truncate text-sm text-slate-500">{employee.specialization || t('specializationMissing')}</p>
                                 <div className="mt-3 flex flex-wrap gap-2">
                                     <span className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${getRoleBadge(employee.role)}`}>
-                                        {getRoleLabel(employee.role)}
+                                        {employee.role === 'TECHNICIAN' || employee.role === 'OPERATOR' || employee.role === 'DISPATCHER' || employee.role === 'ADMIN'
+                                            ? t(`roles.${employee.role}`)
+                                            : employee.role}
                                     </span>
                                     <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold ${getStatusBadge(employee.status)}`}>
                                         <span className="h-1.5 w-1.5 rounded-full bg-current" />
-                                        {getStatusLabel(employee.status)}
+                                        {t(`statuses.${employee.status}`)}
                                     </span>
                                 </div>
                             </div>
@@ -212,20 +186,20 @@ export default function EmployeeDetailsPage() {
                         <div className="grid grid-cols-2 gap-3 sm:flex">
                             <div className="rounded-xl bg-slate-50 px-4 py-3 text-center sm:min-w-28">
                                 <p className="text-2xl font-bold text-slate-950">{employee.stats.inProgress}</p>
-                                <p className="text-xs text-slate-500">в работе</p>
+                                <p className="text-xs text-slate-500">{t('inWork')}</p>
                             </div>
                             <div className="rounded-xl bg-emerald-50 px-4 py-3 text-center sm:min-w-28">
                                 <p className="text-2xl font-bold text-emerald-700">{onTimeRate}%</p>
-                                <p className="text-xs text-emerald-700/70">вовремя</p>
+                                <p className="text-xs text-emerald-700/70">{t('onTime')}</p>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <div className="flex gap-1 border-t border-slate-200 bg-slate-50 px-3 pt-2 sm:px-5" role="tablist" aria-label="Разделы профиля">
+                <div className="flex gap-1 border-t border-slate-200 bg-slate-50 px-3 pt-2 sm:px-5" role="tablist" aria-label={t('tabsAria')}>
                     {([
-                        { id: 'overview' as const, label: 'Обзор' },
-                        { id: 'analytics' as const, label: 'Аналитика' },
+                        { id: 'overview' as const, label: t('overview') },
+                        { id: 'analytics' as const, label: t('analytics') },
                     ]).map((tab) => (
                         <button
                             key={tab.id}
@@ -249,18 +223,18 @@ export default function EmployeeDetailsPage() {
             ) : (
                 <>
                     <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                        <OverviewStat label="Выполнено" value={employee.stats.completed} caption="Всего завершённых работ" tone="emerald" />
-                        <OverviewStat label="В процессе" value={employee.stats.inProgress} caption="Активные текущие задачи" tone="blue" />
-                        <OverviewStat label="Просрочено" value={employee.stats.overdue} caption="Задачи с нарушением срока" tone={employee.stats.overdue > 0 ? 'red' : 'slate'} />
-                        <OverviewStat label="Средний срок" value={`${averageDays} дн.`} caption="Среднее время выполнения" />
+                        <OverviewStat label={t('completed')} value={employee.stats.completed} caption={t('completedHint')} tone="emerald" />
+                        <OverviewStat label={t('inProgress')} value={employee.stats.inProgress} caption={t('inProgressHint')} tone="blue" />
+                        <OverviewStat label={t('overdue')} value={employee.stats.overdue} caption={t('overdueHint')} tone={employee.stats.overdue > 0 ? 'red' : 'slate'} />
+                        <OverviewStat label={t('average')} value={`${averageDays} ${t('days')}`} caption={t('averageHint')} />
                     </section>
 
                     <section className="grid gap-4 xl:grid-cols-[minmax(0,1.65fr)_minmax(300px,0.75fr)]">
                         <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
                             <div className="flex items-center justify-between gap-3 border-b border-slate-200 px-5 py-4">
                                 <div>
-                                    <h2 className="font-bold text-slate-950">Текущие и последние задачи</h2>
-                                    <p className="mt-1 text-xs text-slate-500">Работы, закреплённые за сотрудником</p>
+                                    <h2 className="font-bold text-slate-950">{t('tasksTitle')}</h2>
+                                    <p className="mt-1 text-xs text-slate-500">{t('tasksHint')}</p>
                                 </div>
                                 <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600">{tasks.length}</span>
                             </div>
@@ -269,12 +243,12 @@ export default function EmployeeDetailsPage() {
                                 <table className="w-full min-w-[820px] text-left">
                                     <thead className="bg-slate-50 text-xs font-semibold uppercase tracking-wider text-slate-400">
                                         <tr>
-                                            <th className="px-5 py-3">Заказ</th>
-                                            <th className="px-5 py-3">Пациент / работа</th>
-                                            <th className="px-5 py-3">Материал</th>
-                                            <th className="px-5 py-3">Срок</th>
-                                            <th className="px-5 py-3">Статус</th>
-                                            <th className="px-5 py-3">Приоритет</th>
+                                            <th className="px-5 py-3">{t('columns.order')}</th>
+                                            <th className="px-5 py-3">{t('columns.patientWork')}</th>
+                                            <th className="px-5 py-3">{t('columns.material')}</th>
+                                            <th className="px-5 py-3">{t('columns.deadline')}</th>
+                                            <th className="px-5 py-3">{t('columns.status')}</th>
+                                            <th className="px-5 py-3">{t('columns.priority')}</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-100">
@@ -291,18 +265,18 @@ export default function EmployeeDetailsPage() {
                                                     <td className="px-5 py-4 text-sm text-slate-600">{formatDate(task.deadline)}</td>
                                                     <td className="px-5 py-4">
                                                         <span className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${getTaskStatusBadge(task.status)}`}>
-                                                            {getTaskStatusLabel(task.status)}
+                                                            {t(`stages.${task.status}`)}
                                                         </span>
                                                     </td>
                                                     <td className="px-5 py-4">
-                                                        <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${priority.className}`}>{priority.label}</span>
+                                                        <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${priority.className}`}>{t(`priorities.${task.priority}`)}</span>
                                                     </td>
                                                 </tr>
                                             );
                                         })}
                                         {tasks.length === 0 && (
                                             <tr>
-                                                <td colSpan={6} className="px-5 py-12 text-center text-sm text-slate-400">У сотрудника пока нет задач</td>
+                                                <td colSpan={6} className="px-5 py-12 text-center text-sm text-slate-400">{t('noTasks')}</td>
                                             </tr>
                                         )}
                                     </tbody>
@@ -312,19 +286,19 @@ export default function EmployeeDetailsPage() {
 
                         <div className="space-y-4">
                             <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                                <h2 className="font-bold text-slate-950">Контакты</h2>
+                                <h2 className="font-bold text-slate-950">{t('contacts')}</h2>
                                 <div className="mt-5 space-y-4">
                                     <div>
-                                        <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">Телефон</p>
-                                        <p className="mt-1 break-words text-sm font-medium text-slate-700">{employee.phone || 'Не указан'}</p>
+                                        <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">{t('phone')}</p>
+                                        <p className="mt-1 break-words text-sm font-medium text-slate-700">{employee.phone || t('unspecified')}</p>
                                     </div>
                                     <div>
                                         <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">Email</p>
-                                        <p className="mt-1 break-all text-sm font-medium text-slate-700">{employee.email || 'Не указан'}</p>
+                                        <p className="mt-1 break-all text-sm font-medium text-slate-700">{employee.email || t('unspecified')}</p>
                                     </div>
                                     {employee.joinedAt && (
                                         <div>
-                                            <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">В команде с</p>
+                                            <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">{t('joined')}</p>
                                             <p className="mt-1 text-sm font-medium text-slate-700">{employee.joinedAt}</p>
                                         </div>
                                     )}
@@ -333,17 +307,17 @@ export default function EmployeeDetailsPage() {
 
                             <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
                                 <div className="flex items-center justify-between gap-3">
-                                    <h2 className="font-bold text-slate-950">Быстрая сводка</h2>
+                                    <h2 className="font-bold text-slate-950">{t('summary')}</h2>
                                     <button type="button" onClick={() => setActiveTab('analytics')} className="text-xs font-semibold text-blue-600 hover:text-blue-700">
-                                        Подробнее →
+                                        {t('details')} →
                                     </button>
                                 </div>
                                 <div className="mt-4 divide-y divide-slate-100">
                                     {[
-                                        ['Активные задачи', activeTasks],
-                                        ['Завершено в списке', doneTasks],
-                                        ['Срочные задачи', urgentTasks],
-                                        ['Выполнено вовремя', `${onTimeRate}%`],
+                                        [t('activeTasks'), activeTasks],
+                                        [t('doneListed'), doneTasks],
+                                        [t('urgentTasks'), urgentTasks],
+                                        [t('completedOnTime'), `${onTimeRate}%`],
                                     ].map(([label, value]) => (
                                         <div key={String(label)} className="flex items-center justify-between py-3 first:pt-0 last:pb-0">
                                             <span className="text-sm text-slate-500">{label}</span>

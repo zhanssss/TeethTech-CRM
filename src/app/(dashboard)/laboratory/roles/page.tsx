@@ -2,6 +2,7 @@
 
 import type { FetchBaseQueryError } from '@reduxjs/toolkit/query';
 import { useMemo, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { useSelector } from 'react-redux';
 
 import RoleCreateModal from '@/src/components/roles/RoleCreateModal';
@@ -15,21 +16,26 @@ import {
     useUpdateRoleMutation,
 } from '@/src/services/api/rolesApi';
 import type { Role } from '@/src/types/role.types';
+import { useAppLocale } from '@/src/i18n/provider';
+import { intlLocaleByLocale } from '@/src/i18n/config';
 
 function normalizedJwtRoles(roles: string[]) {
     return roles.map((role) => role.toUpperCase().replace(/^ROLE_/u, ''));
 }
 
-function deleteUnavailableReason(role: Role) {
-    if (role.systemManaged) return 'Системную роль удалить нельзя';
-    if (role.assignedUsers > 0) return `Роль назначена сотрудникам: ${role.assignedUsers}`;
-    if (role.workflowSteps > 0) return `Роль используется в workflow: ${role.workflowSteps} переходов`;
-    return 'Backend запретил удаление этой роли';
+type RoleTranslator = ReturnType<typeof useTranslations<'laboratory.roleManagement'>>;
+
+function deleteUnavailableReason(role: Role, t: RoleTranslator) {
+    if (role.systemManaged) return t('systemDeleteBlocked');
+    if (role.assignedUsers > 0) return t('assignedDeleteBlocked', {count: role.assignedUsers});
+    if (role.workflowSteps > 0) return t('workflowDeleteBlocked', {count: role.workflowSteps});
+    return t('backendDeleteBlocked');
 }
 
 function RoleSkeleton() {
+    const t = useTranslations('laboratory.roleManagement');
     return (
-        <div className="space-y-3" aria-busy="true" aria-label="Загрузка ролей">
+        <div className="space-y-3" aria-busy="true" aria-label={t('loading')}>
             {[0, 1, 2].map((item) => (
                 <div key={item} className="h-24 animate-pulse rounded-2xl bg-slate-100" />
             ))}
@@ -38,19 +44,24 @@ function RoleSkeleton() {
 }
 
 function RoleCounters({ role }: { role: Role }) {
+    const t = useTranslations('laboratory.roleManagement');
     return (
         <div className="flex flex-wrap gap-2 text-xs font-semibold">
             <span className="rounded-full bg-slate-100 px-2.5 py-1 text-slate-600">
-                Сотрудники: {role.assignedUsers}
+                {t('employees', {count: role.assignedUsers})}
             </span>
             <span className="rounded-full bg-violet-50 px-2.5 py-1 text-violet-700">
-                Переходы workflow: {role.workflowSteps}
+                {t('transitions', {count: role.workflowSteps})}
             </span>
         </div>
     );
 }
 
 export default function RolesManagementPage() {
+    const t = useTranslations('laboratory.roleManagement');
+    const commonT = useTranslations('common');
+    const {locale} = useAppLocale();
+    const intlLocale = intlLocaleByLocale[locale];
     const jwtRoles = useSelector((state: RootState) => state.auth.roles);
     const normalizedRoles = normalizedJwtRoles(jwtRoles);
     const isAdmin = normalizedRoles.includes('ADMIN');
@@ -70,18 +81,18 @@ export default function RolesManagementPage() {
     const [deleteRole, { isLoading: isDeleting }] = useDeleteRoleMutation();
 
     const groupedRoles = useMemo(() => {
-        const byName = (left: Role, right: Role) => left.name.localeCompare(right.name, 'ru');
+        const byName = (left: Role, right: Role) => left.name.localeCompare(right.name, intlLocale);
         return {
             system: roles.filter((role) => role.systemManaged).sort(byName),
             production: roles.filter((role) => !role.systemManaged).sort(byName),
         };
-    }, [roles]);
+    }, [intlLocale, roles]);
 
     if (!canView) {
         return (
             <section className="mx-auto max-w-2xl rounded-2xl border border-red-200 bg-red-50 p-6">
-                <h1 className="text-lg font-black text-red-800">Недостаточно прав</h1>
-                <p className="mt-2 text-sm text-red-700">Список ролей доступен администратору и главному технику.</p>
+                <h1 className="text-lg font-black text-red-800">{t('forbidden')}</h1>
+                <p className="mt-2 text-sm text-red-700">{t('forbiddenHint')}</p>
             </section>
         );
     }
@@ -123,32 +134,32 @@ export default function RolesManagementPage() {
                 <div className="min-w-0">
                     <div className="flex items-center gap-2">
                         {role.systemManaged && (
-                            <span title="Управляется системой" aria-label="Системная роль" className="flex h-7 w-7 items-center justify-center rounded-lg bg-slate-100 text-sm">🔒</span>
+                            <span title={t('systemManaged')} aria-label={t('systemRole')} className="flex h-7 w-7 items-center justify-center rounded-lg bg-slate-100 text-sm">🔒</span>
                         )}
                         <h3 className="truncate font-bold text-slate-950">{role.name}</h3>
                     </div>
                     <p className="mt-1 font-mono text-xs text-slate-400">{role.code}</p>
-                    {role.systemManaged && <p className="mt-2 text-xs font-semibold text-slate-500">Управляется системой</p>}
+                    {role.systemManaged && <p className="mt-2 text-xs font-semibold text-slate-500">{t('systemManaged')}</p>}
                     <div className="mt-3"><RoleCounters role={role} /></div>
                 </div>
 
                 {role.systemManaged ? (
-                    <span title="Системная роль управляется backend и не может быть изменена" className="inline-flex cursor-help items-center rounded-xl bg-slate-100 px-3 py-2 text-xs font-bold text-slate-500">
-                        Изменение недоступно
+                    <span title={t('editUnavailableHint')} className="inline-flex cursor-help items-center rounded-xl bg-slate-100 px-3 py-2 text-xs font-bold text-slate-500">
+                        {t('editUnavailable')}
                     </span>
                 ) : isAdmin ? (
                     <div className="flex shrink-0 gap-2">
                         <button type="button" onClick={() => openEditor(role)} disabled={isUpdating || isDeleting} className="rounded-xl border border-slate-200 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-50">
-                            Изменить название
+                            {t('edit')}
                         </button>
                         <button
                             type="button"
                             onClick={() => setRoleToDelete(role)}
                             disabled={!role.deletable || isDeleting || isUpdating}
-                            title={role.deletable ? 'Удалить роль' : deleteUnavailableReason(role)}
+                            title={role.deletable ? t('delete') : deleteUnavailableReason(role, t)}
                             className="rounded-xl border border-red-200 px-3 py-2 text-xs font-bold text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-400"
                         >
-                            {isDeleting ? 'Удаление...' : 'Удалить'}
+                            {isDeleting ? t('deleting') : commonT('actions.delete')}
                         </button>
                     </div>
                 ) : null}
@@ -160,39 +171,39 @@ export default function RolesManagementPage() {
         <div className="mx-auto max-w-6xl space-y-6 pb-10">
             <header className="flex flex-col gap-4 rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm sm:flex-row sm:items-end sm:justify-between sm:p-6">
                 <div>
-                    <p className="text-xs font-black uppercase tracking-[0.16em] text-violet-600">Лаборатория → Роли</p>
-                    <h1 className="mt-1 text-3xl font-black text-slate-950">Роли</h1>
-                    <p className="mt-2 max-w-2xl text-sm text-slate-500">Системные права защищены backend. Производственные роли можно назначать сотрудникам и переходам workflow.</p>
+                    <p className="text-xs font-black uppercase tracking-[0.16em] text-violet-600">{t('badge')}</p>
+                    <h1 className="mt-1 text-2xl font-black text-slate-950 sm:text-3xl">{t('title')}</h1>
+                    <p className="mt-2 max-w-2xl text-sm text-slate-500">{t('subtitle')}</p>
                 </div>
                 {isAdmin && (
                     <button type="button" onClick={() => setIsCreateOpen(true)} className="rounded-xl bg-violet-600 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-violet-500/20 hover:bg-violet-700">
-                        + Создать роль
+                        {t('create')}
                     </button>
                 )}
             </header>
 
             {isError && (
-                <QueryErrorNotice message="Не удалось загрузить список ролей." onRetry={() => void refetch()} isRetrying={isFetching} />
+                <QueryErrorNotice message={t('loadError')} onRetry={() => void refetch()} isRetrying={isFetching} />
             )}
 
             {isLoading ? <RoleSkeleton /> : (
                 <>
                     <section className="space-y-3">
                         <div>
-                            <h2 className="text-lg font-black text-slate-950">Системные роли</h2>
-                            <p className="mt-1 text-xs text-slate-500">Поставляются и управляются backend.</p>
+                            <h2 className="text-lg font-black text-slate-950">{t('systemTitle')}</h2>
+                            <p className="mt-1 text-xs text-slate-500">{t('systemHint')}</p>
                         </div>
                         {groupedRoles.system.map(renderRole)}
-                        {groupedRoles.system.length === 0 && <p className="rounded-2xl border border-dashed border-slate-300 p-6 text-center text-sm text-slate-400">Системных ролей нет.</p>}
+                        {groupedRoles.system.length === 0 && <p className="rounded-2xl border border-dashed border-slate-300 p-6 text-center text-sm text-slate-400">{t('systemEmpty')}</p>}
                     </section>
 
                     <section className="space-y-3">
                         <div>
-                            <h2 className="text-lg font-black text-slate-950">Производственные роли</h2>
-                            <p className="mt-1 text-xs text-slate-500">Используются при назначении сотрудников и настройке workflow.</p>
+                            <h2 className="text-lg font-black text-slate-950">{t('productionTitle')}</h2>
+                            <p className="mt-1 text-xs text-slate-500">{t('productionHint')}</p>
                         </div>
                         {groupedRoles.production.map(renderRole)}
-                        {groupedRoles.production.length === 0 && <p className="rounded-2xl border border-dashed border-slate-300 p-6 text-center text-sm text-slate-400">Производственные роли ещё не созданы.</p>}
+                        {groupedRoles.production.length === 0 && <p className="rounded-2xl border border-dashed border-slate-300 p-6 text-center text-sm text-slate-400">{t('productionEmpty')}</p>}
                     </section>
                 </>
             )}
@@ -202,28 +213,28 @@ export default function RolesManagementPage() {
             {editingRole && (
                 <Modal contentClassName="max-w-md p-0">
                     <div className="border-b border-slate-100 px-5 py-4">
-                        <h2 className="text-lg font-black text-slate-950">Изменить название роли</h2>
+                        <h2 className="text-lg font-black text-slate-950">{t('editTitle')}</h2>
                         <p className="mt-1 font-mono text-xs text-slate-400">{editingRole.code}</p>
                     </div>
                     <div className="px-5 py-5">
                         <label className="block">
-                            <span className="mb-1.5 block text-sm font-semibold text-slate-700">Название</span>
+                            <span className="mb-1.5 block text-sm font-semibold text-slate-700">{t('name')}</span>
                             <input autoFocus required maxLength={255} value={editingName} onChange={(event) => setEditingName(event.target.value)} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none focus:border-violet-500 focus:bg-white" />
                         </label>
                     </div>
-                    <div className="flex justify-end gap-2 border-t border-slate-100 px-5 py-4">
-                        <button type="button" onClick={() => setEditingRole(null)} disabled={isUpdating} className="rounded-xl px-4 py-2 text-sm font-bold text-slate-500 hover:bg-slate-100">Отмена</button>
-                        <button type="button" onClick={() => void saveRoleName()} disabled={isUpdating || !editingName.trim()} className="rounded-xl bg-violet-600 px-5 py-2 text-sm font-bold text-white hover:bg-violet-700 disabled:bg-slate-300">
-                            {isUpdating ? 'Сохранение...' : 'Сохранить'}
+                    <div className="flex flex-col-reverse gap-2 border-t border-slate-100 px-4 py-4 sm:flex-row sm:justify-end sm:px-5">
+                        <button type="button" onClick={() => setEditingRole(null)} disabled={isUpdating} className="min-h-11 rounded-xl px-4 py-2 text-sm font-bold text-slate-500 hover:bg-slate-100">{commonT('actions.cancel')}</button>
+                        <button type="button" onClick={() => void saveRoleName()} disabled={isUpdating || !editingName.trim()} className="min-h-11 rounded-xl bg-violet-600 px-5 py-2 text-sm font-bold text-white hover:bg-violet-700 disabled:bg-slate-300">
+                            {isUpdating ? t('saving') : commonT('actions.save')}
                         </button>
                     </div>
                 </Modal>
             )}
             <ConfirmDialog
                 open={roleToDelete !== null}
-                title="Удалить роль?"
-                description={<>Роль <strong className="font-semibold text-slate-700 dark:text-slate-200">{roleToDelete?.name}</strong> исчезнет из настроек. Восстановить её автоматически не получится.</>}
-                confirmLabel="Удалить роль"
+                title={t('deleteTitle')}
+                description={t('deleteDescription', {name: roleToDelete?.name ?? ''})}
+                confirmLabel={t('deleteConfirm')}
                 isLoading={isDeleting}
                 onClose={() => setRoleToDelete(null)}
                 onConfirm={handleDelete}

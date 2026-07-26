@@ -16,6 +16,7 @@ import Link from 'next/link'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
+import { useTranslations } from 'next-intl'
 
 type MenuItem = {
 	name: string
@@ -32,27 +33,29 @@ type SidebarProps = {
 	onClose: () => void
 }
 
-function getMenuSection(item: MenuItem) {
+type MenuSection = 'main' | 'production' | 'finance' | 'system'
+
+function getMenuSection(item: MenuItem): MenuSection {
 	if (
 		item.href === '/'
 		|| item.href.startsWith('/orders')
 		|| item.href.startsWith('/analytics')
 		|| item.href.startsWith('/tv-dashboard')
-	) return 'Основное'
-	if (item.href.startsWith('/employee')) return 'Основное'
+	) return 'main'
+	if (item.href.startsWith('/employee')) return 'main'
 	if (
 		item.href.startsWith('/warehouse')
 		|| item.href.startsWith('/clinics')
 		|| item.href.startsWith('/laboratory')
-	) return 'Производство'
+	) return 'production'
 	if (
 		item.href.startsWith('/accounting')
 		|| item.href.startsWith('/documents')
-	) return 'Финансы'
-	return 'Система'
+	) return 'finance'
+	return 'system'
 }
 
-const menuSectionOrder = ['Основное', 'Производство', 'Финансы', 'Система']
+const menuSectionOrder: MenuSection[] = ['main', 'production', 'finance', 'system']
 
 function MenuIcon({ href }: { href: string }) {
 	const common = 'h-[18px] w-[18px] shrink-0'
@@ -82,6 +85,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 	const router = useRouter()
 	const { role, roles } = useSelector((state: RootState) => state.auth)
 	const { notifyError, notifySuccess } = useNotifications()
+	const t = useTranslations('navigation')
 	const [isLoggingOut, setIsLoggingOut] = useState(false)
 	const [groupExpansion, setGroupExpansion] = useState<Record<string, boolean>>({})
 	const [openMenuSection, setOpenMenuSection] = useState<string | null>(null)
@@ -92,12 +96,20 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 	const canUseManagementZone = canAccessManagementZone(roles, role)
 	const isWorkZone = pathname.startsWith('/employee') || !canUseManagementZone
 	const managementPath = getManagementRedirectPath(roles, role)
+	const getSectionLabel = (section: MenuSection) => {
+		switch (section) {
+			case 'main': return t('sections.main')
+			case 'production': return t('sections.production')
+			case 'finance': return t('sections.finance')
+			case 'system': return t('sections.system')
+		}
+	}
 
 	const menuItems: MenuItem[] = (() => {
 		if (isWorkZone) {
 			return [
-				{ name: 'Рабочая зона', href: '/employee', exact: true },
-				{ name: 'Календарь', href: '/employee/calendar' }
+				{ name: t('workspace'), href: '/employee', exact: true },
+				{ name: t('calendar'), href: '/employee/calendar' }
 			]
 		}
 
@@ -115,77 +127,77 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 			|| normalizedRoles.includes('HEAD_TECHNICIAN')
 
 		if (hasAdmin || hasDispatcher) {
-			pushUnique({ name: 'Дэшборд', href: '/' })
+			pushUnique({ name: t('dashboard'), href: '/' })
 			pushUnique({
-				name: 'Заказы',
+				name: t('orders'),
 				href: '/orders',
-				children: [{ name: 'Реестр', href: '/orders' }]
+				children: [{ name: t('registry'), href: '/orders' }]
 			})
-			pushUnique({ name: 'Аналитика', href: '/analytics' })
+			pushUnique({ name: t('analytics'), href: '/analytics' })
 			pushUnique({
-				name: 'Склад',
+				name: t('warehouse'),
 				href: '/warehouse',
 				children: [
-					{ name: 'Обзор', href: '/warehouse?tab=overview' },
-					{ name: 'Закупки', href: '/warehouse?tab=procurement' },
-					{ name: 'Номенклатура', href: '/warehouse?tab=nomenclature' },
-					{ name: 'Инвентаризация', href: '/warehouse?tab=inventory' }
+					{ name: t('overview'), href: '/warehouse?tab=overview' },
+					{ name: t('procurement'), href: '/warehouse?tab=procurement' },
+					{ name: t('nomenclature'), href: '/warehouse?tab=nomenclature' },
+					{ name: t('inventory'), href: '/warehouse?tab=inventory' }
 				]
 			})
 			pushUnique({
-				name: 'Клиники',
+				name: t('clinics'),
 				href: '/clinics',
 				children: [
-					{ name: 'Реестр', href: '/clinics' },
-					{ name: 'Пациенты', href: '/clinics/patients' }
+					{ name: t('registry'), href: '/clinics' },
+					{ name: t('patients'), href: '/clinics/patients' }
 				]
 			})
 			pushUnique({
-				name: 'Лаборатория',
+				name: t('laboratory'),
 				href: '/laboratory',
 				children: [
-					{ name: 'Обзор', href: '/laboratory' },
-					{ name: 'Сотрудники', href: '/laboratory/employees' },
-					{ name: 'Цвета', href: '/laboratory/colors' },
-					{ name: 'Типы работ', href: '/laboratory/work-types' },
+					{ name: t('overview'), href: '/laboratory' },
+					{ name: t('employees'), href: '/laboratory/employees' },
+					{ name: t('colors'), href: '/laboratory/colors' },
+					{ name: t('workTypes'), href: '/laboratory/work-types' },
 					...(hasAdmin || hasChiefTechnician
-						? [{ name: 'Роли', href: '/laboratory/roles' }]
+						? [{ name: t('roles'), href: '/laboratory/roles' }]
 						: [])
 				]
 			})
 		}
 
 		if (hasFinancier) {
-			pushUnique({ name: 'Финансовый отчёт', href: '/accounting', exact: true })
-			pushUnique({ name: 'Зарплаты', href: '/accounting/payroll', exact: true })
-			pushUnique({ name: 'Счета', href: '/accounting/invoices' })
+			pushUnique({ name: t('financeReport'), href: '/accounting', exact: true })
+			pushUnique({ name: t('salaries'), href: '/accounting/payroll', exact: true })
+			pushUnique({ name: t('invoices'), href: '/accounting/invoices' })
 		}
 
 		if (hasAdmin || hasFinancier) {
 			pushUnique({
-				name: 'Документы',
+				name: t('documents'),
 				href: '/documents',
 				children: [
-					{ name: 'Акты выполненных работ', href: '/documents/completed-work-acts' }
+					{ name: t('completedWorkActs'), href: '/documents/completed-work-acts' }
 				]
 			})
 		}
 
 		if (hasChiefTechnician) {
-			pushUnique({ name: 'Зарплатные планы', href: '/accounting/payroll', exact: true })
+			pushUnique({ name: t('payroll'), href: '/accounting/payroll', exact: true })
 			pushUnique({
-				name: 'Лаборатория',
+				name: t('laboratory'),
 				href: '/laboratory',
 				children: [
-					{ name: 'Типы работ', href: '/laboratory/work-types' },
-					{ name: 'Роли', href: '/laboratory/roles' }
+					{ name: t('workTypes'), href: '/laboratory/work-types' },
+					{ name: t('roles'), href: '/laboratory/roles' }
 				]
 			})
 		}
 
 		if (hasAdmin) {
-			pushUnique({ name: 'Зарплатные планы', href: '/accounting/payroll', exact: true })
-			pushUnique({ name: 'Интеграции', href: '/settings/integrations', exact: true })
+			pushUnique({ name: t('payroll'), href: '/accounting/payroll', exact: true })
+			pushUnique({ name: t('integrations'), href: '/settings/integrations', exact: true })
 		}
 
 		return items.sort(
@@ -223,13 +235,11 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 
 			dispatch(logout())
 			dispatch(teethTechApi.util.resetApiState())
-			notifySuccess('Вы вышли из системы')
+			notifySuccess(t('sidebar.logoutSuccess'))
 			router.push('/auth/login')
 		} catch (error) {
 			console.error('Logout failed:', error)
-			notifyError(
-				'Не удалось завершить сеанс. Проверьте подключение и повторите попытку.'
-			)
+			notifyError(t('sidebar.logoutError'))
 		} finally {
 			setIsLoggingOut(false)
 		}
@@ -262,14 +272,14 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 		<aside
 			inert={!isOpen}
 			aria-hidden={!isOpen}
-			className={`fixed inset-y-0 left-0 z-50 h-dvh w-[min(18rem,85vw)] overflow-hidden transition-[width,transform,opacity] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none lg:static lg:z-auto lg:shrink-0 lg:translate-x-0 ${
+			className={`fixed inset-y-0 left-ө z-51 h-dvh w-[min(18rem,85vw)] overflow-hidden transition-[width,transform,opacity] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none lg:static lg:z-auto lg:shrink-0 lg:translate-x-0 ${
 				isOpen
 					? 'translate-x-0 opacity-100 lg:w-64'
 					: 'pointer-events-none -translate-x-full opacity-0 lg:w-0'
 			}`}
 		>
 			<div className="flex h-full w-[min(18rem,85vw)] flex-col bg-[#ffffff] text-slate-900 shadow-2xl dark:bg-[#09090b] dark:text-white lg:w-64 lg:shadow-none">
-				<div className="flex h-28 shrink-0 items-center justify-between border-b border-slate-200 px-4 dark:border-slate-800">
+				<div className="flex h-[6.5rem] shrink-0 items-center justify-between border-b border-slate-200 px-4 dark:border-slate-800">
 					<TeethTechLogo
 						className="w-44"
 						priority
@@ -278,8 +288,8 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 					<button
 						onClick={onClose}
 						className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-slate-100 text-slate-700 shadow-sm transition-all hover:scale-105 hover:border-violet-300 hover:bg-violet-50 hover:text-violet-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:border-violet-500/60 dark:hover:bg-violet-500/15 dark:hover:text-violet-300"
-						aria-label="Закрыть сайдбар"
-						title="Закрыть сайдбар"
+						aria-label={t('sidebar.close')}
+						title={t('sidebar.close')}
 					>
 						<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" className="h-5 w-5" strokeWidth="2.3" strokeLinecap="round">
 							<path d="M6 6l12 12M18 6 6 18" />
@@ -290,7 +300,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 				{canUseWorkZone && canUseManagementZone && (
 					<div className="border-b border-slate-200 p-3 dark:border-slate-800">
 						<p className="mb-2 px-1 text-[10px] font-black uppercase tracking-[.16em] text-slate-400">
-							Зона работы
+							{t('workspaceZone')}
 						</p>
 						<div className="grid grid-cols-2 gap-1 rounded-xl bg-slate-100 p-1 dark:bg-slate-800">
 							<Link
@@ -303,7 +313,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 										: 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
 								}`}
 							>
-								Рабочая
+								{t('work')}
 							</Link>
 							<Link
 								href={managementPath}
@@ -315,7 +325,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 										: 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
 								}`}
 							>
-								Управление
+								{t('management')}
 							</Link>
 						</div>
 					</div>
@@ -344,7 +354,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 										aria-expanded={expandedMenuSection === section}
 										className={`${index === 0 ? 'mb-1' : 'mb-1 mt-2'} flex w-full items-center justify-between rounded-lg px-3 py-1.5 text-[9px] font-black uppercase tracking-[.16em] text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-200`}
 									>
-										<span>{section}</span>
+										<span>{getSectionLabel(section)}</span>
 										<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" className={`h-3.5 w-3.5 transition-transform ${expandedMenuSection === section ? 'rotate-180' : ''}`} aria-hidden="true">
 											<path d="m7 10 5 5 5-5" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
 										</svg>
@@ -368,7 +378,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 								>
 									<MenuIcon href={item.href} /><span className="truncate">{item.name}</span>
 								</Link>
-								{item.children && <button type="button" onClick={() => toggleGroup(item.href, isGroupExpanded)} className="mr-1 flex h-8 w-8 items-center justify-center rounded-lg hover:bg-white/10" aria-label={`${isGroupExpanded ? 'Свернуть' : 'Развернуть'} ${item.name}`} aria-expanded={isGroupExpanded}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" className={`h-4 w-4 transition-transform duration-300 ${isGroupExpanded ? 'rotate-180' : ''}`}><path d="m7 10 5 5 5-5" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg></button>}
+								{item.children && <button type="button" onClick={() => toggleGroup(item.href, isGroupExpanded)} className="mr-1 flex h-8 w-8 items-center justify-center rounded-lg hover:bg-white/10" aria-label={t(isGroupExpanded ? 'sidebar.collapse' : 'sidebar.expand', {name: item.name})} aria-expanded={isGroupExpanded}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" className={`h-4 w-4 transition-transform duration-300 ${isGroupExpanded ? 'rotate-180' : ''}`}><path d="m7 10 5 5 5-5" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg></button>}
 								</div>
 
 								{item.children && (
@@ -434,7 +444,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 						</svg>
 
 						<span className="text-sm font-bold tracking-wide">
-							{isLoggingOut ? 'Выходим...' : 'Выйти из CRM'}
+							{isLoggingOut ? t('sidebar.loggingOut') : t('sidebar.logout')}
 						</span>
 					</button>
 				</div>

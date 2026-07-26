@@ -2,9 +2,11 @@
 
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
+import {useTranslations} from 'next-intl';
 
 import { useGetTasksDashboardQuery } from '@/src/services/api/tasksDashboardApi';
 import MaterialChips from '@/src/components/tasks/MaterialChips';
+import {useAppFormatters, useAppLocale} from '@/src/i18n/provider';
 import { taskMatchesMaterialSearch } from '@/src/utils/materialAccounting';
 import type {
     TaskDashboardColumn,
@@ -27,39 +29,6 @@ const statusThemes = [
     { border: 'border-rose-300 dark:border-rose-500/40', dot: 'bg-rose-500', badge: 'bg-rose-50 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300', glow: 'from-rose-500/10 dark:from-rose-500/15' },
 ];
 
-const dateFormatter = new Intl.DateTimeFormat('ru-RU', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-});
-
-const dateTimeFormatter = new Intl.DateTimeFormat('ru-RU', {
-    day: 'numeric',
-    month: 'short',
-    hour: '2-digit',
-    minute: '2-digit',
-});
-
-function formatNumber(value?: number | null) {
-    return (value ?? 0).toLocaleString('ru-RU');
-}
-
-function formatDate(value?: string | null) {
-    if (!value) return 'Без срока';
-
-    const date = new Date(`${value}T00:00:00`);
-
-    return Number.isNaN(date.getTime()) ? value : dateFormatter.format(date);
-}
-
-function formatDateTime(value?: string | null) {
-    if (!value) return 'Дата не указана';
-
-    const date = new Date(value);
-
-    return Number.isNaN(date.getTime()) ? value : dateTimeFormatter.format(date);
-}
-
 function getShortId(value: string) {
     return value.length > 8 ? value.slice(0, 8) : value;
 }
@@ -68,18 +37,18 @@ function getColumnTheme(index: number) {
     return statusThemes[index % statusThemes.length];
 }
 
-function getTaskTitle(task: TaskDashboardTask) {
-    return task.workTypeName || task.materialNames?.[0] || 'Задача заказа';
+function getTaskTitle(task: TaskDashboardTask, fallback: string) {
+    return task.workTypeName || task.materialNames?.[0] || fallback;
 }
 
 function getOrderLabel(task: TaskDashboardTask) {
     return task.orderNumber || getShortId(task.orderId);
 }
 
-function getTeethLabel(task: TaskDashboardTask) {
+function getTeethLabel(task: TaskDashboardTask, fallback: string) {
     return task.toothNumbers.length > 0
         ? task.toothNumbers.join(', ')
-        : 'не указаны';
+        : fallback;
 }
 
 function buildStatusOptions(columns: TaskDashboardColumn[]) {
@@ -112,6 +81,8 @@ function MetricCard({
     accentClassName: string;
     toneClassName: string;
 }) {
+    const t = useTranslations('dashboard');
+    const format = useAppFormatters();
     return (
         <article className="group rounded-2xl border border-slate-200/80 bg-white p-5 shadow-[0_1px_2px_rgba(15,23,42,0.03)] transition hover:-translate-y-0.5 hover:border-violet-200 hover:shadow-lg hover:shadow-violet-950/5">
             <div className="flex items-center justify-between">
@@ -119,15 +90,21 @@ function MetricCard({
                 <span className={`h-2.5 w-2.5 rounded-full ${accentClassName}`} />
             </div>
             <p className={`mt-5 text-3xl font-black tracking-tight ${toneClassName}`}>
-                {formatNumber(value)}
+                {format.number(value)}
             </p>
-            <p className="mt-2 text-[11px] text-slate-400">Актуальные данные</p>
+            <p className="mt-2 text-[11px] text-slate-400">{t('currentData')}</p>
         </article>
     );
 }
 
 function TaskCard({ task }: { task: TaskDashboardTask }) {
-    const patientInitial = (task.patientName || 'П').trim().charAt(0).toLocaleUpperCase('ru-RU');
+    const t = useTranslations('dashboard');
+    const format = useAppFormatters();
+    const patientFallback = t('patientMissing');
+    const patientInitial = (task.patientName || patientFallback).trim().charAt(0).toLocaleUpperCase();
+    const deadline = task.deadline
+        ? format.date(`${task.deadline}T00:00:00`, {day: 'numeric', month: 'short', year: 'numeric'})
+        : t('noDeadline');
 
     return (
         <Link
@@ -140,10 +117,10 @@ function TaskCard({ task }: { task: TaskDashboardTask }) {
             <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                     <p className="text-[11px] font-bold uppercase tracking-wider text-violet-600">
-                        Заказ {getOrderLabel(task)}
+                        {t('order', {number: getOrderLabel(task)})}
                     </p>
                     <h3 className="mt-1 line-clamp-2 text-sm font-bold leading-5 text-slate-900">
-                        {getTaskTitle(task)}
+                        {getTaskTitle(task, t('taskFallback'))}
                     </h3>
                 </div>
 
@@ -155,44 +132,49 @@ function TaskCard({ task }: { task: TaskDashboardTask }) {
                     }`}
                 >
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" className="h-3 w-3" aria-hidden="true"><circle cx="12" cy="12" r="9" strokeWidth="2" /><path d="M12 7v5l3 2" strokeWidth="2" strokeLinecap="round" /></svg>
-                    {formatDate(task.deadline)}
+                    {deadline}
                 </span>
             </div>
 
             <div className="mt-3 flex items-center gap-2.5 rounded-lg bg-slate-50 p-2.5">
                 <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-violet-100 text-[11px] font-black text-violet-700">{patientInitial}</span>
                 <div className="min-w-0">
-                    <p className="truncate text-xs font-bold text-slate-800">{task.patientName || 'Пациент не указан'}</p>
-                    <p className="mt-0.5 truncate text-[10px] text-slate-400">{task.clinicName || 'Клиника не указана'}</p>
+                    <p className="truncate text-xs font-bold text-slate-800">{task.patientName || t('patientMissing')}</p>
+                    <p className="mt-0.5 truncate text-[10px] text-slate-400">{task.clinicName || t('clinicMissing')}</p>
                 </div>
             </div>
 
             <dl className="mt-2.5 space-y-1.5 text-[10px] text-slate-500">
                 <div className="flex justify-between gap-3">
-                    <dt>Врач</dt>
-                    <dd className="max-w-36 truncate text-right font-semibold text-slate-700" title={task.doctorName || 'Не указан'}>
-                        {task.doctorName || 'Не указан'}
+                    <dt>{t('doctor')}</dt>
+                    <dd className="max-w-36 truncate text-right font-semibold text-slate-700" title={task.doctorName || t('doctorMissing')}>
+                        {task.doctorName || t('doctorMissing')}
                     </dd>
                 </div>
                 <div className="flex justify-between gap-3">
-                    <dt>Техник</dt>
-                    <dd className="max-w-36 truncate text-right font-semibold text-slate-700" title={task.technicianName || 'Не назначен'}>
-                        {task.technicianName || 'Не назначен'}
+                    <dt>{t('technician')}</dt>
+                    <dd className="max-w-36 truncate text-right font-semibold text-slate-700" title={task.technicianName || t('technicianMissing')}>
+                        {task.technicianName || t('technicianMissing')}
                     </dd>
                 </div>
             </dl>
 
             <div className="mt-3 flex flex-wrap gap-1 border-t border-slate-100 pt-2.5 text-[9px] font-semibold text-slate-600">
                 <MaterialChips materialNames={task.materialNames} compact />
-                <span className="rounded-md bg-slate-100 px-2 py-1">Цвет: {task.colorCode || '—'}</span>
-                <span className="rounded-md bg-slate-100 px-2 py-1">{formatNumber(task.quantity)} ед.</span>
-                <span className="rounded-md bg-slate-100 px-2 py-1">Зубы: {getTeethLabel(task)}</span>
+                <span className="rounded-md bg-slate-100 px-2 py-1">{t('color', {color: task.colorCode || '—'})}</span>
+                <span className="rounded-md bg-slate-100 px-2 py-1">{t('units', {count: format.number(task.quantity)})}</span>
+                <span className="rounded-md bg-slate-100 px-2 py-1">{t('teeth', {teeth: getTeethLabel(task, t('teethMissing'))})}</span>
             </div>
         </Link>
     );
 }
 
 function CompactTaskCard({ task }: { task: TaskDashboardTask }) {
+    const t = useTranslations('dashboard');
+    const format = useAppFormatters();
+    const deadline = task.deadline
+        ? format.date(`${task.deadline}T00:00:00`, {day: 'numeric', month: 'short', year: 'numeric'})
+        : t('noDeadline');
     return (
         <Link
             href={`/orders/${task.orderId}`}
@@ -207,19 +189,19 @@ function CompactTaskCard({ task }: { task: TaskDashboardTask }) {
                         #{getOrderLabel(task)}
                     </span>
                     <span className="truncate text-[9px] font-semibold text-slate-400">
-                        {task.clinicName || 'Без клиники'}
+                        {task.clinicName || t('noClinic')}
                     </span>
                 </div>
                 <p className="mt-0.5 truncate text-xs font-black text-slate-900 dark:text-slate-100">
-                    {getTaskTitle(task)}
+                    {getTaskTitle(task, t('taskFallback'))}
                 </p>
             </div>
             <div className="shrink-0 text-right">
                 <p className={`text-[9px] font-black ${task.isOverdue ? 'text-red-600' : 'text-slate-500'}`}>
-                    {task.isOverdue ? 'Просрочено' : formatDate(task.deadline)}
+                    {task.isOverdue ? t('overdue') : deadline}
                 </p>
                 <p className="mt-0.5 max-w-24 truncate text-[9px] text-slate-400">
-                    {task.technicianName || 'Не назначен'}
+                    {task.technicianName || t('technicianMissing')}
                 </p>
             </div>
         </Link>
@@ -240,6 +222,10 @@ function DashboardSkeleton() {
 }
 
 export default function Dashboard() {
+    const t = useTranslations('dashboard');
+    const tCommon = useTranslations('common.actions');
+    const format = useAppFormatters();
+    const {locale} = useAppLocale();
     const [search, setSearch] = useState('');
     const [workTypeCode, setWorkTypeCode] = useState('');
     const [selectedStatusKey, setSelectedStatusKey] = useState('');
@@ -277,12 +263,12 @@ export default function Dashboard() {
         return [
             {
                 value: selectedStatusKey,
-                label: selectedStatusLabel || 'Выбранный статус',
+                label: selectedStatusLabel || t('filters.selectedStatus'),
                 statusId: selectedStatusId,
             },
             ...statusOptions,
         ];
-    }, [selectedStatusId, selectedStatusKey, selectedStatusLabel, statusOptions]);
+    }, [selectedStatusId, selectedStatusKey, selectedStatusLabel, statusOptions, t]);
 
     const visibleColumns = useMemo(() => {
         const statusColumns = !selectedStatusKey || selectedStatusId ? columns : columns.filter((column) => {
@@ -294,10 +280,10 @@ export default function Dashboard() {
         if (!search.trim()) return statusColumns;
 
         return statusColumns.map((column) => {
-            const tasks = column.tasks.filter((task) => taskMatchesMaterialSearch(task, search));
+            const tasks = column.tasks.filter((task) => taskMatchesMaterialSearch(task, search, locale));
             return { ...column, tasks, count: tasks.length };
         });
-    }, [columns, search, selectedStatusId, selectedStatusKey]);
+    }, [columns, locale, search, selectedStatusId, selectedStatusKey]);
 
     const visibleTaskCount = visibleColumns.reduce(
         (count, column) => count + column.tasks.length,
@@ -328,16 +314,18 @@ export default function Dashboard() {
             <header className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                 <div>
                     <h1 className="text-2xl font-bold tracking-tight text-slate-950">
-                        Дэшборд
+                        {t('title')}
                     </h1>
                     <p className="mt-1 text-sm text-slate-500">
-                        Сводка по задачам лаборатории, этапам выполнения и последним завершенным работам.
+                        {t('subtitle')}
                     </p>
                 </div>
 
                 <div className="flex min-h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-xs font-semibold text-slate-600 shadow-sm">
                     <span className="h-2 w-2 rounded-full bg-violet-500" />
-                    {isFetching && !isLoading ? 'Обновление...' : `Показано задач: ${formatNumber(visibleTaskCount)}`}
+                    {isFetching && !isLoading
+                        ? t('updating')
+                        : t('shownTasks', {count: format.number(visibleTaskCount)})}
                 </div>
             </header>
 
@@ -346,25 +334,25 @@ export default function Dashboard() {
             ) : (
                 <section className="grid grid-cols-1 gap-4 md:grid-cols-4">
                     <MetricCard
-                        label="Всего задач"
+                        label={t('metrics.total')}
                         value={data?.totalTasksCount ?? 0}
                         accentClassName="bg-slate-500"
                         toneClassName="text-slate-900"
                     />
                     <MetricCard
-                        label="В работе"
+                        label={t('metrics.inProgress')}
                         value={data?.inProgressTasksCount ?? 0}
                         accentClassName="bg-blue-500"
                         toneClassName="text-blue-700"
                     />
                     <MetricCard
-                        label="На проверке"
+                        label={t('metrics.review')}
                         value={data?.onReviewTasksCount ?? 0}
                         accentClassName="bg-violet-500"
                         toneClassName="text-violet-700"
                     />
                     <MetricCard
-                        label="Просрочено"
+                        label={t('metrics.overdue')}
                         value={data?.overdueTasksCount ?? 0}
                         accentClassName="bg-red-500"
                         toneClassName="text-red-700"
@@ -376,19 +364,19 @@ export default function Dashboard() {
                 <div className="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,2fr)_minmax(11rem,1fr)_minmax(11rem,1fr)_auto]">
                     <label className="block">
                         <span className="mb-1 block text-xs font-bold text-slate-500">
-                            Поиск
+                            {t('filters.search')}
                         </span>
                         <input
                             value={search}
                             onChange={(event) => setSearch(event.target.value)}
-                            placeholder="Заказ, пациент, клиника, врач, материал"
+                            placeholder={t('filters.searchPlaceholder')}
                             className="min-h-11 w-full rounded-xl border border-slate-200 px-3 text-sm outline-none transition focus:border-violet-500 focus:ring-2 focus:ring-violet-100"
                         />
                     </label>
 
                     <label className="block">
                         <span className="mb-1 block text-xs font-bold text-slate-500">
-                            Код работы
+                            {t('filters.workTypeCode')}
                         </span>
                         <input
                             value={workTypeCode}
@@ -400,14 +388,14 @@ export default function Dashboard() {
 
                     <label className="block">
                         <span className="mb-1 block text-xs font-bold text-slate-500">
-                            Статус
+                            {t('filters.status')}
                         </span>
                         <select
                             value={selectedStatusKey}
                             onChange={(event) => handleStatusChange(event.target.value)}
                             className="min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none transition focus:border-violet-500 focus:ring-2 focus:ring-violet-100"
                         >
-                            <option value="">Все статусы</option>
+                            <option value="">{t('filters.allStatuses')}</option>
                             {visibleStatusOptions.map((option) => (
                                 <option key={option.value} value={option.value}>
                                     {option.label}
@@ -423,7 +411,7 @@ export default function Dashboard() {
                             disabled={!hasFilters}
                             className="min-h-11 w-full rounded-xl border border-slate-200 px-4 text-sm font-bold text-slate-600 transition hover:border-violet-300 hover:text-violet-700 disabled:cursor-not-allowed disabled:border-slate-100 disabled:text-slate-300 lg:w-auto"
                         >
-                            Сбросить
+                            {t('filters.reset')}
                         </button>
                     </div>
                 </div>
@@ -433,14 +421,14 @@ export default function Dashboard() {
                 <section className="rounded-lg border border-red-200 bg-red-50 p-5 text-sm text-red-700">
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                         <p className="font-semibold">
-                            Не удалось загрузить задачи для главного дэшборда.
+                            {t('loadError')}
                         </p>
                         <button
                             type="button"
                             onClick={() => refetch()}
                             className="min-h-10 rounded-lg bg-red-600 px-4 text-sm font-bold text-white transition hover:bg-red-700"
                         >
-                            Повторить
+                            {tCommon('retry')}
                         </button>
                     </div>
                 </section>
@@ -449,26 +437,26 @@ export default function Dashboard() {
             <section className="space-y-3">
                 <div className="flex flex-col gap-3 rounded-2xl border border-slate-200/80 bg-white p-3 shadow-sm sm:flex-row sm:items-center sm:justify-between sm:p-4">
                     <div>
-                        <div className="flex items-center gap-2.5"><h2 className="text-sm font-bold text-slate-900">Производственный поток</h2><span className="rounded-full bg-violet-50 px-2.5 py-1 text-[10px] font-bold text-violet-700">{visibleColumns.length} этапов</span></div>
-                        <p className="mt-1 text-xs text-slate-400">Задачи распределены по текущему статусу</p>
+                        <div className="flex items-center gap-2.5"><h2 className="text-sm font-bold text-slate-900">{t('productionFlow')}</h2><span className="rounded-full bg-violet-50 px-2.5 py-1 text-[10px] font-bold text-violet-700">{t('stagesCount', {count: visibleColumns.length})}</span></div>
+                        <p className="mt-1 text-xs text-slate-400">{t('tasksByStatus')}</p>
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
-                        <div className="rounded-xl bg-slate-50 px-3 py-2"><span className="text-[10px] text-slate-400">Видимых задач</span><strong className="ml-2 text-sm text-slate-900">{formatNumber(visibleTaskCount)}</strong></div>
-                        {hasFilters && <span className="rounded-xl bg-violet-50 px-3 py-2 text-[10px] font-bold text-violet-700">Фильтры активны</span>}
+                        <div className="rounded-xl bg-slate-50 px-3 py-2"><span className="text-[10px] text-slate-400">{t('visibleTasks')}</span><strong className="ml-2 text-sm text-slate-900">{format.number(visibleTaskCount)}</strong></div>
+                        {hasFilters && <span className="rounded-xl bg-violet-50 px-3 py-2 text-[10px] font-bold text-violet-700">{t('filters.active')}</span>}
                         <div className="flex rounded-xl border border-slate-200 bg-slate-50 p-1">
                             <button
                                 type="button"
                                 onClick={() => setFlowView('compact')}
                                 className={`rounded-lg px-3 py-1.5 text-[10px] font-black transition ${flowView === 'compact' ? 'bg-white text-violet-700 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
                             >
-                                Компактно
+                                {t('compact')}
                             </button>
                             <button
                                 type="button"
                                 onClick={() => setFlowView('kanban')}
                                 className={`rounded-lg px-3 py-1.5 text-[10px] font-black transition ${flowView === 'kanban' ? 'bg-white text-violet-700 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
                             >
-                                Колонки
+                                {t('columns')}
                             </button>
                         </div>
                     </div>
@@ -495,13 +483,13 @@ export default function Dashboard() {
                                                     <p className="truncate text-[9px] uppercase tracking-wider text-slate-400">{column.statusCode}</p>
                                                 </div>
                                             </div>
-                                            <span className={`rounded-lg px-2.5 py-1 text-xs font-black ${theme.badge}`}>{formatNumber(column.count)}</span>
+                                            <span className={`rounded-lg px-2.5 py-1 text-xs font-black ${theme.badge}`}>{format.number(column.count)}</span>
                                         </div>
                                     </header>
                                     <div className="space-y-1.5 p-2">
                                         {visibleTasks.map((task) => <CompactTaskCard key={task.id} task={task} />)}
                                         {visibleTasks.length === 0 && (
-                                            <div className="rounded-xl border border-dashed border-slate-200 bg-white px-3 py-7 text-center text-xs text-slate-400 dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-500">Нет задач</div>
+                                            <div className="rounded-xl border border-dashed border-slate-200 bg-white px-3 py-7 text-center text-xs text-slate-400 dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-500">{t('noTasks')}</div>
                                         )}
                                     </div>
                                     {hiddenCount > 0 && (
@@ -513,7 +501,7 @@ export default function Dashboard() {
                                             }}
                                             className="w-full border-t border-slate-200 bg-white px-3 py-2 text-[10px] font-black text-violet-700 transition hover:bg-violet-50 dark:border-slate-800 dark:bg-slate-900 dark:text-violet-300 dark:hover:bg-violet-500/10"
                                         >
-                                            Показать ещё {hiddenCount} задач →
+                                            {t('showMoreTasks', {count: hiddenCount})}
                                         </button>
                                     )}
                                 </section>
@@ -521,7 +509,7 @@ export default function Dashboard() {
                         })}
                     </div>
                 ) : (
-                <div className="overflow-x-auto pb-3 [scrollbar-color:#8b5cf6_transparent]">
+                <div className="overflow-x-auto pb-3">
                 <div className="flex min-w-max snap-x snap-mandatory gap-3 pb-2">
                     {visibleColumns.map((column, index) => {
                         const theme = getColumnTheme(index);
@@ -545,7 +533,7 @@ export default function Dashboard() {
                                     </div>
 
                                     <span className={`rounded-full px-2.5 py-1 text-xs font-black ${theme.badge}`}>
-                                        {formatNumber(column.count)}
+                                        {format.number(column.count)}
                                     </span>
                                 </div>
                             </div>
@@ -553,7 +541,7 @@ export default function Dashboard() {
                             <div className="flex-1 space-y-2.5 overflow-y-auto p-2.5">
                                 {column.tasks.length === 0 ? (
                                     <div className="flex h-full min-h-40 items-center justify-center rounded-lg border border-dashed border-slate-200 bg-white px-4 text-center text-sm text-slate-400 dark:border-slate-700 dark:bg-slate-900/60 dark:text-slate-500">
-                                        Нет задач на этом этапе
+                                        {t('noTasksAtStage')}
                                     </div>
                                 ) : (
                                     column.tasks.map((task) => (
@@ -569,7 +557,7 @@ export default function Dashboard() {
 
                 {!isLoading && !isError && visibleColumns.length === 0 && (
                     <div className="rounded-lg border border-dashed border-slate-300 bg-white px-5 py-12 text-center text-sm text-slate-500">
-                        По выбранным фильтрам задач нет
+                        {t('noFilteredTasks')}
                     </div>
                 )}
             </section>
@@ -578,10 +566,10 @@ export default function Dashboard() {
                 <div className="flex flex-col gap-3 border-b border-slate-100 p-4 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                         <h2 className="font-bold text-slate-900">
-                            Последние завершенные задачи
+                            {t('recentCompleted')}
                         </h2>
                         <p className="mt-1 text-sm text-slate-500">
-                            Всего завершено: {formatNumber(data?.totalCompletedCount)}
+                            {t('completedTotal', {count: format.number(data?.totalCompletedCount ?? 0)})}
                         </p>
                     </div>
                 </div>
@@ -589,7 +577,7 @@ export default function Dashboard() {
                 <div className="divide-y divide-slate-100">
                     {(data?.recentCompletedTasks ?? []).length === 0 ? (
                         <div className="p-6 text-sm text-slate-400">
-                            Пока нет завершенных задач
+                            {t('noCompleted')}
                         </div>
                     ) : (
                         data?.recentCompletedTasks.map((task) => (
@@ -599,23 +587,25 @@ export default function Dashboard() {
                             >
                                 <div className="min-w-0">
                                     <p className="font-bold text-slate-900">
-                                        {task.workTypeName || 'Завершенная задача'}
+                                        {task.workTypeName || t('completedTaskFallback')}
                                     </p>
                                     <p className="mt-1 text-xs text-blue-600">
-                                        Заказ {task.orderNumber || getShortId(task.id)}
+                                        {t('order', {number: task.orderNumber || getShortId(task.id)})}
                                     </p>
                                 </div>
 
                                 <p className="text-slate-600">
-                                    {task.patientName || 'Пациент не указан'}
+                                    {task.patientName || t('patientMissing')}
                                 </p>
 
                                 <p className="text-slate-600">
-                                    {task.technicianName || 'Техник не указан'}
+                                    {task.technicianName || t('technicianNotSpecified')}
                                 </p>
 
                                 <p className="text-left font-semibold text-emerald-700 md:text-right">
-                                    {formatDateTime(task.completedAt)}
+                                    {task.completedAt
+                                        ? format.dateTime(task.completedAt, {day: 'numeric', month: 'short'})
+                                        : t('dateMissing')}
                                 </p>
                             </div>
                         ))

@@ -75,6 +75,23 @@ export default function DashboardLayout({
     };
 
     useEffect(() => {
+        if (!isSidebarOpen || !window.matchMedia('(max-width: 1023px)').matches) return;
+
+        const previousOverflow = document.body.style.overflow;
+        const handleKeyDown = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') setSidebarOpen(false);
+        };
+
+        document.body.style.overflow = 'hidden';
+        document.addEventListener('keydown', handleKeyDown);
+
+        return () => {
+            document.body.style.overflow = previousOverflow;
+            document.removeEventListener('keydown', handleKeyDown);
+        };
+    }, [isSidebarOpen]);
+
+    useEffect(() => {
         if (isInitialized && !isAuthenticated) {
             router.replace('/auth/login');
         }

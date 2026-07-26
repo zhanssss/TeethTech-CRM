@@ -4,6 +4,8 @@ import React, { FormEvent, useMemo, useState } from 'react';
 import ErrorState from '@/src/components/ui/ErrorState';
 import { useNotifications } from '@/src/features/notifications/useNotifications';
 import ConfirmDialog from '@/src/components/ui/ConfirmDialog';
+import {useTranslations} from 'next-intl';
+import {useAppFormatters} from '@/src/i18n/provider';
 
 type FormValue = string | number | boolean;
 type FormState = Record<string, FormValue>;
@@ -108,6 +110,9 @@ export default function LaboratoryCrudPage<
                                                                              getCreateBody,
                                                                              getUpdateBody,
                                                                          }: Props<TItem, TQueryArg, TCreateBody, TUpdateBody>) {
+    const t = useTranslations('laboratory.directory');
+    const commonT = useTranslations('common.actions');
+    const {currency} = useAppFormatters();
     const {
         data: items = [],
         isLoading,
@@ -126,10 +131,10 @@ export default function LaboratoryCrudPage<
 
     const isSubmitting = isCreating || isUpdating;
     const filteredItems = useMemo(() => {
-        const query = search.trim().toLocaleLowerCase('ru-RU');
+        const query = search.trim().toLocaleLowerCase();
         if (!query) return items;
         return items.filter((item) => [item.name, item.code, item.description]
-            .some((value) => value?.toLocaleLowerCase('ru-RU').includes(query)));
+            .some((value) => value?.toLocaleLowerCase().includes(query)));
     }, [items, search]);
     const hasActivation = items.some((item) => typeof item.isActive === 'boolean');
     const activeCount = hasActivation ? items.filter((item) => item.isActive).length : items.length;
@@ -156,7 +161,7 @@ export default function LaboratoryCrudPage<
         });
 
         if (hasEmptyRequiredField) {
-            notifyError('Заполните обязательные поля');
+            notifyError(t('required'));
             return;
         }
 
@@ -214,14 +219,14 @@ export default function LaboratoryCrudPage<
                     {pageDescription}
                 </p>
                 </div>
-                <span className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-semibold text-slate-500">Справочник лаборатории</span>
+                <span className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-semibold text-slate-500">{t('badge')}</span>
             </div>
 
             <section className={`grid gap-4 ${hasActivation ? 'sm:grid-cols-3' : 'sm:grid-cols-2'}`}>
                 {[
-                    ['Всего записей', items.length, 'в справочнике', 'bg-violet-500'],
-                    ['Доступно', activeCount, hasActivation ? 'активных записей' : 'для использования', 'bg-emerald-500'],
-                    ...(hasActivation ? [['Отключено', inactiveCount, 'скрыто из выбора', 'bg-slate-400']] : []),
+                    [t('total'), items.length, t('inDirectory'), 'bg-violet-500'],
+                    [t('available'), activeCount, hasActivation ? t('activeRecords') : t('forUse'), 'bg-emerald-500'],
+                    ...(hasActivation ? [[t('disabled'), inactiveCount, t('hidden'), 'bg-slate-400']] : []),
                 ].map(([label, value, note, color]) => <article key={String(label)} className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-violet-200"><div className="flex items-center justify-between"><p className="text-xs font-semibold text-slate-500">{label}</p><span className={`h-2.5 w-2.5 rounded-full ${color}`} /></div><p className="mt-4 text-2xl font-black text-slate-950">{value}</p><p className="mt-1 text-[11px] text-slate-400">{note}</p></article>)}
             </section>
 
@@ -229,7 +234,7 @@ export default function LaboratoryCrudPage<
                 <div className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm sm:p-5">
                     <div className="mb-5">
                         <div className="flex items-center gap-3"><span className={`flex h-9 w-9 items-center justify-center rounded-xl text-sm font-black ${editingId ? 'bg-amber-50 text-amber-700' : 'bg-violet-50 text-violet-700'}`}>{editingId ? '✎' : '+'}</span><div><h2 className="text-base font-bold text-slate-900">
-                            {editingId ? `Редактирование` : `Добавить: ${formTitle}`}
+                            {editingId ? t('editing') : t('addNamed', {name: formTitle})}
                         </h2>
 
                         <p className="mt-0.5 text-xs text-slate-500">
@@ -316,7 +321,7 @@ export default function LaboratoryCrudPage<
                                 disabled={isSubmitting}
                                 className="h-11 flex-1 rounded-xl bg-violet-600 px-4 text-sm font-bold text-white shadow-lg shadow-violet-950/15 transition hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-50"
                             >
-                                {editingId ? 'Сохранить' : 'Добавить'}
+                                {editingId ? commonT('save') : commonT('add')}
                             </button>
 
                             {editingId && (
@@ -325,7 +330,7 @@ export default function LaboratoryCrudPage<
                                     onClick={handleCancelEdit}
                                     className="h-11 rounded-xl bg-slate-100 px-4 text-sm font-medium text-slate-700 transition hover:bg-slate-200"
                                 >
-                                    Отмена
+                                    {commonT('cancel')}
                                 </button>
                             )}
                         </div>
@@ -340,21 +345,21 @@ export default function LaboratoryCrudPage<
                             </h2>
 
                             <p className="mt-1 text-xs text-slate-500">
-                                Показано: {filteredItems.length} из {items.length}
+                                {t('shown', {shown: filteredItems.length, total: items.length})}
                             </p>
                         </div>
-                        <input type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Поиск по названию или коду" className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none transition focus:border-violet-500 focus:bg-white focus:ring-2 focus:ring-violet-100 sm:w-64" />
+                        <input type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder={t('search')} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none transition focus:border-violet-500 focus:bg-white focus:ring-2 focus:ring-violet-100 sm:w-64" />
                     </div>
 
                     {isLoading && (
                         <div className="rounded-2xl bg-slate-100 px-4 py-8 text-center text-sm text-slate-500">
-                            Загрузка...
+                            {t('loading')}
                         </div>
                     )}
 
                     {isError && (
                         <ErrorState compact>
-                            Не удалось загрузить данные
+                            {t('loadError')}
                         </ErrorState>
                     )}
 
@@ -371,11 +376,11 @@ export default function LaboratoryCrudPage<
                     )}
 
                     {!isLoading && !isError && items.length > 0 && filteredItems.length === 0 && (
-                        <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-12 text-center text-sm text-slate-400">По вашему запросу ничего не найдено</div>
+                        <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-12 text-center text-sm text-slate-400">{t('noResults')}</div>
                     )}
 
                     {!isLoading && !isError && filteredItems.length > 0 && (
-                        <div className="grid max-h-[70dvh] gap-3 overflow-y-auto pr-1 md:grid-cols-2 xl:max-h-[620px] [scrollbar-color:#8b5cf6_transparent]">
+                        <div className="grid max-h-[70dvh] gap-3 overflow-y-auto pr-1 md:grid-cols-2 xl:max-h-[620px]">
                             {filteredItems.map((item) => (
                                 <div
                                     key={item.id}
@@ -398,7 +403,7 @@ export default function LaboratoryCrudPage<
                                                                 : 'bg-red-100 text-red-700'
                                                         }`}
                                                     >
-                                                        {item.isActive ? 'Активный' : 'Неактивный'}
+                                                        {item.isActive ? t('active') : t('inactive')}
                                                     </span>
                                                 )}
                                             </div>
@@ -415,7 +420,7 @@ export default function LaboratoryCrudPage<
 
                                             {typeof item.price === 'number' && Number.isFinite(item.price) && (
                                                 <p className="mt-2 text-sm font-bold text-slate-700">
-                                                    Цена: {item.price.toLocaleString('ru-RU')} ₸
+                                                    {t('price', {price: currency(item.price)})}
                                                 </p>
                                             )}
                                         </div>
@@ -426,7 +431,7 @@ export default function LaboratoryCrudPage<
                                                 onClick={() => handleEdit(item)}
                                                 className="rounded-xl bg-white px-3 py-2 text-xs font-medium text-slate-700 shadow-sm transition hover:bg-violet-50 hover:text-violet-700"
                                             >
-                                                Изменить
+                                                {t('edit')}
                                             </button>
 
                                             <button
@@ -435,7 +440,7 @@ export default function LaboratoryCrudPage<
                                                 disabled={isDeleting}
                                                 className="rounded-xl bg-white px-3 py-2 text-xs font-medium text-red-600 shadow-sm transition hover:bg-red-50 disabled:cursor-not-allowed disabled:text-red-300"
                                             >
-                                                Удалить
+                                                {t('delete')}
                                             </button>
                                         </div>
                                     </div>
@@ -447,9 +452,9 @@ export default function LaboratoryCrudPage<
             </section>
             <ConfirmDialog
                 open={itemToDelete !== null}
-                title="Удалить запись?"
-                description={<>Запись <strong className="font-semibold text-slate-700 dark:text-slate-200">{itemToDelete?.name}</strong> будет удалена из справочника и больше не появится при выборе.</>}
-                confirmLabel="Удалить запись"
+                title={t('deleteTitle')}
+                description={t('deleteDescription', {name: itemToDelete?.name ?? ''})}
+                confirmLabel={t('deleteConfirm')}
                 isLoading={isDeleting}
                 onClose={() => setItemToDelete(null)}
                 onConfirm={handleDelete}

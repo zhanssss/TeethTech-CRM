@@ -2,11 +2,13 @@
 
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { useSelector } from 'react-redux';
 
 import { RootState } from '@/src/lib/store';
 import { useGetMyTasksCalendarQuery } from '@/src/services/api/tasksCalendarApi';
 import type { EmployeeCalendarTask } from '@/src/types/task.types';
+import { useAppFormatters } from '@/src/i18n/provider';
 
 function formatDateKey(date: Date) {
     const year = date.getFullYear();
@@ -20,17 +22,18 @@ function isSameDay(dateA: Date, dateB: Date) {
     return formatDateKey(dateA) === formatDateKey(dateB);
 }
 
-function getTaskTitle(task: EmployeeCalendarTask) {
-    return task.workTypeName || task.workTypeCode || `Задача ${task.taskId.slice(0, 8)}`;
+function getTaskTitle(task: EmployeeCalendarTask, fallback: string) {
+    return task.workTypeName || task.workTypeCode || fallback;
 }
 
-function getStatusLabel(task: EmployeeCalendarTask) {
-    return task.statusName || task.statusCode || 'Статус не указан';
+function getStatusLabel(task: EmployeeCalendarTask, fallback: string) {
+    return task.statusName || task.statusCode || fallback;
 }
 
 function CalendarLoadingGrid({ calendarDays }: { calendarDays: Array<Date | null> }) {
+    const t = useTranslations('employees.calendar');
     return (
-        <div className="grid grid-cols-7" aria-label="Загрузка календаря">
+        <div className="grid grid-cols-7" aria-label={t('loadingAria')}>
             {calendarDays.map((date, index) => (
                 <div
                     key={date ? formatDateKey(date) : `loading-empty-${index}`}
@@ -49,6 +52,9 @@ function CalendarLoadingGrid({ calendarDays }: { calendarDays: Array<Date | null
 }
 
 export default function EmployeeCalendarPage() {
+    const t = useTranslations('employees.calendar');
+    const commonT = useTranslations('common');
+    const formats = useAppFormatters();
     const { name } = useSelector((state: RootState) => state.auth);
     const [currentDate, setCurrentDate] = useState(() => new Date());
     const [selectedDate, setSelectedDate] = useState(() => new Date());
@@ -66,7 +72,7 @@ export default function EmployeeCalendarPage() {
         month: currentMonth + 1,
     });
 
-    const monthLabel = currentDate.toLocaleDateString('ru-RU', {
+    const monthLabel = formats.date(currentDate, {
         month: 'long',
         year: 'numeric',
     });
@@ -103,11 +109,11 @@ export default function EmployeeCalendarPage() {
 
     return (
         <div className="mx-auto w-full max-w-[1450px] space-y-6 pb-8">
-            <header className="relative overflow-hidden rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900 lg:flex lg:items-center lg:justify-between">
+            <header className="relative overflow-hidden rounded-[28px] border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-6 lg:flex lg:items-center lg:justify-between">
                 <div>
-                    <p className="text-[10px] font-black uppercase tracking-[.18em] text-violet-600">Рабочее расписание</p><h1 className="mt-1 text-3xl font-black text-slate-950 dark:text-white">Мой календарь</h1>
+                    <p className="text-[10px] font-black uppercase tracking-[.18em] text-violet-600">{t('badge')}</p><h1 className="mt-1 text-2xl font-black text-slate-950 dark:text-white sm:text-3xl">{t('title')}</h1>
                     <p className="text-sm text-slate-500">
-                        План задач и дедлайнов сотрудника {name}
+                        {t('subtitle', {name: name ?? '—'})}
                     </p>
                 </div>
 
@@ -117,7 +123,7 @@ export default function EmployeeCalendarPage() {
                         onClick={() => changeMonth(-1)}
                         className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-700 shadow-sm transition hover:bg-slate-50"
                     >
-                        ← Назад
+                        {t('previous')}
                     </button>
 
                     <div className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-center text-sm font-bold capitalize text-slate-800 shadow-sm sm:min-w-[180px]">
@@ -129,7 +135,7 @@ export default function EmployeeCalendarPage() {
                         onClick={() => changeMonth(1)}
                         className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-700 shadow-sm transition hover:bg-slate-50"
                     >
-                        Вперёд →
+                        {t('next')}
                     </button>
                 </div>
             </header>
@@ -140,7 +146,7 @@ export default function EmployeeCalendarPage() {
                     aria-busy={isFetching}
                 >
                     <div className="grid grid-cols-7 border-b border-slate-200 bg-slate-50 text-center text-[10px] font-bold uppercase tracking-widest text-slate-400 sm:text-[11px]">
-                        {['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'].map((day) => (
+                        {[t('weekdays.mon'), t('weekdays.tue'), t('weekdays.wed'), t('weekdays.thu'), t('weekdays.fri'), t('weekdays.sat'), t('weekdays.sun')].map((day) => (
                             <div key={day} className="p-2 sm:p-4">
                                 {day}
                             </div>
@@ -152,17 +158,17 @@ export default function EmployeeCalendarPage() {
                     ) : isError ? (
                         <div className="px-5 py-16 text-center" role="alert">
                             <h2 className="font-bold text-red-700">
-                                Не удалось загрузить календарь
+                                {t('loadError')}
                             </h2>
                             <p className="mt-1 text-sm text-slate-500">
-                                Проверьте соединение и попробуйте ещё раз.
+                                {t('loadErrorHint')}
                             </p>
                             <button
                                 type="button"
                                 onClick={() => refetch()}
                                 className="mt-4 rounded-xl bg-red-700 px-4 py-2 text-sm font-bold text-white transition hover:bg-red-800"
                             >
-                                Повторить
+                                {commonT('actions.retry')}
                             </button>
                         </div>
                     ) : (
@@ -221,13 +227,13 @@ export default function EmployeeCalendarPage() {
                                                         style={{ backgroundColor: task.statusColor || undefined }}
                                                         aria-hidden="true"
                                                     />
-                                                    <span className="truncate">{getTaskTitle(task)}</span>
+                                                    <span className="truncate">{getTaskTitle(task, t('taskFallback', {id: task.taskId.slice(0, 8)}))}</span>
                                                 </div>
                                             ))}
 
                                             {taskCount > 2 && (
                                                 <div className="text-[10px] font-bold text-blue-600">
-                                                    + ещё {taskCount - 2}
+                                                    {t('more', {count: taskCount - 2})}
                                                 </div>
                                             )}
                                         </div>
@@ -241,24 +247,23 @@ export default function EmployeeCalendarPage() {
                 <div className="rounded-[24px] border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
                     <div className="flex items-center justify-between gap-3 border-b border-slate-200 bg-slate-50 px-5 py-4">
                         <h2 className="text-sm font-bold uppercase tracking-wider text-slate-500">
-                            Задачи на{' '}
-                            {selectedDate.toLocaleDateString('ru-RU', {
+                            {t('tasksOn', {date: formats.date(selectedDate, {
                                 day: 'numeric',
                                 month: 'long',
-                            })}
+                            })})}
                         </h2>
                         {isFetching && !isLoading && (
                             <span className="text-[10px] font-bold uppercase text-blue-600">
-                                Обновление…
+                                {t('updating')}
                             </span>
                         )}
                     </div>
 
                     <div className="space-y-4 p-5">
                         {isLoading ? (
-                            <p className="text-sm text-slate-400">Загрузка задач…</p>
+                            <p className="text-sm text-slate-400">{t('tasksLoading')}</p>
                         ) : isError ? (
-                            <p className="text-sm text-red-600">Задачи временно недоступны</p>
+                            <p className="text-sm text-red-600">{t('tasksUnavailable')}</p>
                         ) : selectedDateTasks.length > 0 ? (
                             selectedDateTasks.map((task) => (
                                 <article
@@ -279,25 +284,25 @@ export default function EmployeeCalendarPage() {
                                                 style={{ backgroundColor: task.statusColor || undefined }}
                                                 aria-hidden="true"
                                             />
-                                            {getStatusLabel(task)}
+                                            {getStatusLabel(task, t('statusMissing'))}
                                         </span>
                                     </div>
 
                                     <h3 className="mt-3 text-sm font-bold text-slate-900">
-                                        {getTaskTitle(task)}
+                                        {getTaskTitle(task, t('taskFallback', {id: task.taskId.slice(0, 8)}))}
                                     </h3>
 
                                     <p className="mt-1 text-xs text-slate-500">
-                                        Пациент: {task.patientName || 'не указан'}
+                                        {t('patient', {name: task.patientName || t('unspecifiedMale')})}
                                     </p>
                                     <p className="mt-1 text-xs text-slate-500">
-                                        Клиника: {task.clinicName || 'не указана'}
+                                        {t('clinic', {name: task.clinicName || t('unspecifiedFemale')})}
                                     </p>
                                     <p className="mt-1 text-xs text-slate-500">
-                                        Количество: {task.quantity} ед.
+                                        {t('quantity', {count: task.quantity})}
                                     </p>
                                     <p className="mt-1 text-xs text-slate-500">
-                                        Заказ: #{task.orderNumber || task.orderId}
+                                        {t('order', {number: task.orderNumber || task.orderId})}
                                     </p>
 
                                     <div className="mt-4 flex justify-end border-t border-slate-100 pt-3">
@@ -305,14 +310,14 @@ export default function EmployeeCalendarPage() {
                                             href={`/orders/${task.orderId}`}
                                             className="text-xs font-bold text-blue-600 hover:underline"
                                         >
-                                            Открыть заказ
+                                            {t('openOrder')}
                                         </Link>
                                     </div>
                                 </article>
                             ))
                         ) : (
                             <p className="text-sm text-slate-400">
-                                На выбранный день задач нет
+                                {t('empty')}
                             </p>
                         )}
                     </div>

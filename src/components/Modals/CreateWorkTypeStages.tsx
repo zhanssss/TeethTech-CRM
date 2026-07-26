@@ -1,6 +1,7 @@
 'use client';
 
 import {useMemo, useRef, useState} from 'react';
+import {useTranslations} from 'next-intl';
 import {useSelector} from 'react-redux';
 
 import {
@@ -98,12 +99,10 @@ const initialSystemRoles: SystemRoles = {
  */
 const SYSTEM_STAGES: Record<
     SystemStageType,
-    Omit<WorkflowStage, 'requiredRole'>
+    Omit<WorkflowStage, 'requiredRole' | 'name' | 'description'>
 > = {
     TODO: {
         code: 'TODO',
-        name: 'Нужно сделать',
-        description: 'Начальный этап рабочего процесса',
         colorHex: '#64748B',
         initial: true,
         terminal: false,
@@ -112,8 +111,6 @@ const SYSTEM_STAGES: Record<
 
     REVIEW: {
         code: 'WAITING_FOR_APPROVAL',
-        name: 'Ожидание проверки',
-        description: 'Проверка результата работы',
         colorHex: '#8B5CF6',
         initial: false,
         terminal: false,
@@ -122,8 +119,6 @@ const SYSTEM_STAGES: Record<
 
     DONE: {
         code: 'ORDER_CLOSED',
-        name: 'Завершено',
-        description: 'Рабочий процесс завершён',
         colorHex: '#10B981',
         initial: false,
         terminal: true,
@@ -210,16 +205,8 @@ function SystemStageRow({
                             canCreate,
                             onCreateRequest,
                         }: SystemStageRowProps) {
+    const t = useTranslations('laboratory.workflow');
     const stage = SYSTEM_STAGES[type];
-
-    const labelByType: Record<
-        SystemStageType,
-        string
-    > = {
-        TODO: 'Начальный',
-        REVIEW: 'Проверка',
-        DONE: 'Конечный',
-    };
 
     return (
         <div className="grid items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3 md:grid-cols-[32px_minmax(150px,1fr)_180px_90px]">
@@ -237,11 +224,11 @@ function SystemStageRow({
                     />
 
                     <p className="truncate text-sm font-bold text-slate-900">
-                        {stage.name}
+                        {t(`systemNames.${type}`)}
                     </p>
 
                     <span className="rounded-md bg-white px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-slate-500">
-                        {labelByType[type]}
+                        {t(`systemTypes.${type}`)}
                     </span>
                 </div>
 
@@ -260,7 +247,7 @@ function SystemStageRow({
             />
 
             <span className="hidden text-right text-[10px] font-bold uppercase text-slate-400 md:block">
-                Закреплён
+                {t('fixed')}
             </span>
         </div>
     );
@@ -306,6 +293,7 @@ function StageIdentityFields({
                                  onChange,
                                  onUseExisting,
                              }: StageIdentityFieldsProps) {
+    const t = useTranslations('laboratory.workflow');
     const [activeField, setActiveField] =
         useState<'code' | 'name' | null>(null);
     const codeInputRef = useRef<HTMLInputElement>(null);
@@ -359,7 +347,7 @@ function StageIdentityFields({
                         changeIdentity({code: event.target.value})
                     }
                     placeholder="CODE"
-                    aria-label={`Код промежуточного этапа ${index + 1}`}
+                    aria-label={t('codeAria', {number: index + 1})}
                     className="h-10 min-w-0 rounded-lg border border-slate-200 bg-slate-50 px-3 font-mono text-xs font-bold uppercase outline-none transition focus:border-violet-500 focus:bg-white"
                 />
 
@@ -374,8 +362,8 @@ function StageIdentityFields({
                     onChange={(event) =>
                         changeIdentity({name: event.target.value})
                     }
-                    placeholder={`Промежуточный этап ${index + 1}`}
-                    aria-label={`Название промежуточного этапа ${index + 1}`}
+                    placeholder={t('stagePlaceholder', {number: index + 1})}
+                    aria-label={t('nameAria', {number: index + 1})}
                     className="h-10 min-w-0 rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm font-medium outline-none transition focus:border-violet-500 focus:bg-white"
                 />
             </div>
@@ -384,11 +372,11 @@ function StageIdentityFields({
                 <div className="absolute left-0 right-0 top-[calc(100%+0.4rem)] z-40 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl">
                     {statusesLoading ? (
                         <p className="px-3 py-2.5 text-xs font-semibold text-slate-400">
-                            Загружаем существующие этапы…
+                            {t('loadingExisting')}
                         </p>
                     ) : statusesError ? (
                         <p className="px-3 py-2.5 text-xs font-semibold text-red-600">
-                            Не удалось загрузить существующие этапы.
+                            {t('existingError')}
                         </p>
                     ) : matches.length > 0 ? (
                         <div className="max-h-56 overflow-y-auto py-1">
@@ -415,7 +403,7 @@ function StageIdentityFields({
                                             </span>
                                         </span>
                                         <span className="shrink-0 text-[10px] font-bold text-slate-400">
-                                            Уже добавлен
+                                            {t('alreadyAdded')}
                                         </span>
                                     </div>
                                 ) : (
@@ -438,7 +426,7 @@ function StageIdentityFields({
                                             </span>
                                         </span>
                                         <span className="shrink-0 text-[10px] font-bold text-violet-600">
-                                            Выбрать
+                                            {t('select')}
                                         </span>
                                     </button>
                                 );
@@ -446,7 +434,7 @@ function StageIdentityFields({
                         </div>
                     ) : (
                         <p className="px-3 py-2.5 text-xs font-semibold text-slate-400">
-                            Совпадений нет. Можно оставить новые код и название.
+                            {t('noMatches')}
                         </p>
                     )}
                 </div>
@@ -454,7 +442,7 @@ function StageIdentityFields({
 
             {selectedStatus && (
                 <div className="mt-2 flex flex-wrap items-center gap-2 rounded-lg bg-emerald-50 px-3 py-2 text-[11px] font-semibold text-emerald-700">
-                    <span>✓ Используется существующий этап</span>
+                    <span>{t('usingExisting')}</span>
                     <span className="font-mono">{selectedStatus.code}</span>
                 </div>
             )}
@@ -462,15 +450,12 @@ function StageIdentityFields({
             {similarStatus && (
                 <div className="mt-2 rounded-xl border border-amber-200 bg-amber-50 p-3">
                     <p className="text-xs font-bold text-amber-900">
-                        Похожий этап уже существует: {similarStatus.name}{' '}
-                        <span className="font-mono text-[11px]">
-                            ({similarStatus.code})
-                        </span>
+                        {t('similar', {name: similarStatus.name, code: similarStatus.code})}
                     </p>
                     <p className="mt-1 text-[11px] leading-4 text-amber-700">
                         {similarStatusIsProtected
-                            ? 'Этот системный этап уже добавлен в маршрут автоматически. Измените введённый код или название.'
-                            : 'Код и название этапа используются вместе. Измените введённое значение или выберите существующий этап.'}
+                            ? t('protectedHint')
+                            : t('similarHint')}
                     </p>
                     <div className="mt-2 flex flex-wrap gap-2">
                         {!similarStatusIsProtected && (
@@ -481,7 +466,7 @@ function StageIdentityFields({
                                 }
                                 className="rounded-lg bg-amber-600 px-3 py-1.5 text-[11px] font-bold text-white transition hover:bg-amber-700"
                             >
-                                Использовать существующий
+                                {t('useExisting')}
                             </button>
                         )}
                         <button
@@ -489,7 +474,7 @@ function StageIdentityFields({
                             onClick={focusSimilarField}
                             className="rounded-lg border border-amber-300 bg-white px-3 py-1.5 text-[11px] font-bold text-amber-800 transition hover:bg-amber-100"
                         >
-                            Изменить введённое
+                            {t('editEntered')}
                         </button>
                     </div>
                 </div>
@@ -512,6 +497,7 @@ function SortableStageRow({
                               canCreate,
                               onCreateRequest,
                           }: SortableStageRowProps) {
+    const t = useTranslations('laboratory.workflow');
     const {
         attributes,
         listeners,
@@ -548,7 +534,7 @@ function SortableStageRow({
                     type="button"
                     {...attributes}
                     {...listeners}
-                    aria-label="Переместить стадию"
+                    aria-label={t('moveStage')}
                     className="flex h-9 w-8 touch-none cursor-grab items-center justify-center rounded-lg text-lg font-bold text-slate-400 transition hover:bg-violet-50 hover:text-violet-600 active:cursor-grabbing"
                 >
                     ⋮⋮
@@ -585,7 +571,7 @@ function SortableStageRow({
                             colorHex: event.target.value,
                         })
                     }
-                    title="Цвет стадии"
+                    title={t('stageColor')}
                     className="h-10 w-12 cursor-pointer rounded-lg border border-slate-200 bg-white p-1"
                 />
 
@@ -594,7 +580,7 @@ function SortableStageRow({
                     onClick={() =>
                         onDelete(stage.clientId)
                     }
-                    title="Удалить стадию"
+                    title={t('deleteStage')}
                     className="flex h-9 w-9 items-center justify-center rounded-lg text-lg font-bold text-red-400 transition hover:bg-red-50 hover:text-red-600"
                 >
                     ×
@@ -603,7 +589,7 @@ function SortableStageRow({
 
             <details className="mt-2">
                 <summary className="cursor-pointer select-none text-[11px] font-bold text-slate-400 transition hover:text-violet-600">
-                    Описание этапа
+                    {t('stageDescription')}
                 </summary>
 
                 <textarea
@@ -613,7 +599,7 @@ function SortableStageRow({
                             description: event.target.value,
                         })
                     }
-                    placeholder="Необязательное описание стадии"
+                    placeholder={t('stageDescriptionPlaceholder')}
                     className="mt-2 min-h-16 w-full resize-none rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs outline-none transition focus:border-violet-500 focus:bg-white"
                 />
             </details>
@@ -625,6 +611,8 @@ export default function CreateWorkTypeStages({
                                                  isOpen,
                                                  onClose,
                                              }: CreateWorkTypeStagesProps) {
+    const t = useTranslations('laboratory.workflow');
+    const commonT = useTranslations('common');
     const [formData, setFormData] =
         useState<WorkTypeForm>(initialFormData);
 
@@ -774,6 +762,8 @@ export default function CreateWorkTypeStages({
         type: SystemStageType,
     ): WorkflowStage => ({
         ...SYSTEM_STAGES[type],
+        name: t(`systemNames.${type}`),
+        description: t(`systemDescriptions.${type}`),
         requiredRole: systemRoles[type],
     });
 
@@ -805,7 +795,7 @@ export default function CreateWorkTypeStages({
 
         if (statusesError) {
             setFormError(
-                'Не удалось проверить этапы на дубликаты. Повторите загрузку списка этапов.',
+                t('duplicateCheckError'),
             );
             return;
         }
@@ -820,14 +810,18 @@ export default function CreateWorkTypeStages({
 
         if (unresolvedSimilarStage?.match) {
             setFormError(
-                `Этап «${unresolvedSimilarStage.stage.name || unresolvedSimilarStage.stage.code}» похож на существующий «${unresolvedSimilarStage.match.status.name}» (${unresolvedSimilarStage.match.status.code}). Используйте существующий этап или измените код и название.`,
+                t('unresolvedSimilar', {
+                    stage: unresolvedSimilarStage.stage.name || unresolvedSimilarStage.stage.code,
+                    existing: unresolvedSimilarStage.match.status.name,
+                    code: unresolvedSimilarStage.match.status.code,
+                }),
             );
             return;
         }
 
         if (hasDuplicateIntermediateStages(intermediateStages)) {
             setFormError(
-                'В маршруте повторяются коды или названия промежуточных этапов. Используйте каждый этап только один раз.',
+                t('duplicateStages'),
             );
             return;
         }
@@ -875,15 +869,15 @@ export default function CreateWorkTypeStages({
             <header className="flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-4">
                 <div>
                     <p className="text-[10px] font-black uppercase tracking-widest text-violet-600">
-                        Рабочий процесс
+                        {t('badge')}
                     </p>
 
                     <h2 className="mt-1 text-lg font-black text-slate-950">
-                        Создать тип работы
+                        {t('title')}
                     </h2>
 
                     <p className="text-xs text-slate-500">
-                        Добавьте и расположите промежуточные стадии
+                        {t('subtitle')}
                     </p>
                 </div>
 
@@ -904,7 +898,7 @@ export default function CreateWorkTypeStages({
                     <section className="grid gap-3 md:grid-cols-2">
                         <div>
                             <label className="mb-1 block text-[10px] font-black uppercase tracking-wider text-slate-400">
-                                Код типа работы
+                                {t('workTypeCode')}
                             </label>
 
                             <input
@@ -928,7 +922,7 @@ export default function CreateWorkTypeStages({
 
                         <div>
                             <label className="mb-1 block text-[10px] font-black uppercase tracking-wider text-slate-400">
-                                Название
+                                {t('name')}
                             </label>
 
                             <input
@@ -945,7 +939,7 @@ export default function CreateWorkTypeStages({
                                         }),
                                     )
                                 }
-                                placeholder="Коронка"
+                                placeholder={t('namePlaceholder')}
                                 className="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm outline-none transition focus:border-violet-500 focus:bg-white"
                             />
                         </div>
@@ -963,7 +957,7 @@ export default function CreateWorkTypeStages({
                                         }),
                                     )
                                 }
-                                placeholder="Описание типа работы"
+                                placeholder={t('descriptionPlaceholder')}
                                 className="min-h-16 w-full resize-none rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs outline-none transition focus:border-violet-500 focus:bg-white"
                             />
                         </div>
@@ -973,11 +967,11 @@ export default function CreateWorkTypeStages({
                         <div className="mb-3 flex items-center justify-between gap-3">
                             <div>
                                 <h3 className="text-sm font-black text-slate-900">
-                                    Стадии
+                                    {t('stages')}
                                 </h3>
 
                                 <p className="text-[11px] text-slate-400">
-                                    Введите новый этап или выберите существующий по коду либо названию
+                                    {t('stagesHint')}
                                 </p>
                             </div>
 
@@ -988,7 +982,7 @@ export default function CreateWorkTypeStages({
                                 }
                                 className="rounded-lg bg-violet-50 px-3 py-2 text-xs font-bold text-violet-700 transition hover:bg-violet-100"
                             >
-                                + Добавить стадию
+                                {t('addStage')}
                             </button>
                         </div>
 
@@ -1104,7 +1098,7 @@ export default function CreateWorkTypeStages({
                                     }
                                     className="w-full rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-4 text-xs font-medium text-slate-400 transition hover:border-violet-300 hover:bg-violet-50 hover:text-violet-600"
                                 >
-                                    Добавить промежуточную стадию
+                                    {t('addIntermediate')}
                                 </button>
                             )}
 
@@ -1169,14 +1163,14 @@ export default function CreateWorkTypeStages({
 
                     {rolesError && (
                         <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-700">
-                            Не удалось загрузить список ролей.
+                            {t('rolesError')}
                         </p>
                     )}
 
                     {statusesError && (
                         <div className="flex flex-col gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-700 sm:flex-row sm:items-center sm:justify-between">
                             <span>
-                                Не удалось загрузить существующие этапы. Проверка дубликатов недоступна.
+                                {t('statusesError')}
                             </span>
                             <button
                                 type="button"
@@ -1184,7 +1178,7 @@ export default function CreateWorkTypeStages({
                                 disabled={statusesFetching}
                                 className="shrink-0 rounded-lg bg-white px-3 py-1.5 font-bold text-amber-800 transition hover:bg-amber-100 disabled:cursor-wait disabled:opacity-60"
                             >
-                                {statusesFetching ? 'Загружаем…' : 'Повторить'}
+                                {statusesFetching ? t('reloading') : commonT('actions.retry')}
                             </button>
                         </div>
                     )}
@@ -1197,18 +1191,18 @@ export default function CreateWorkTypeStages({
 
                     {createError && (
                         <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-medium text-red-700">
-                            Сервер не смог создать рабочий процесс.
+                            {t('createError')}
                         </p>
                     )}
                 </div>
 
-                <footer className="sticky bottom-0 flex justify-end gap-2 border-t border-slate-200 bg-white px-5 py-4">
+                <footer className="sticky bottom-0 flex flex-col-reverse gap-2 border-t border-slate-200 bg-white px-4 py-4 sm:flex-row sm:justify-end sm:px-5">
                     <button
                         type="button"
                         onClick={onClose}
-                        className="rounded-lg px-4 py-2 text-xs font-bold text-slate-500 transition hover:bg-slate-100"
+                        className="min-h-11 rounded-lg px-4 py-2 text-xs font-bold text-slate-500 transition hover:bg-slate-100"
                     >
-                        Отмена
+                        {commonT('actions.cancel')}
                     </button>
 
                     <button
@@ -1219,11 +1213,11 @@ export default function CreateWorkTypeStages({
                             statusesLoading ||
                             statusesError
                         }
-                        className="rounded-lg bg-violet-600 px-5 py-2 text-xs font-bold text-white transition hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-50"
+                        className="min-h-11 rounded-lg bg-violet-600 px-5 py-2 text-xs font-bold text-white transition hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-50"
                     >
                         {creating
-                            ? 'Создание...'
-                            : 'Создать процесс'}
+                            ? t('creating')
+                            : t('create')}
                     </button>
                 </footer>
             </form>

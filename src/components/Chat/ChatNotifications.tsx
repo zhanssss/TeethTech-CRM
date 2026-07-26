@@ -18,12 +18,13 @@ import {
 } from '@/src/services/chatRealtimeService'
 import type { ChatMessageDto, ChatRealtimeEvent } from '@/src/types/chat.types'
 import { usePathname } from 'next/navigation'
+import { useTranslations } from 'next-intl'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 
 type PermissionState = NotificationPermission | 'unsupported'
 
-function normalizeRealtimeMessage(event: ChatRealtimeEvent): ChatMessageDto | null {
+function normalizeRealtimeMessage(event: ChatRealtimeEvent, userFallback: string): ChatMessageDto | null {
 	if (!event.message) return null
 	const source = event.message
 	const conversationId = source.conversationId || event.conversationId
@@ -36,7 +37,7 @@ function normalizeRealtimeMessage(event: ChatRealtimeEvent): ChatMessageDto | nu
 			`realtime-${conversationId}-${event.occurredAt || source.createdAt || Date.now()}`,
 		conversationId,
 		senderId: source.senderId || '',
-		senderName: source.senderName || 'Пользователь CRM',
+		senderName: source.senderName || userFallback,
 		text: source.text ?? null,
 		replyToId: source.replyToId ?? null,
 		createdAt: source.createdAt || event.occurredAt || new Date().toISOString(),
@@ -78,6 +79,8 @@ function playMessageSound(contextRef: React.MutableRefObject<AudioContext | null
 }
 
 export default function ChatNotifications() {
+	const t = useTranslations('chat.notifications')
+	const chatT = useTranslations('chat')
 	const dispatch = useDispatch<AppDispatch>()
 	const pathname = usePathname()
 	const { id: currentUserId } = useSelector((state: RootState) => state.auth)
@@ -133,7 +136,7 @@ export default function ChatNotifications() {
 		const listener = (event: ChatRealtimeEvent) => {
 			if (event.type !== 'MESSAGE_CREATED' || !event.message) return
 
-			const message = normalizeRealtimeMessage(event)
+			const message = normalizeRealtimeMessage(event, chatT('userFallback'))
 			if (!message) return
 			const current = stateRef.current
 			if (message.senderId && message.senderId === current.currentUserId) return
@@ -162,8 +165,8 @@ export default function ChatNotifications() {
 			dispatch(
 				enqueueNotification({
 					tone: 'message',
-					title: message.senderName || 'Новое сообщение',
-					message: message.text?.trim() || 'Новое вложение',
+					title: message.senderName || t('newMessage'),
+					message: message.text?.trim() || t('attachment'),
 					href: `/chats/${message.conversationId}`,
 					duration: 6000
 				})
@@ -175,7 +178,7 @@ export default function ChatNotifications() {
 			) {
 				const chat = current.chats.find(item => item.id === message.conversationId)
 				const notification = new Notification(chat?.title ?? message.senderName ?? 'TeethTech CRM', {
-					body: message.text?.trim() || 'Новое вложение',
+					body: message.text?.trim() || t('attachment'),
 					tag: `chat-${message.conversationId}`,
 					silent: false
 				})
@@ -193,7 +196,7 @@ export default function ChatNotifications() {
 			removeChatRealtimeReconnectListener(reconnectListener)
 			disconnectChatRealtime()
 		}
-	}, [dispatch, refetchChats])
+	}, [chatT, dispatch, refetchChats, t])
 
 	const requestPermission = useCallback(async () => {
 		if (!('Notification' in window)) return
@@ -207,11 +210,11 @@ export default function ChatNotifications() {
 		<aside className="fixed bottom-4 left-1/2 z-[110] flex w-[min(36rem,calc(100vw-2rem))] -translate-x-1/2 items-center gap-3 rounded-[22px] border border-violet-200 bg-white p-3.5 shadow-[0_20px_60px_-20px_rgba(15,23,42,.45)] dark:border-violet-500/30 dark:bg-slate-900" role="status">
 			<span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-5 w-5"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4" strokeLinecap="round"/></svg></span>
 			<div className="min-w-0 flex-1">
-				<p className="text-sm font-black text-slate-900 dark:text-white">Не пропускайте сообщения CRM</p>
-				<p className="text-xs text-slate-500">Разрешите уведомления — они появятся, даже когда открыта другая вкладка.</p>
+				<p className="text-sm font-black text-slate-900 dark:text-white">{t('title')}</p>
+				<p className="text-xs text-slate-500">{t('body')}</p>
 			</div>
 			<button type="button" onClick={() => void requestPermission()} className="shrink-0 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-4 py-2.5 text-sm font-bold text-white shadow-lg shadow-violet-500/20">
-				Разрешить
+				{t('allow')}
 			</button>
 		</aside>
 	)

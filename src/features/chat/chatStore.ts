@@ -153,7 +153,7 @@ const chatStoreCreator: StateCreator<ChatStoreState> = (set, get) => ({
 				id: message.conversationId,
 				type: 'DIRECT',
 				title: message.senderName,
-				lastMessage: message.text ?? 'Файл',
+				lastMessage: message.text ?? '📎',
 				lastMessageAt: message.createdAt,
 				unreadCount: 0
 			})

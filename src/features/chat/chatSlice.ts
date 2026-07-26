@@ -226,7 +226,7 @@ const chatSlice = createSlice({
 
 			const chat = state.chats.find(item => item.id === conversationId)
 			if (chat) {
-				chat.lastMessage = message.text ?? 'Новое вложение'
+				chat.lastMessage = message.text ?? '📎'
 				chat.lastMessageAt = message.createdAt
 				if (isConversationOpen) chat.unreadCount = 0
 				else if (isNewMessage) chat.unreadCount = (chat.unreadCount ?? 0) + 1
@@ -234,8 +234,8 @@ const chatSlice = createSlice({
 				state.chats.unshift({
 					id: conversationId,
 					type: 'DIRECT',
-					title: message.senderName || 'Новый диалог',
-					lastMessage: message.text ?? 'Новое вложение',
+					title: message.senderName || '—',
+					lastMessage: message.text ?? '📎',
 					lastMessageAt: message.createdAt,
 					unreadCount: isConversationOpen ? 0 : 1
 				})
@@ -264,7 +264,7 @@ const chatSlice = createSlice({
 						chat.id === message.conversationId
 							? {
 									...chat,
-									lastMessage: message.text ?? 'Файл',
+									lastMessage: message.text ?? '📎',
 									lastMessageAt: message.createdAt,
 									unreadCount:
 										chat.id === state.activeConversationId
@@ -279,7 +279,7 @@ const chatSlice = createSlice({
 							id: message.conversationId,
 							type: 'DIRECT',
 							title: message.senderName,
-							lastMessage: message.text ?? 'Файл',
+							lastMessage: message.text ?? '📎',
 							lastMessageAt: message.createdAt,
 							unreadCount: 0
 						},

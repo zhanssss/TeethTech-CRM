@@ -1,6 +1,7 @@
 import Modal from "@/src/components/ui/Modal";
 import {useDeleteClinicMutation} from "@/src/services/api/clinicsApi";
 import {useRouter} from "next/navigation";
+import {useTranslations} from 'next-intl';
 
 type props = {
     isOpen: boolean;
@@ -9,6 +10,7 @@ type props = {
 }
 
 const DeleteClinicApproval = ({isOpen, onClose, clinicId}: props) => {
+    const t = useTranslations('clinics.delete');
 
     const router = useRouter();
     const [deleteClinic, {isLoading}] = useDeleteClinicMutation();
@@ -28,15 +30,15 @@ const DeleteClinicApproval = ({isOpen, onClose, clinicId}: props) => {
         <Modal>
             <div>
                 <h1 className="text-xl font-bold text-slate-900">
-                    Удалить клинику?
+                    {t('title')}
                 </h1>
 
                 <p className="mt-2 text-sm text-slate-500">
-                    Вы уверены, что хотите удалить клинику из реестра? Это действие нельзя отменить.
+                    {t('description')}
                 </p>
             </div>
             {isLoading ?
-                <h2>Удаление ожидайте...</h2>
+                <h2>{t('loading')}</h2>
                 :
                 <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
                     <button
@@ -44,7 +46,7 @@ const DeleteClinicApproval = ({isOpen, onClose, clinicId}: props) => {
                         onClick={onClose}
                         className="w-full rounded-xl px-5 py-2.5 text-sm font-bold text-slate-500 transition hover:bg-slate-100 sm:w-auto"
                     >
-                        Нет
+                        {t('cancel')}
                     </button>
 
                     <button
@@ -53,7 +55,7 @@ const DeleteClinicApproval = ({isOpen, onClose, clinicId}: props) => {
                         disabled={isLoading}
                         className="w-full rounded-xl bg-red-700 px-5 py-2.5 text-sm font-bold text-white transition hover:bg-red-800 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
                     >
-                        {isLoading ? 'Удаление...' : 'Да, удалить'}
+                        {isLoading ? t('loading') : t('confirm')}
                     </button>
                 </div>
             }

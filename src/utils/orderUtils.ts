@@ -12,14 +12,14 @@ interface KanbanColumn {
 }
 
 export const ALL_ORDER_TASK_COLUMNS: KanbanColumn[] = [
-    { id: '1', title: 'Нужно сделать', color: 'border-t-slate-500' },
-    { id: '2', title: 'Гипсовщик', color: 'border-t-yellow-500' },
-    { id: '3', title: 'Сканировщик', color: 'border-t-orange-500' },
-    { id: '4', title: 'Оператор', color: 'border-t-green-600' },
-    { id: '5', title: 'Керамист', color: 'border-t-blue-700' },
-    { id: '8', title: 'Протезист', color: 'border-t-cyan-500' },
-    { id: '6', title: 'На проверке', color: 'border-t-purple-500' },
-    { id: '7', title: 'Готово', color: 'border-t-slate-500' },
+    { id: '1', title: 'TODO', color: 'border-t-slate-500' },
+    { id: '2', title: 'PLASTERING', color: 'border-t-yellow-500' },
+    { id: '3', title: 'SCANNING', color: 'border-t-orange-500' },
+    { id: '4', title: 'OPERATING', color: 'border-t-green-600' },
+    { id: '5', title: 'CERAMICS', color: 'border-t-blue-700' },
+    { id: '8', title: 'PROSTHETICS', color: 'border-t-cyan-500' },
+    { id: '6', title: 'REVIEW', color: 'border-t-purple-500' },
+    { id: '7', title: 'DONE', color: 'border-t-slate-500' },
 ];
 
 function normalizeValue(value: string | null | undefined) {

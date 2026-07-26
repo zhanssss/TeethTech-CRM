@@ -1,6 +1,7 @@
 'use client';
 
 import { type FormEvent, useMemo, useState } from 'react';
+import {useTranslations} from 'next-intl';
 
 import Modal from '@/src/components/ui/Modal';
 import QueryErrorNotice from '@/src/components/ui/QueryErrorNotice';
@@ -18,9 +19,27 @@ import {
     useReceiveStockMutation,
     useUpsertNomenclatureNormMutation,
 } from '@/src/services/api/warehouseApi';
-import { formatQuantity, getApiErrorMessage, getInventoryStatusLabel } from './warehouseUtils';
+import { getApiErrorMessage } from './warehouseUtils';
+import {useAppFormatters, useAppLocale} from '@/src/i18n/provider';
+import {intlLocaleByLocale} from '@/src/i18n/config';
 
 export default function NomenclaturePanel() {
+    const t = useTranslations('warehouse.nomenclature');
+    const inventoryT = useTranslations('warehouse.inventory');
+    const commonT = useTranslations('common.actions');
+    const formatters = useAppFormatters();
+    const {locale} = useAppLocale();
+    const quantityLabel = (value: number | null | undefined, unit?: string) =>
+        value === null || value === undefined || !Number.isFinite(value)
+            ? '—'
+            : `${formatters.number(value, {maximumFractionDigits: 3})}${unit ? ` ${unit}` : ''}`;
+    const inventoryStatusLabel = (statusCode: string, fallback?: string) => {
+        if (statusCode === 'DRAFT') return inventoryT('statuses.DRAFT');
+        if (statusCode === 'IN_PROGRESS') return inventoryT('statuses.IN_PROGRESS');
+        if (statusCode === 'COMPLETED') return inventoryT('statuses.COMPLETED');
+        if (statusCode === 'CANCELLED') return inventoryT('statuses.CANCELLED');
+        return fallback || statusCode;
+    };
     const [activeOnly, setActiveOnly] = useState(true);
     const [search, setSearch] = useState('');
     const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -65,12 +84,12 @@ export default function NomenclaturePanel() {
     const [deleteNomenclatureNorm, deleteNormState] = useDeleteNomenclatureNormMutation();
 
     const filteredItems = useMemo(() => {
-        const needle = search.trim().toLocaleLowerCase('ru-RU');
+        const needle = search.trim().toLocaleLowerCase(intlLocaleByLocale[locale]);
         if (!needle) return listQuery.data ?? [];
         return (listQuery.data ?? []).filter((item) =>
-            `${item.code} ${item.name}`.toLocaleLowerCase('ru-RU').includes(needle)
+            `${item.code} ${item.name}`.toLocaleLowerCase(intlLocaleByLocale[locale]).includes(needle)
         );
-    }, [listQuery.data, search]);
+    }, [listQuery.data, locale, search]);
 
     const selectedFromList = listQuery.data?.find((item) => item.id === selectedId);
     const selectedItem = detailQuery.data ?? selectedFromList;
@@ -85,7 +104,7 @@ export default function NomenclaturePanel() {
     const hasInventoryControlError = inventoryChecksQuery.isError
         || inventoryStatusRulesQuery.isError;
     const inventoryLockMessage = lockingInventoryCheck
-        ? `Приход заблокирован: есть активная инвентаризация (${getInventoryStatusLabel(lockingInventoryCheck.statusCode, inventoryStatusRulesByCode.get(lockingInventoryCheck.statusCode))}). Завершите или отмените её, затем повторите приход.`
+        ? t('inventoryLock', {status: inventoryStatusLabel(lockingInventoryCheck.statusCode, inventoryStatusRulesByCode.get(lockingInventoryCheck.statusCode)?.name)})
         : '';
 
     const openItem = (id: string) => {
@@ -129,7 +148,7 @@ export default function NomenclaturePanel() {
         const unit = materialUnit.trim();
 
         if (!name || !nomenclatureCode || !unit) {
-            setCreateMaterialError('Заполните название, артикул и единицу измерения');
+            setCreateMaterialError(t('validation.materialRequired'));
             return;
         }
 
@@ -160,11 +179,11 @@ export default function NomenclaturePanel() {
 
         const parsedQuantity = Number(quantity);
         if (!Number.isFinite(parsedQuantity) || parsedQuantity <= 0) {
-            setFormError('Количество должно быть больше нуля');
+            setFormError(t('validation.positiveQuantity'));
             return;
         }
         if (!reason.trim()) {
-            setFormError('Укажите основание прихода: поставщика, накладную или комментарий');
+            setFormError(t('validation.receiptReason'));
             return;
         }
 
@@ -189,12 +208,12 @@ export default function NomenclaturePanel() {
         const parsedQuantity = Number(normQuantity);
 
         if (!normWorkTypeId || !normMaterialId) {
-            setNormError('Выберите тип работы и материал для нормы расхода.');
+            setNormError(t('validation.normReferences'));
             return;
         }
 
         if (!Number.isFinite(parsedQuantity) || parsedQuantity <= 0) {
-            setNormError('Норма расхода должна быть больше нуля.');
+            setNormError(t('validation.positiveNorm'));
             return;
         }
 
@@ -215,7 +234,7 @@ export default function NomenclaturePanel() {
         const normId = normIdToDelete.trim();
 
         if (!normId) {
-            setNormError('Укажите ID нормы расхода для удаления.');
+            setNormError(t('validation.normId'));
             return;
         }
 
@@ -235,15 +254,15 @@ export default function NomenclaturePanel() {
             <section className="rounded-2xl border border-slate-200/80 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.03)]">
                 <div className="flex flex-col gap-4 border-b border-slate-100 p-4 sm:p-5 lg:flex-row lg:items-center lg:justify-between">
                     <div>
-                        <h2 className="font-bold text-slate-900">Номенклатура склада</h2>
+                        <h2 className="font-bold text-slate-900">{t('title')}</h2>
                         <p className="mt-1 text-xs text-slate-500">
-                            Текущие остатки и минимальные уровни по каждой позиции
+                            {t('subtitle')}
                         </p>
                     </div>
 
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
                         <label className="relative block">
-                            <span className="sr-only">Поиск по номенклатуре</span>
+                            <span className="sr-only">{t('searchAria')}</span>
                             <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400">
                                 <path strokeLinecap="round" strokeWidth="2" d="m21 21-4.35-4.35m2.35-5.65a8 8 0 1 1-16 0 8 8 0 0 1 16 0Z" />
                             </svg>
@@ -251,7 +270,7 @@ export default function NomenclaturePanel() {
                                 type="search"
                                 value={search}
                                 onChange={(event) => setSearch(event.target.value)}
-                                placeholder="Код или название"
+                                placeholder={t('search')}
                                 className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 pl-9 pr-3 text-sm outline-none transition focus:border-violet-500 focus:bg-white focus:ring-2 focus:ring-violet-100 sm:w-64"
                             />
                         </label>
@@ -263,7 +282,7 @@ export default function NomenclaturePanel() {
                                 onChange={(event) => setActiveOnly(event.target.checked)}
                                 className="h-4 w-4 accent-violet-600"
                             />
-                            Только активные
+                            {t('activeOnly')}
                         </label>
 
                         <button
@@ -274,7 +293,7 @@ export default function NomenclaturePanel() {
                             }}
                             className="rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-bold text-white shadow-lg shadow-violet-950/15 transition hover:bg-violet-700"
                         >
-                            + Добавить материал
+                            {t('addMaterial')}
                         </button>
                     </div>
                 </div>
@@ -282,7 +301,7 @@ export default function NomenclaturePanel() {
                 {listQuery.isError && (
                     <QueryErrorNotice
                         className="m-4"
-                        message={getApiErrorMessage(listQuery.error, 'Не удалось загрузить номенклатуру')}
+                        message={getApiErrorMessage(listQuery.error, t('loadError'))}
                         onRetry={() => void listQuery.refetch()}
                         isRetrying={listQuery.isFetching}
                     />
@@ -292,12 +311,12 @@ export default function NomenclaturePanel() {
                     <table className="w-full min-w-[760px] text-left">
                         <thead className="border-b border-slate-200 bg-slate-50 text-[11px] uppercase tracking-wider text-slate-400">
                             <tr>
-                                <th className="px-5 py-3 font-bold">Код</th>
-                                <th className="px-5 py-3 font-bold">Наименование</th>
-                                <th className="px-5 py-3 font-bold">Остаток</th>
-                                <th className="px-5 py-3 font-bold">Минимум</th>
-                                <th className="px-5 py-3 font-bold">Состояние</th>
-                                <th className="px-5 py-3 text-right font-bold">Действие</th>
+                                <th className="px-5 py-3 font-bold">{t('columns.code')}</th>
+                                <th className="px-5 py-3 font-bold">{t('columns.name')}</th>
+                                <th className="px-5 py-3 font-bold">{t('columns.balance')}</th>
+                                <th className="px-5 py-3 font-bold">{t('columns.minimum')}</th>
+                                <th className="px-5 py-3 font-bold">{t('columns.state')}</th>
+                                <th className="px-5 py-3 text-right font-bold">{t('columns.action')}</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
@@ -308,17 +327,17 @@ export default function NomenclaturePanel() {
                                         <td className="px-5 py-4 font-mono text-xs font-bold text-slate-500">{item.code}</td>
                                         <td className="px-5 py-4">
                                             <p className="text-sm font-bold text-slate-900">{item.name}</p>
-                                            <p className="mt-0.5 text-xs text-slate-400">Единица: {item.unit}</p>
+                                            <p className="mt-0.5 text-xs text-slate-400">{t('unit', {unit: item.unit})}</p>
                                         </td>
                                         <td className={`px-5 py-4 text-sm font-black ${low ? 'text-red-600' : 'text-slate-800'}`}>
-                                            {formatQuantity(item.currentStock, item.unit)}
+                                            {quantityLabel(item.currentStock, item.unit)}
                                         </td>
                                         <td className="px-5 py-4 text-sm text-slate-500">
-                                            {formatQuantity(item.minStockLevel, item.unit)}
+                                            {quantityLabel(item.minStockLevel, item.unit)}
                                         </td>
                                         <td className="px-5 py-4">
                                             <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-bold ${item.active ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
-                                                {item.active ? 'Активна' : 'Неактивна'}
+                                                {item.active ? t('active') : t('inactive')}
                                             </span>
                                         </td>
                                         <td className="px-5 py-4 text-right">
@@ -327,7 +346,7 @@ export default function NomenclaturePanel() {
                                                 onClick={() => openItem(item.id)}
                                             className="rounded-xl bg-violet-50 px-3.5 py-2 text-xs font-bold text-violet-700 transition hover:bg-violet-100"
                                             >
-                                                Открыть / приход
+                                                {t('openReceipt')}
                                             </button>
                                         </td>
                                     </tr>
@@ -338,11 +357,11 @@ export default function NomenclaturePanel() {
                 </div>
 
                 {listQuery.isLoading && (
-                    <div className="px-5 py-12 text-center text-sm text-slate-500">Загружаем позиции…</div>
+                    <div className="px-5 py-12 text-center text-sm text-slate-500">{t('loading')}</div>
                 )}
                 {!listQuery.isLoading && filteredItems.length === 0 && (
                     <div className="px-5 py-12 text-center text-sm text-slate-500">
-                        По заданным условиям ничего не найдено
+                        {t('empty')}
                     </div>
                 )}
             </section>
@@ -352,17 +371,17 @@ export default function NomenclaturePanel() {
                     <form onSubmit={handleCreateMaterial}>
                         <div className="flex items-start justify-between gap-4 border-b border-slate-100 px-5 py-4 sm:px-6">
                             <div>
-                                <p className="text-xs font-bold uppercase tracking-wider text-blue-600">Новый материал</p>
-                                <h2 className="mt-1 text-lg font-bold text-slate-900">Добавить материал на склад</h2>
+                                <p className="text-xs font-bold uppercase tracking-wider text-blue-600">{t('create.badge')}</p>
+                                <h2 className="mt-1 text-lg font-bold text-slate-900">{t('create.title')}</h2>
                                 <p className="mt-1 text-xs leading-5 text-slate-500">
-                                    Будет создан материал и связанная позиция номенклатуры с нулевым остатком.
+                                    {t('create.hint')}
                                 </p>
                             </div>
                             <button
                                 type="button"
                                 onClick={closeCreateMaterial}
                                 disabled={createMaterialState.isLoading}
-                                aria-label="Закрыть"
+                                aria-label={commonT('close')}
                                 className="text-2xl leading-none text-slate-400 transition hover:text-slate-700 disabled:cursor-not-allowed disabled:text-slate-300"
                             >
                                 &times;
@@ -372,23 +391,23 @@ export default function NomenclaturePanel() {
                         <div className="space-y-4 p-5 sm:p-6">
                             <div className="grid gap-4 sm:grid-cols-2">
                                 <label>
-                                    <span className="mb-1.5 block text-sm font-semibold text-slate-700">Название</span>
+                                    <span className="mb-1.5 block text-sm font-semibold text-slate-700">{t('create.name')}</span>
                                     <input
                                         required
                                         value={materialName}
                                         onChange={(event) => setMaterialName(event.target.value)}
-                                        placeholder="Например: Zirconia HT A2"
+                                        placeholder={t('create.namePlaceholder')}
                                         className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-500 focus:bg-white"
                                     />
                                 </label>
 
                                 <label>
-                                    <span className="mb-1.5 block text-sm font-semibold text-slate-700">Артикул номенклатуры</span>
+                                    <span className="mb-1.5 block text-sm font-semibold text-slate-700">{t('create.code')}</span>
                                     <input
                                         required
                                         value={materialCode}
                                         onChange={(event) => setMaterialCode(event.target.value)}
-                                        placeholder="Например: MAT-ZR-A2"
+                                        placeholder={t('create.codePlaceholder')}
                                         className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 font-mono text-sm outline-none transition focus:border-blue-500 focus:bg-white"
                                     />
                                 </label>
@@ -396,22 +415,22 @@ export default function NomenclaturePanel() {
 
                             <div className="grid gap-4 sm:grid-cols-[1fr_10rem]">
                                 <label>
-                                    <span className="mb-1.5 block text-sm font-semibold text-slate-700">Описание</span>
+                                    <span className="mb-1.5 block text-sm font-semibold text-slate-700">{t('create.description')}</span>
                                     <input
                                         value={materialDescription}
                                         onChange={(event) => setMaterialDescription(event.target.value)}
-                                        placeholder="Короткое описание или назначение"
+                                        placeholder={t('create.descriptionPlaceholder')}
                                         className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-500 focus:bg-white"
                                     />
                                 </label>
 
                                 <label>
-                                    <span className="mb-1.5 block text-sm font-semibold text-slate-700">Единица</span>
+                                    <span className="mb-1.5 block text-sm font-semibold text-slate-700">{t('create.unit')}</span>
                                     <input
                                         required
                                         value={materialUnit}
                                         onChange={(event) => setMaterialUnit(event.target.value)}
-                                        placeholder="шт, г, кг"
+                                        placeholder={t('create.unitPlaceholder')}
                                         className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-500 focus:bg-white"
                                     />
                                 </label>
@@ -430,14 +449,14 @@ export default function NomenclaturePanel() {
                                     disabled={createMaterialState.isLoading}
                                     className="rounded-xl bg-slate-100 px-5 py-3 text-sm font-bold text-slate-700 transition hover:bg-slate-200 disabled:cursor-not-allowed disabled:text-slate-400"
                                 >
-                                    Отмена
+                                    {commonT('cancel')}
                                 </button>
                                 <button
                                     type="submit"
                                     disabled={createMaterialState.isLoading}
                                     className="rounded-xl bg-blue-600 px-5 py-3 text-sm font-bold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-300"
                                 >
-                                    {createMaterialState.isLoading ? 'Создаём...' : 'Создать материал'}
+                                    {createMaterialState.isLoading ? t('create.creating') : t('create.submit')}
                                 </button>
                             </div>
                         </div>
@@ -449,9 +468,9 @@ export default function NomenclaturePanel() {
                 <Modal contentClassName="max-w-2xl p-0">
                     <div className="flex items-start justify-between gap-4 border-b border-slate-100 px-5 py-4 sm:px-6">
                         <div>
-                            <p className="text-xs font-bold uppercase tracking-wider text-blue-600">Карточка позиции</p>
+                            <p className="text-xs font-bold uppercase tracking-wider text-blue-600">{t('detail.badge')}</p>
                             <h2 className="mt-1 text-lg font-bold text-slate-900">
-                                {selectedItem?.name ?? 'Загрузка…'}
+                                {selectedItem?.name ?? t('detail.loading')}
                             </h2>
                             {selectedItem && (
                                 <p className="mt-1 font-mono text-xs text-slate-400">{selectedItem.code}</p>
@@ -460,7 +479,7 @@ export default function NomenclaturePanel() {
                         <button
                             type="button"
                             onClick={closeItem}
-                            aria-label="Закрыть"
+                            aria-label={commonT('close')}
                             className="text-2xl leading-none text-slate-400 transition hover:text-slate-700"
                         >
                             &times;
@@ -470,7 +489,7 @@ export default function NomenclaturePanel() {
                     <div className="space-y-5 p-5 sm:p-6">
                         {detailQuery.isError && (
                             <QueryErrorNotice
-                                message={getApiErrorMessage(detailQuery.error, 'Номенклатура не найдена')}
+                                message={getApiErrorMessage(detailQuery.error, t('detail.notFound'))}
                                 onRetry={() => void detailQuery.refetch()}
                                 isRetrying={detailQuery.isFetching}
                             />
@@ -478,7 +497,7 @@ export default function NomenclaturePanel() {
 
                         {balanceQuery.isError && (
                             <QueryErrorNotice
-                                message="Не удалось загрузить актуальный остаток."
+                                message={t('detail.balanceError')}
                                 onRetry={() => void balanceQuery.refetch()}
                                 isRetrying={balanceQuery.isFetching}
                             />
@@ -486,7 +505,7 @@ export default function NomenclaturePanel() {
 
                         {hasInventoryControlError && (
                             <QueryErrorNotice
-                                message="Не удалось проверить состояние инвентаризации. Приход временно заблокирован."
+                                message={t('detail.inventoryError')}
                                 onRetry={() => {
                                     if (inventoryChecksQuery.isError) void inventoryChecksQuery.refetch();
                                     if (inventoryStatusRulesQuery.isError) void inventoryStatusRulesQuery.refetch();
@@ -497,32 +516,32 @@ export default function NomenclaturePanel() {
 
                         <div className="grid gap-3 sm:grid-cols-3">
                             <div className="rounded-xl bg-slate-50 p-4">
-                                <p className="text-xs text-slate-500">Текущий остаток</p>
+                                <p className="text-xs text-slate-500">{t('detail.balance')}</p>
                                 <p className="mt-1 text-xl font-black text-slate-900">
                                     {balanceQuery.isFetching
                                         ? '…'
-                                        : formatQuantity(balanceQuery.data ?? selectedItem?.currentStock, selectedItem?.unit)}
+                                        : quantityLabel(balanceQuery.data ?? selectedItem?.currentStock, selectedItem?.unit)}
                                 </p>
                             </div>
                             <div className="rounded-xl bg-slate-50 p-4">
-                                <p className="text-xs text-slate-500">Минимальный уровень</p>
+                                <p className="text-xs text-slate-500">{t('detail.minimum')}</p>
                                 <p className="mt-1 text-xl font-black text-slate-900">
-                                    {formatQuantity(selectedItem?.minStockLevel, selectedItem?.unit)}
+                                    {quantityLabel(selectedItem?.minStockLevel, selectedItem?.unit)}
                                 </p>
                             </div>
                             <div className="rounded-xl bg-slate-50 p-4">
-                                <p className="text-xs text-slate-500">Статус</p>
+                                <p className="text-xs text-slate-500">{t('detail.status')}</p>
                                 <p className={`mt-1 text-sm font-bold ${selectedItem?.active ? 'text-emerald-700' : 'text-slate-500'}`}>
-                                    {selectedItem?.active ? 'Активна' : 'Неактивна'}
+                                    {selectedItem?.active ? t('active') : t('inactive')}
                                 </p>
                             </div>
                         </div>
 
                         <form onSubmit={handleReceive} className="space-y-4 rounded-2xl border border-blue-100 bg-blue-50/60 p-4 sm:p-5">
                             <div>
-                                <h3 className="font-bold text-slate-900">Провести ручной приход</h3>
+                                <h3 className="font-bold text-slate-900">{t('receipt.title')}</h3>
                                 <p className="mt-1 text-xs leading-5 text-slate-600">
-                                    Внимание: операция не идемпотентна. Повторная отправка повторно увеличит остаток.
+                                    {t('receipt.warning')}
                                 </p>
                             </div>
 
@@ -534,7 +553,7 @@ export default function NomenclaturePanel() {
 
                             <div className="grid gap-3 sm:grid-cols-[10rem_1fr]">
                                 <label>
-                                    <span className="mb-1.5 block text-sm font-semibold text-slate-700">Количество</span>
+                                    <span className="mb-1.5 block text-sm font-semibold text-slate-700">{t('receipt.quantity')}</span>
                                     <div className="relative">
                                         <input
                                             required
@@ -552,12 +571,12 @@ export default function NomenclaturePanel() {
                                     </div>
                                 </label>
                                 <label>
-                                    <span className="mb-1.5 block text-sm font-semibold text-slate-700">Основание</span>
+                                    <span className="mb-1.5 block text-sm font-semibold text-slate-700">{t('receipt.reason')}</span>
                                     <input
                                         required
                                         value={reason}
                                         onChange={(event) => setReason(event.target.value)}
-                                        placeholder="Например: накладная №348 от поставщика"
+                                        placeholder={t('receipt.reasonPlaceholder')}
                                         disabled={Boolean(inventoryLockMessage) || hasInventoryControlError}
                                         className="w-full rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm outline-none focus:border-blue-500 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
                                     />
@@ -574,22 +593,22 @@ export default function NomenclaturePanel() {
                                     disabled={receiveState.isLoading || !selectedItem?.active || Boolean(inventoryLockMessage) || hasInventoryControlError}
                                     className="rounded-xl bg-blue-600 px-5 py-3 text-sm font-bold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-300"
                                 >
-                                    {receiveState.isLoading ? 'Проводим…' : 'Провести приход'}
+                                    {receiveState.isLoading ? t('receipt.processing') : t('receipt.submit')}
                                 </button>
                             </div>
                         </form>
 
                         <form onSubmit={handleUpsertNorm} className="space-y-4 rounded-2xl border border-emerald-100 bg-emerald-50/60 p-4 sm:p-5">
                             <div>
-                                <h3 className="font-bold text-slate-900">Норма расхода</h3>
+                                <h3 className="font-bold text-slate-900">{t('norm.title')}</h3>
                                 <p className="mt-1 text-xs leading-5 text-slate-600">
-                                    Привяжите эту складскую позицию к типу работы и материалу, чтобы backend знал плановый расход.
+                                    {t('norm.hint')}
                                 </p>
                             </div>
 
                             {(isWorkTypesError || isMaterialsError) && (
                                 <QueryErrorNotice
-                                    message="Не удалось загрузить справочники для нормы расхода."
+                                    message={t('norm.referencesError')}
                                     onRetry={() => {
                                         if (isWorkTypesError) void refetchWorkTypes();
                                         if (isMaterialsError) void refetchMaterials();
@@ -600,7 +619,7 @@ export default function NomenclaturePanel() {
 
                             <div className="grid gap-3 sm:grid-cols-2">
                                 <label>
-                                    <span className="mb-1.5 block text-sm font-semibold text-slate-700">Тип работы</span>
+                                    <span className="mb-1.5 block text-sm font-semibold text-slate-700">{t('norm.workType')}</span>
                                     <select
                                         required
                                         value={normWorkTypeId}
@@ -608,7 +627,7 @@ export default function NomenclaturePanel() {
                                         disabled={isWorkTypesLoading || isWorkTypesError}
                                         className="w-full rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm outline-none focus:border-emerald-500 disabled:cursor-not-allowed disabled:bg-slate-100"
                                     >
-                                        <option value="">Выберите тип работы</option>
+                                        <option value="">{t('norm.workTypePlaceholder')}</option>
                                         {workTypes.map((workType) => (
                                             <option key={workType.id} value={workType.id}>
                                                 {workType.name}
@@ -618,7 +637,7 @@ export default function NomenclaturePanel() {
                                 </label>
 
                                 <label>
-                                    <span className="mb-1.5 block text-sm font-semibold text-slate-700">Материал</span>
+                                    <span className="mb-1.5 block text-sm font-semibold text-slate-700">{t('norm.material')}</span>
                                     <select
                                         required
                                         value={normMaterialId}
@@ -626,7 +645,7 @@ export default function NomenclaturePanel() {
                                         disabled={isMaterialsLoading || isMaterialsError}
                                         className="w-full rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm outline-none focus:border-emerald-500 disabled:cursor-not-allowed disabled:bg-slate-100"
                                     >
-                                        <option value="">Выберите материал</option>
+                                        <option value="">{t('norm.materialPlaceholder')}</option>
                                         {materials.map((material) => (
                                             <option key={material.id} value={material.id}>
                                                 {material.name}
@@ -637,7 +656,7 @@ export default function NomenclaturePanel() {
                             </div>
 
                             <label>
-                                <span className="mb-1.5 block text-sm font-semibold text-slate-700">Количество на работу</span>
+                                <span className="mb-1.5 block text-sm font-semibold text-slate-700">{t('norm.quantity')}</span>
                                 <div className="relative">
                                     <input
                                         required
@@ -656,11 +675,11 @@ export default function NomenclaturePanel() {
 
                             <div className="rounded-xl border border-slate-200 bg-white p-3">
                                 <label>
-                                    <span className="mb-1.5 block text-sm font-semibold text-slate-700">ID нормы для удаления</span>
+                                    <span className="mb-1.5 block text-sm font-semibold text-slate-700">{t('norm.id')}</span>
                                     <input
                                         value={normIdToDelete}
                                         onChange={(event) => setNormIdToDelete(event.target.value)}
-                                        placeholder="UUID нормы расхода"
+                                        placeholder={t('norm.idPlaceholder')}
                                         className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 font-mono text-sm outline-none focus:border-red-500"
                                     />
                                 </label>
@@ -668,7 +687,7 @@ export default function NomenclaturePanel() {
                                     type="button"
                                     onClick={() => {
                                         if (!normIdToDelete.trim()) {
-                                            setNormError('Укажите ID нормы расхода для удаления.');
+                                            setNormError(t('validation.normId'));
                                             return;
                                         }
                                         setIsDeleteNormConfirmOpen(true);
@@ -676,7 +695,7 @@ export default function NomenclaturePanel() {
                                     disabled={deleteNormState.isLoading}
                                     className="mt-3 rounded-xl border border-red-500 px-4 py-2 text-sm font-bold text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-300"
                                 >
-                                    {deleteNormState.isLoading ? 'Удаляем...' : 'Удалить норму'}
+                                    {deleteNormState.isLoading ? t('norm.deleting') : t('norm.delete')}
                                 </button>
                             </div>
 
@@ -690,7 +709,7 @@ export default function NomenclaturePanel() {
                                     disabled={upsertNormState.isLoading || isWorkTypesError || isMaterialsError}
                                     className="rounded-xl bg-emerald-600 px-5 py-3 text-sm font-bold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-emerald-300"
                                 >
-                                    {upsertNormState.isLoading ? 'Сохраняем...' : 'Сохранить норму'}
+                                    {upsertNormState.isLoading ? t('norm.saving') : t('norm.save')}
                                 </button>
                             </div>
                         </form>
@@ -699,9 +718,9 @@ export default function NomenclaturePanel() {
             )}
             <ConfirmDialog
                 open={isDeleteNormConfirmOpen}
-                title="Удалить норму расхода?"
-                description={<>Норма <span className="font-mono text-xs text-slate-700 dark:text-slate-200">{normIdToDelete}</span> перестанет применяться к новым задачам.</>}
-                confirmLabel="Удалить норму"
+                title={t('norm.deleteTitle')}
+                description={t('norm.deleteDescription', {id: normIdToDelete})}
+                confirmLabel={t('norm.delete')}
                 isLoading={deleteNormState.isLoading}
                 onClose={() => setIsDeleteNormConfirmOpen(false)}
                 onConfirm={handleDeleteNorm}

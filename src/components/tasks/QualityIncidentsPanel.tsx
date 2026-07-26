@@ -2,6 +2,8 @@
 
 import { FormEvent, useMemo, useState } from 'react';
 import { useSelector } from 'react-redux';
+import {useTranslations} from 'next-intl';
+import {useAppFormatters} from '@/src/i18n/provider';
 
 import { RootState } from '@/src/lib/store';
 import {
@@ -12,20 +14,6 @@ import type { QualityIncident } from '@/src/types/task.types';
 
 const PAGE_SIZE = 20;
 
-const INCIDENT_TYPE_LABELS: Record<string, string> = {
-    REWORK: 'Переделка',
-    DEFECT: 'Брак',
-};
-
-const REASON_LABELS: Record<string, string> = {
-    QUALITY_DEFECT: 'Дефект качества',
-    WRONG_SIZE: 'Неверный размер',
-    WRONG_COLOR: 'Неверный цвет',
-    DAMAGED: 'Повреждение',
-    TECHNOLOGY_VIOLATION: 'Нарушение технологии',
-    OTHER: 'Другое',
-};
-
 type QualityIncidentsPanelProps = {
     taskId: string;
     className?: string;
@@ -35,6 +23,9 @@ export default function QualityIncidentsPanel({
     taskId,
     className = '',
 }: QualityIncidentsPanelProps) {
+    const t = useTranslations('tasks.quality');
+    const commonT = useTranslations('common.actions');
+    const paginationT = useTranslations('common.pagination');
     const { role, roles } = useSelector((state: RootState) => state.auth);
     const [pagination, setPagination] = useState({ taskId: '', page: 0 });
     const [resolvingIncidentId, setResolvingIncidentId] = useState('');
@@ -79,7 +70,7 @@ export default function QualityIncidentsPanel({
         const comment = resolutionComment.trim();
 
         if (!comment) {
-            setResolveError('Добавьте комментарий о выполненном исправлении.');
+            setResolveError(t('commentRequired'));
             return;
         }
 
@@ -101,10 +92,10 @@ export default function QualityIncidentsPanel({
             <div className="flex items-start justify-between gap-3">
                 <div>
                     <p className="text-xs font-black uppercase tracking-widest text-slate-500">
-                        Контроль качества
+                        {t('title')}
                     </p>
                     <div className="mt-3 inline-flex rounded-full bg-amber-100 px-3 py-1.5 text-xs font-black text-amber-800">
-                        Брак / переделка: {openIncidents.length}
+                        {t('count', {count: openIncidents.length})}
                     </div>
                 </div>
 
@@ -114,7 +105,7 @@ export default function QualityIncidentsPanel({
                     disabled={isFetching}
                     className="rounded-lg border border-slate-200 px-3 py-1.5 text-[10px] font-black uppercase text-slate-500 transition hover:bg-slate-50 disabled:cursor-wait disabled:opacity-60"
                 >
-                    {isFetching ? 'Обновляем…' : 'Обновить'}
+                    {isFetching ? commonT('processing') : commonT('refresh')}
                 </button>
             </div>
 
@@ -128,21 +119,21 @@ export default function QualityIncidentsPanel({
             {isError ? (
                 <div className="mt-4 rounded-xl border border-red-200 bg-red-50 p-4" role="alert">
                     <p className="text-sm font-bold text-red-700">
-                        Не удалось загрузить список браков и переделок.
+                        {t('loadError')}
                     </p>
                     <button
                         type="button"
                         onClick={() => void refetch()}
                         className="mt-3 rounded-lg bg-red-700 px-3 py-1.5 text-xs font-bold text-white hover:bg-red-800"
                     >
-                        Повторить
+                        {commonT('retry')}
                     </button>
                 </div>
             ) : null}
 
             {!isLoading && !isError && incidents.length === 0 ? (
                 <div className="mt-4 rounded-xl border border-dashed border-slate-300 bg-slate-50 p-4 text-center text-sm font-semibold text-slate-400">
-                    Инцидентов по этой задаче пока нет.
+                    {t('empty')}
                 </div>
             ) : null}
 
@@ -178,10 +169,10 @@ export default function QualityIncidentsPanel({
                         disabled={currentPage === 0 || isFetching}
                         className="rounded-lg border border-slate-200 px-3 py-1.5 text-[10px] font-black uppercase text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
                     >
-                        Назад
+                        {commonT('back')}
                     </button>
                     <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
-                        Страница {currentPage + 1}
+                        {t('page', {page: currentPage + 1})}
                     </span>
                     <button
                         type="button"
@@ -189,7 +180,7 @@ export default function QualityIncidentsPanel({
                         disabled={!hasNext || isFetching}
                         className="rounded-lg border border-slate-200 px-3 py-1.5 text-[10px] font-black uppercase text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
                     >
-                        Далее
+                        {paginationT('next')}
                     </button>
                 </div>
             ) : null}
@@ -222,21 +213,33 @@ function IncidentCard({
     onResolutionCommentChange,
     onResolve,
 }: IncidentCardProps) {
+    const t = useTranslations('tasks.quality');
+    const commonT = useTranslations('common.actions');
+    const formatters = useAppFormatters();
     const isOpen = incident.status === 'OPEN';
+    const incidentType = incident.incidentType === 'REWORK'
+        ? t('incidentTypes.REWORK')
+        : incident.incidentType === 'DEFECT' ? t('incidentTypes.DEFECT') : incident.incidentType;
+    const reason = incident.reasonCode === 'QUALITY_DEFECT' ? t('reasons.QUALITY_DEFECT')
+        : incident.reasonCode === 'WRONG_SIZE' ? t('reasons.WRONG_SIZE')
+        : incident.reasonCode === 'WRONG_COLOR' ? t('reasons.WRONG_COLOR')
+        : incident.reasonCode === 'DAMAGED' ? t('reasons.DAMAGED')
+        : incident.reasonCode === 'TECHNOLOGY_VIOLATION' ? t('reasons.TECHNOLOGY_VIOLATION')
+        : incident.reasonCode === 'OTHER' ? t('reasons.OTHER') : incident.reasonCode;
 
     return (
         <article className={`rounded-xl border p-4 ${isOpen ? 'border-amber-200 bg-amber-50/50' : 'border-emerald-200 bg-emerald-50/40'}`}>
             <div className="flex flex-wrap items-start justify-between gap-2">
                 <div>
                     <p className="text-sm font-black text-slate-900">
-                        {INCIDENT_TYPE_LABELS[incident.incidentType] ?? incident.incidentType}
+                        {incidentType}
                     </p>
                     <p className="mt-0.5 text-xs font-semibold text-slate-500">
-                        {REASON_LABELS[incident.reasonCode] ?? incident.reasonCode}
+                        {reason}
                     </p>
                 </div>
                 <span className={`rounded-full px-2.5 py-1 text-[10px] font-black uppercase ${isOpen ? 'bg-amber-200 text-amber-900' : 'bg-emerald-200 text-emerald-900'}`}>
-                    {isOpen ? 'Открыт' : 'Закрыт'}
+                    {isOpen ? t('open') : t('closed')}
                 </span>
             </div>
 
@@ -245,22 +248,22 @@ function IncidentCard({
             </p>
 
             <dl className="mt-3 grid grid-cols-2 gap-2 text-xs">
-                <IncidentMetric label="Материальные потери" value={formatAmount(incident.materialLossAmount)} />
-                <IncidentMetric label="Удержание" value={formatAmount(incident.salaryDeductionAmount)} />
+                <IncidentMetric label={t('materialLoss')} value={formatAmount(incident.materialLossAmount, formatters.number)} />
+                <IncidentMetric label={t('deduction')} value={formatAmount(incident.salaryDeductionAmount, formatters.number)} />
             </dl>
 
             <div className="mt-3 flex flex-wrap justify-between gap-2 border-t border-slate-200/70 pt-3 text-[10px] font-semibold text-slate-500">
-                <span>Создан: {formatDateTime(incident.createdAt)}</span>
-                <span>Ответственный: {shortId(incident.assignedTo)}</span>
+                <span>{t('created', {date: formatters.dateTime(incident.createdAt)})}</span>
+                <span>{t('responsible', {id: shortId(incident.assignedTo)})}</span>
             </div>
 
             {!isOpen && incident.resolutionComment ? (
                 <div className="mt-3 rounded-lg border border-emerald-200 bg-white/70 p-3">
-                    <p className="text-[10px] font-black uppercase text-emerald-700">Результат</p>
+                    <p className="text-[10px] font-black uppercase text-emerald-700">{t('result')}</p>
                     <p className="mt-1 text-sm text-slate-700">{incident.resolutionComment}</p>
                     {incident.resolvedAt ? (
                         <p className="mt-1 text-[10px] font-semibold text-slate-400">
-                            {formatDateTime(incident.resolvedAt)}
+                            {formatters.dateTime(incident.resolvedAt)}
                         </p>
                     ) : null}
                 </div>
@@ -272,7 +275,7 @@ function IncidentCard({
                     onClick={onStartResolving}
                     className="mt-3 rounded-lg border border-emerald-300 bg-white px-3 py-2 text-xs font-bold text-emerald-700 transition hover:bg-emerald-50"
                 >
-                    Закрыть инцидент
+                    {t('closeIncident')}
                 </button>
             ) : null}
 
@@ -280,12 +283,12 @@ function IncidentCard({
                 <form onSubmit={onResolve} className="mt-3 space-y-3 border-t border-amber-200 pt-3">
                     <label className="block">
                         <span className="mb-1.5 block text-xs font-black text-slate-600">
-                            Комментарий по устранению
+                            {t('resolutionComment')}
                         </span>
                         <textarea
                             value={resolutionComment}
                             onChange={(event) => onResolutionCommentChange(event.target.value)}
-                            placeholder="Опишите, как подтверждено устранение проблемы"
+                            placeholder={t('resolutionPlaceholder')}
                             className="min-h-20 w-full resize-y rounded-lg border border-slate-200 bg-white p-3 text-sm text-slate-700 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
                             required
                         />
@@ -299,7 +302,7 @@ function IncidentCard({
                             disabled={!resolutionComment.trim() || isResolving}
                             className="rounded-lg bg-emerald-700 px-3 py-2 text-xs font-bold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:bg-slate-300"
                         >
-                            {isResolving ? 'Закрываем…' : 'Подтвердить закрытие'}
+                            {isResolving ? t('resolving') : t('confirmResolution')}
                         </button>
                         <button
                             type="button"
@@ -307,7 +310,7 @@ function IncidentCard({
                             disabled={isResolving}
                             className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50 disabled:cursor-wait"
                         >
-                            Отмена
+                            {commonT('cancel')}
                         </button>
                     </div>
                 </form>
@@ -325,24 +328,10 @@ function IncidentMetric({ label, value }: { label: string; value: string }) {
     );
 }
 
-function formatAmount(value?: number | null) {
+function formatAmount(value: number | null | undefined, formatNumber: (value: number, options?: Intl.NumberFormatOptions) => string) {
     if (value === undefined || value === null) return '—';
 
-    return value.toLocaleString('ru-RU');
-}
-
-function formatDateTime(value: string) {
-    const date = new Date(value);
-
-    if (Number.isNaN(date.getTime())) return value;
-
-    return date.toLocaleString('ru-RU', {
-        day: '2-digit',
-        month: 'short',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-    });
+    return formatNumber(value);
 }
 
 function shortId(value: string) {

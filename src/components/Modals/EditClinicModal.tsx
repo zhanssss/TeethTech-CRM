@@ -6,6 +6,7 @@ import PhoneInput from '@/src/components/ui/PhoneInput';
 import {useUpdateClinicMutation} from '@/src/services/api/clinicsApi'
 import {UpdateClinicDto} from "@/src/types/clinic.types";
 import { useNotifications } from '@/src/features/notifications/useNotifications';
+import {useTranslations} from 'next-intl';
 
 type EditClinicModalProps = {
     isOpen: boolean;
@@ -18,6 +19,8 @@ export default function EditClinicModal({
                                             clinic,
                                             onClose,
                                         }: EditClinicModalProps) {
+    const t = useTranslations('clinics.form');
+    const commonT = useTranslations('common');
     const [formData, setFormData] = useState<UpdateClinicDto>(clinic ?? {
         id: '',
         name: '',
@@ -38,7 +41,7 @@ export default function EditClinicModal({
        e.preventDefault();
        if(!clinic.id){
            console.log('Clinic id is missing')
-           notifyError('Не найден идентификатор клиники');
+           notifyError(t('missingId'));
            return;
        }
 
@@ -73,11 +76,11 @@ export default function EditClinicModal({
         <Modal contentClassName="max-w-2xl overflow-hidden p-0">
             <div className="flex items-start justify-between gap-4 border-b border-slate-200 bg-gradient-to-r from-violet-50 to-white px-5 py-5 dark:border-slate-700 dark:from-violet-950/30 dark:to-slate-900 sm:px-6">
                 <div className="min-w-0">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-violet-600">Карточка клиники</p><h2 className="mt-1 text-xl font-black text-slate-950 dark:text-white">
-                        Редактировать клинику
+                    <p className="text-[10px] font-black uppercase tracking-widest text-violet-600">{t('card')}</p><h2 className="mt-1 text-xl font-black text-slate-950 dark:text-white">
+                        {t('editTitle')}
                     </h2>
                     <p className="text-xs text-slate-500">
-                        Изменение данных клиники в базе
+                        {t('editSubtitle')}
                     </p>
                 </div>
 
@@ -94,7 +97,7 @@ export default function EditClinicModal({
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                     <div>
                         <label className="mb-1 block text-xs font-bold uppercase text-slate-400">
-                            Название клиники
+                            {t('name')}
                         </label>
                         <input
                             required
@@ -109,7 +112,7 @@ export default function EditClinicModal({
 
                     <div>
                         <label className="mb-1 block text-xs font-bold uppercase text-slate-400">
-                            Контактное лицо
+                            {t('contactPerson')}
                         </label>
                         <input
                             type="text"
@@ -126,7 +129,7 @@ export default function EditClinicModal({
 
                     <div>
                         <label className="mb-1 block text-xs font-bold uppercase text-slate-400">
-                            Телефон
+                            {t('phone')}
                         </label>
                         <PhoneInput
                             value={formData.phone ?? ''}
@@ -153,7 +156,7 @@ export default function EditClinicModal({
 
                     <div className="md:col-span-2">
                         <label className="mb-1 block text-xs font-bold uppercase text-slate-400">
-                            Адрес
+                            {t('address')}
                         </label>
                         <input
                             required
@@ -174,7 +177,7 @@ export default function EditClinicModal({
                             onChange={(e) =>
                                 setFormData({...formData, bin: e.target.value})
                             }
-                            placeholder="12 цифр"
+                            placeholder={t('binPlaceholder')}
                             className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-500 focus:bg-white"
                         />
                     </div>
@@ -186,14 +189,14 @@ export default function EditClinicModal({
                         onClick={onClose}
                         className="w-full rounded-xl px-5 py-2.5 text-sm font-bold text-slate-400 transition hover:text-slate-700 sm:w-auto"
                     >
-                        Отмена
+                        {commonT('actions.cancel')}
                     </button>
 
                     <button
                         type="submit"
                         className="w-full rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-7 py-2.5 text-sm font-bold text-white shadow-lg shadow-violet-500/20 transition hover:-translate-y-0.5 active:scale-95 sm:w-auto"
                     >
-                        {isLoading ? 'Сохранение...' : 'Сохранить изменения'}
+                        {isLoading ? t('saving') : t('saveChanges')}
                     </button>
                 </div>
             </form>

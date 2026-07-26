@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { useTranslations } from 'next-intl';
 
 import Modal from '@/src/components/ui/Modal';
 import { getApiErrorMessage } from '@/src/services/apiNotifications';
@@ -21,6 +22,8 @@ import type {
     MaterialUsageRequest,
 } from '@/src/types/task.types';
 import { createMaterialReportId } from '@/src/utils/materialAccounting';
+import { useAppFormatters, useAppLocale } from '@/src/i18n/provider';
+import { intlLocaleByLocale } from '@/src/i18n/config';
 
 type QuantityField =
     | 'issuedQuantity'
@@ -55,13 +58,6 @@ const QUANTITY_FIELDS: QuantityField[] = [
     'returnedQuantity',
 ];
 const QUANTITY_PATTERN = /^\d+(?:[.,]\d{1,4})?$/u;
-
-function formatQuantity(value: number) {
-    return new Intl.NumberFormat('ru-RU', {
-        minimumFractionDigits: 0,
-        maximumFractionDigits: 4,
-    }).format(value);
-}
 
 function parseQuantity(value: string) {
     if (!QUANTITY_PATTERN.test(value.trim())) return null;
@@ -138,13 +134,15 @@ function toUsage(row: ReportRow): MaterialUsageRequest {
     };
 }
 
-function getRowError(row: ReportRow) {
+type TransitionTranslator = ReturnType<typeof useTranslations<'tasks.transition'>>;
+
+function getRowError(row: ReportRow, t: TransitionTranslator) {
     const values = QUANTITY_FIELDS.map((field) => row[field]);
     if (values.some((value) => value.trim().startsWith('-'))) {
-        return 'Количество не может быть отрицательным.';
+        return t('negative');
     }
     if (values.some((value) => !QUANTITY_PATTERN.test(value.trim()))) {
-        return 'Заполните все количества, используя не более четырёх знаков после запятой.';
+        return t('invalidPrecision');
     }
 
     const issued = quantityUnits(row.issuedQuantity) ?? 0;
@@ -152,12 +150,12 @@ function getRowError(row: ReportRow) {
     const waste = quantityUnits(row.wasteQuantity) ?? 0;
     const returned = quantityUnits(row.returnedQuantity) ?? 0;
 
-    if (issued <= 0) return 'Выданное количество должно быть больше нуля.';
+    if (issued <= 0) return t('issuedPositive');
     if (issued !== consumed + waste + returned) {
-        return 'Выдано должно равняться сумме использованного, потерь и возврата.';
+        return t('totalsMismatch');
     }
     if (waste > 0 && !row.note.trim()) {
-        return 'При наличии потерь укажите их причину.';
+        return t('wasteReason');
     }
     return '';
 }
@@ -214,6 +212,11 @@ export default function TaskMaterialTransitionModal({
     onClose: () => void;
     onSuccess?: () => void;
 }) {
+    const t = useTranslations('tasks.transition');
+    const commonT = useTranslations('common');
+    const formats = useAppFormatters();
+    const { locale } = useAppLocale();
+    const intlLocale = intlLocaleByLocale[locale];
     const [materialReportId] = useState(createMaterialReportId);
     const [screen, setScreen] = useState<'form' | 'review'>('form');
     const [comment, setComment] = useState(defaultComment);
@@ -264,9 +267,9 @@ export default function TaskMaterialTransitionModal({
     const duplicateIds = rows.length !== new Set(
         rows.map((row) => row.nomenclatureId)
     ).size;
-    const rowErrors = rows.map((row) => getRowError(row));
+    const rowErrors = rows.map((row) => getRowError(row, t));
     const formError = duplicateIds
-        ? 'Одна номенклатура не может быть добавлена в отчёт дважды.'
+        ? t('duplicate')
         : rowErrors.find(Boolean) ?? '';
     const canReview = (!materialReportRequired || rows.length > 0)
         && !formError
@@ -280,12 +283,12 @@ export default function TaskMaterialTransitionModal({
         (item) => !rows.some((row) => row.nomenclatureId === item.nomenclatureId)
     ), [plan, rows]);
     const availableNomenclature = useMemo(() => {
-        const search = nomenclatureSearch.trim().toLocaleLowerCase('ru-RU');
+        const search = nomenclatureSearch.trim().toLocaleLowerCase(intlLocale);
         return nomenclature.filter((item) => (
             !rows.some((row) => row.nomenclatureId === item.id)
-            && (!search || `${item.name} ${item.code}`.toLocaleLowerCase('ru-RU').includes(search))
+            && (!search || `${item.name} ${item.code}`.toLocaleLowerCase(intlLocale).includes(search))
         ));
-    }, [nomenclature, nomenclatureSearch, rows]);
+    }, [intlLocale, nomenclature, nomenclatureSearch, rows]);
 
     const updateRow = (
         key: string,
@@ -394,13 +397,13 @@ export default function TaskMaterialTransitionModal({
             <header className="flex items-start justify-between gap-4 border-b border-slate-200 bg-gradient-to-r from-violet-50 to-white p-5">
                 <div>
                     <p className="text-[10px] font-black uppercase tracking-[.18em] text-violet-600">
-                        Передача на следующий этап
+                        {t('badge')}
                     </p>
                     <h2 className="mt-1 text-xl font-black text-slate-950">
-                        Отчёт по материалам
+                        {t('title')}
                     </h2>
                     <p className="mt-1 text-xs text-slate-500">
-                        {screen === 'form' ? 'Шаг 1 из 2 · Фактическое измерение' : 'Шаг 2 из 2 · Сверка перед отправкой'}
+                        {screen === 'form' ? t('formStep') : t('reviewStep')}
                     </p>
                 </div>
                 <button
@@ -409,30 +412,30 @@ export default function TaskMaterialTransitionModal({
                     disabled={isSubmitting}
                     className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600 disabled:opacity-50"
                 >
-                    Закрыть
+                    {commonT('actions.close')}
                 </button>
             </header>
 
             <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-5">
                 {hasReportLoadError ? (
                     <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800" role="alert">
-                        Не удалось загрузить данные материального учёта. Можно продолжить переход без отчёта или повторить загрузку.
+                        {t('loadError')}
                         <button type="button" className="ml-2 font-black underline" onClick={retryLoading}>
-                            Повторить
+                            {commonT('actions.retry')}
                         </button>
                     </div>
                 ) : null}
 
                 {accounting?.finalized ? (
                     <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm font-bold text-amber-900" role="status">
-                        Материалы списаны. Отчёт уже зафиксирован. Для корректировки обратитесь к администратору.
+                        {t('finalized')}
                     </div>
                 ) : null}
 
                 {isTerminal ? (
                     <div className="mb-4 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
-                        <strong>После этого перехода материалы будут окончательно зафиксированы.</strong>{' '}
-                        Повторный ввод и редактирование отчёта будут недоступны.
+                        <strong>{t('irreversibleTitle')}</strong>{' '}
+                        {t('irreversibleHint')}
                     </div>
                 ) : null}
 
@@ -445,7 +448,7 @@ export default function TaskMaterialTransitionModal({
                 {screen === 'form' ? (
                     <>
                         <p className="mb-4 text-sm text-slate-600">
-                            Добавьте только те материалы, с которыми работали на этом этапе. Если материалы не использовались, переход можно выполнить без отчёта.
+                            {t('selectionHint')}
                         </p>
 
                         <div className="mb-4 flex flex-col gap-2 rounded-xl border border-violet-100 bg-violet-50/40 p-3 sm:flex-row">
@@ -454,7 +457,7 @@ export default function TaskMaterialTransitionModal({
                                 onChange={(event) => setSelectedNomenclatureId(event.target.value)}
                                 className="min-h-10 min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-3 text-xs"
                             >
-                                <option value="">Выберите использованный материал…</option>
+                                <option value="">{t('materialPlaceholder')}</option>
                                 {availablePlan.map((item) => (
                                     <option key={item.nomenclatureId} value={item.nomenclatureId}>
                                         {item.nomenclatureName} · {item.unit}
@@ -467,7 +470,7 @@ export default function TaskMaterialTransitionModal({
                                 disabled={!selectedNomenclatureId}
                                 className="rounded-lg bg-violet-600 px-4 py-2 text-xs font-black text-white disabled:bg-slate-300"
                             >
-                                Добавить в отчёт
+                                {t('addToReport')}
                             </button>
                         </div>
 
@@ -479,7 +482,7 @@ export default function TaskMaterialTransitionModal({
                                         setNomenclatureSearch(event.target.value);
                                         setSelectedNomenclatureId('');
                                     }}
-                                    placeholder="Поиск по названию или коду"
+                                    placeholder={t('search')}
                                     className="min-h-10 rounded-lg border border-slate-200 bg-white px-3 text-xs outline-none focus:border-violet-500"
                                 />
                                 <select
@@ -487,7 +490,7 @@ export default function TaskMaterialTransitionModal({
                                     onChange={(event) => setSelectedNomenclatureId(event.target.value)}
                                     className="min-h-10 rounded-lg border border-slate-200 bg-white px-3 text-xs"
                                 >
-                                    <option value="">Добавить внеплановую номенклатуру…</option>
+                                    <option value="">{t('unplannedPlaceholder')}</option>
                                     {availableNomenclature.map((item) => (
                                         <option key={item.id} value={item.id}>
                                             {item.name} · {item.unit}
@@ -500,14 +503,14 @@ export default function TaskMaterialTransitionModal({
                                     disabled={!selectedNomenclatureId || nomenclatureQuery.isLoading}
                                     className="rounded-lg bg-violet-600 px-4 py-2 text-xs font-black text-white disabled:bg-slate-300"
                                 >
-                                    Добавить материал
+                                    {t('addMaterial')}
                                 </button>
                             </div>
                         ) : null}
 
                         {isReportLoading ? (
                             <div className="rounded-xl border border-slate-200 p-8 text-center text-sm text-slate-500">
-                                Загружаем план, накопленный факт и историю…
+                                {t('loading')}
                             </div>
                         ) : rows.length ? (
                             <div className="space-y-3">
@@ -524,7 +527,7 @@ export default function TaskMaterialTransitionModal({
                                                         {row.nomenclatureName}
                                                     </h3>
                                                     <p className="mt-1 text-xs font-bold text-slate-500">
-                                                        Единица измерения: {row.unit}
+                                                        {t('unit', {unit: row.unit})}
                                                     </p>
                                                 </div>
                                                 <button
@@ -532,34 +535,34 @@ export default function TaskMaterialTransitionModal({
                                                     onClick={() => removeMaterial(row.key)}
                                                     className="text-xs font-bold text-red-600"
                                                 >
-                                                    Убрать из отчёта
+                                                    {t('remove')}
                                                 </button>
                                             </div>
 
                                             <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                                                 <QuantityInput
-                                                    label="Выдано"
+                                                    label={t('issued')}
                                                     unit={row.unit}
                                                     value={row.issuedQuantity}
                                                     onChange={(value) => updateRow(row.key, 'issuedQuantity', value)}
                                                     disabled={Boolean(accounting?.finalized)}
                                                 />
                                                 <QuantityInput
-                                                    label="Использовано"
+                                                    label={t('used')}
                                                     unit={row.unit}
                                                     value={row.consumedQuantity}
                                                     onChange={(value) => updateRow(row.key, 'consumedQuantity', value)}
                                                     disabled={Boolean(accounting?.finalized)}
                                                 />
                                                 <QuantityInput
-                                                    label="Потери"
+                                                    label={t('waste')}
                                                     unit={row.unit}
                                                     value={row.wasteQuantity}
                                                     onChange={(value) => updateRow(row.key, 'wasteQuantity', value)}
                                                     disabled={Boolean(accounting?.finalized)}
                                                 />
                                                 <QuantityInput
-                                                    label="Возвращено"
+                                                    label={t('returned')}
                                                     unit={row.unit}
                                                     value={row.returnedQuantity}
                                                     onChange={(value) => updateRow(row.key, 'returnedQuantity', value)}
@@ -569,13 +572,13 @@ export default function TaskMaterialTransitionModal({
 
                                             <label className="mt-3 block">
                                                 <span className="mb-1 block text-[9px] font-black uppercase tracking-wide text-slate-400">
-                                                    Комментарий{(parseQuantity(row.wasteQuantity) ?? 0) > 0 ? ' · причина потерь обязательна' : ''}
+                                                    {(parseQuantity(row.wasteQuantity) ?? 0) > 0 ? t('wasteComment') : t('comment')}
                                                 </span>
                                                 <input
                                                     value={row.note}
                                                     onChange={(event) => updateRow(row.key, 'note', event.target.value)}
                                                     disabled={Boolean(accounting?.finalized)}
-                                                    placeholder="Например: скол при обработке"
+                                                    placeholder={t('commentPlaceholder')}
                                                     className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs outline-none focus:border-violet-500 disabled:bg-slate-100"
                                                 />
                                             </label>
@@ -596,8 +599,8 @@ export default function TaskMaterialTransitionModal({
                                     : 'border-slate-200 bg-slate-50 text-slate-600'
                             }`}>
                                 {materialReportRequired
-                                    ? 'Для этого перехода нужен отчёт: добавьте хотя бы один использованный материал.'
-                                    : 'На этом этапе материалы не указаны. Переход будет выполнен без материального отчёта.'}
+                                    ? t('reportRequired')
+                                    : t('reportOptional')}
                             </p>
                         )}
 
@@ -617,14 +620,14 @@ export default function TaskMaterialTransitionModal({
                                     className="mt-0.5 h-4 w-4 accent-violet-600"
                                 />
                                 <span className="text-sm font-bold text-slate-800">
-                                    Я сверил количество материала и подтверждаю фактический расход, потери и возврат.
+                                    {t('confirmation')}
                                 </span>
                             </label>
                         ) : null}
 
                         <label className="mt-4 block">
                             <span className="mb-1 block text-xs font-bold text-slate-500">
-                                Комментарий к переходу
+                                {t('transitionComment')}
                             </span>
                             <textarea
                                 value={comment}
@@ -637,15 +640,15 @@ export default function TaskMaterialTransitionModal({
                     <>
                         <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm font-bold text-emerald-900">
                             {rows.length > 0
-                                ? 'Фактическое измерение подтверждено. Проверьте сводку: после успешного перехода отчёт нельзя будет изменить или отменить.'
-                                : 'Материальный отчёт для этого перехода не требуется. Проверьте комментарий перед отправкой.'}
+                                ? t('reviewFinalized')
+                                : t('reviewOptional')}
                         </div>
                         {rows.length > 0 ? (
                             <div className="mt-4 overflow-x-auto rounded-xl border border-slate-200">
                                 <table className="min-w-[760px] w-full text-left text-xs">
                                     <thead className="bg-slate-50 text-[10px] uppercase tracking-wide text-slate-500">
                                         <tr>
-                                            {['Материал', 'Выдано', 'Использовано', 'Потери', 'Возвращено'].map((label) => (
+                                            {[t('material'), t('issued'), t('used'), t('waste'), t('returned')].map((label) => (
                                                 <th key={label} className="px-3 py-3 font-black">{label}</th>
                                             ))}
                                         </tr>
@@ -658,7 +661,7 @@ export default function TaskMaterialTransitionModal({
                                                 </td>
                                                 {QUANTITY_FIELDS.map((field) => (
                                                     <td key={field} className="px-3 py-3">
-                                                        {formatQuantity(parseQuantity(row[field]) ?? 0)} {row.unit}
+                                                        {formats.number(parseQuantity(row[field]) ?? 0, {maximumFractionDigits: 4})} {row.unit}
                                                     </td>
                                                 ))}
                                             </tr>
@@ -669,10 +672,10 @@ export default function TaskMaterialTransitionModal({
                         ) : null}
                         <dl className="mt-4 rounded-xl bg-slate-50 p-4 text-xs">
                             <dt className="font-black uppercase tracking-wide text-slate-400">
-                                Комментарий к переходу
+                                {t('transitionComment')}
                             </dt>
                             <dd className="mt-1 whitespace-pre-wrap text-slate-700">
-                                {comment.trim() || 'Без комментария'}
+                                {comment.trim() || t('noComment')}
                             </dd>
                         </dl>
                     </>
@@ -687,7 +690,7 @@ export default function TaskMaterialTransitionModal({
                         disabled={isSubmitting}
                         className="rounded-xl border border-slate-200 px-5 py-2.5 text-sm font-bold text-slate-600 disabled:opacity-50"
                     >
-                        Вернуться к форме
+                        {t('backToForm')}
                     </button>
                 ) : (
                     <button
@@ -695,7 +698,7 @@ export default function TaskMaterialTransitionModal({
                         onClick={onClose}
                         className="rounded-xl border border-slate-200 px-5 py-2.5 text-sm font-bold text-slate-600"
                     >
-                        Отмена
+                        {commonT('actions.cancel')}
                     </button>
                 )}
                 {screen === 'form' ? (
@@ -705,7 +708,7 @@ export default function TaskMaterialTransitionModal({
                         onClick={openReview}
                         className="rounded-xl bg-violet-600 px-6 py-2.5 text-sm font-black text-white disabled:cursor-not-allowed disabled:bg-slate-300"
                     >
-                        Перейти к сверке
+                        {t('review')}
                     </button>
                 ) : (
                     <button
@@ -715,10 +718,10 @@ export default function TaskMaterialTransitionModal({
                         className="rounded-xl bg-violet-600 px-6 py-2.5 text-sm font-black text-white disabled:cursor-not-allowed disabled:bg-slate-300"
                     >
                         {isSubmitting
-                            ? 'Отправка…'
+                            ? t('sending')
                             : isTerminal
-                                ? 'Зафиксировать и завершить'
-                                : 'Подтвердить переход'}
+                                ? t('submitFinal')
+                                : t('submit')}
                     </button>
                 )}
             </footer>

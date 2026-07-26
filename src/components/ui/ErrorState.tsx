@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import {useTranslations} from 'next-intl';
 
 type ErrorStateProps = {
     children: ReactNode;
@@ -10,11 +11,13 @@ type ErrorStateProps = {
 
 export default function ErrorState({
     children,
-    title = 'Не удалось загрузить данные',
+    title,
     compact = false,
     onRetry,
     isRetrying = false,
 }: ErrorStateProps) {
+    const tActions = useTranslations('common.actions');
+    const tStates = useTranslations('common.states');
     return (
         <section
             role="alert"
@@ -30,7 +33,7 @@ export default function ErrorState({
                     </svg>
                 </div>
                 <div className="min-w-0 flex-1">
-                    <h1 className="text-base font-extrabold text-slate-900 sm:text-lg">{title}</h1>
+                    <h1 className="text-base font-extrabold text-slate-900 sm:text-lg">{title ?? tStates('loadFailed')}</h1>
                     <div className="mt-1.5 text-sm leading-6 text-slate-600">{children}</div>
                     {onRetry ? (
                         <button
@@ -39,7 +42,7 @@ export default function ErrorState({
                             disabled={isRetrying}
                             className="mt-4 rounded-xl bg-red-600 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-red-700 disabled:cursor-wait disabled:bg-red-300"
                         >
-                            {isRetrying ? 'Повторяем...' : 'Повторить'}
+                            {isRetrying ? tActions('retrying') : tActions('retry')}
                         </button>
                     ) : null}
                 </div>

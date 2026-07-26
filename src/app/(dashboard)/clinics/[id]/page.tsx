@@ -14,19 +14,13 @@ import InfoItem from '@/src/components/ui/InfoItem'
 import DeleteClinicApproval from "@/src/components/Modals/DeleteClinicApproval";
 import ErrorState from '@/src/components/ui/ErrorState';
 import QueryErrorNotice from '@/src/components/ui/QueryErrorNotice';
+import {useTranslations} from 'next-intl';
+import {useAppFormatters} from '@/src/i18n/provider';
 
 const DEFAULT_RELATED_PAGE_SIZE = 10;
 const DOCTORS_SORT = 'fullName,ASC';
 const ORDERS_SORT = 'createdAt,DESC';
 const PATIENTS_SORT = 'fullName,ASC';
-
-function formatMoney(value?: number) {
-    return `${(value ?? 0).toLocaleString('ru-RU')} ₸`;
-}
-
-function getOrderStatusLabel(isActive: boolean) {
-    return isActive ? 'Активен' : 'Закрыт';
-}
 
 function getOrderStatusClass(isActive: boolean) {
     return isActive
@@ -50,6 +44,10 @@ function RelatedPager({
     onPrevious: () => void;
     onNext: () => void;
 }) {
+    const t = useTranslations('clinics.details');
+    const commonT = useTranslations('common.pagination');
+    const page = (pageInfo?.number ?? 0) + 1;
+    const total = pageInfo?.totalPages ?? page;
     return (
         <div className="flex items-center gap-2 text-xs font-bold text-slate-600">
             <button
@@ -58,11 +56,10 @@ function RelatedPager({
                 onClick={onPrevious}
                 className="rounded-lg border border-slate-200 px-3 py-1.5 transition hover:border-blue-500 hover:text-blue-600 disabled:cursor-not-allowed disabled:opacity-40"
             >
-                Назад
+                {commonT('previous')}
             </button>
             <span className="min-w-20 text-center">
-                Стр. {(pageInfo?.number ?? 0) + 1}
-                {pageInfo?.totalPages ? ` из ${pageInfo.totalPages}` : ''}
+                {t('pageOf', {page, total})}
             </span>
             <button
                 type="button"
@@ -70,13 +67,15 @@ function RelatedPager({
                 onClick={onNext}
                 className="rounded-lg border border-slate-200 px-3 py-1.5 transition hover:border-blue-500 hover:text-blue-600 disabled:cursor-not-allowed disabled:opacity-40"
             >
-                Вперёд
+                {commonT('next')}
             </button>
         </div>
     );
 }
 
 export default function ClinicDetailsPage() {
+    const t = useTranslations('clinics.details');
+    const {currency: formatCurrency} = useAppFormatters();
     const params = useParams();
     const id = params.id as string;
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -126,14 +125,14 @@ export default function ClinicDetailsPage() {
         sort: PATIENTS_SORT,
     }, {skip: !id});
 
-    if (isLoading) return <p>Загрузка клиники...</p>;
+    if (isLoading) return <p>{t('loading')}</p>;
     if (isError) {
         return (
             <ErrorState
                 onRetry={() => void refetchClinic()}
                 isRetrying={isFetching}
             >
-                Ошибка загрузки клиники
+                {t('loadError')}
             </ErrorState>
         );
     }
@@ -141,14 +140,14 @@ export default function ClinicDetailsPage() {
 
     if (!clinic) {
         return (
-            <ErrorState title="Клиника не найдена">
+            <ErrorState title={t('notFound')}>
                 <div className="space-y-4">
-                    <p>Проверь ID клиники или повтори попытку позже.</p>
+                    <p>{t('notFoundHint')}</p>
                     <Link
                         href="/clinics"
                         className="text-sm font-bold text-blue-600 hover:underline"
                     >
-                        ← Назад к клиникам
+                        ← {t('back')}
                     </Link>
                 </div>
             </ErrorState>
@@ -170,20 +169,20 @@ export default function ClinicDetailsPage() {
                 <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-violet-600 via-fuchsia-500 to-blue-500" />
                 <div className="flex flex-col gap-5 p-5 sm:p-6 lg:flex-row lg:items-center lg:justify-between">
                 <div className="flex min-w-0 items-start gap-4">
-                    <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-600 to-fuchsia-600 text-2xl font-black text-white shadow-lg shadow-violet-950/20">{clinic.name.trim().charAt(0).toLocaleUpperCase('ru-RU')}</span>
+                    <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-600 to-fuchsia-600 text-2xl font-black text-white shadow-lg shadow-violet-950/20">{clinic.name.trim().charAt(0).toLocaleUpperCase()}</span>
                     <div className="min-w-0">
                     <Link
                         href="/clinics"
                         className="mb-1 inline-block text-[10px] font-bold uppercase tracking-wider text-violet-600 hover:underline"
                     >
-                        ← Реестр клиник
+                        ← {t('back')}
                     </Link>
 
                     <h1 className="truncate text-2xl font-black tracking-tight text-slate-950 sm:text-3xl" title={clinic.name}>
                         {clinic.name}
                     </h1>
 
-                    <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500"><span className="flex items-center gap-1.5"><span className="text-violet-500">●</span>{clinic.address || 'Адрес не указан'}</span><span>{clinic.phone || 'Телефон не указан'}</span><span>{clinic.email || 'Email не указан'}</span></div>
+                    <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500"><span className="flex items-center gap-1.5"><span className="text-violet-500">●</span>{clinic.address || t('addressMissing')}</span><span>{clinic.phone || t('phoneMissing')}</span><span>{clinic.email || t('emailMissing')}</span></div>
                     </div>
                 </div>
             <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
@@ -191,13 +190,13 @@ export default function ClinicDetailsPage() {
                         onClick={() => setIsEditModalOpen(true)}
                         className="w-full rounded-xl bg-violet-600 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-violet-950/15 transition hover:bg-violet-700 active:scale-95 sm:w-auto"
                     >
-                        Редактировать
+                        {t('edit')}
                     </button>
                     <button
                         onClick={() => setIsApproveModalOpen(true)}
                         className="w-full rounded-xl border border-red-200 bg-white px-5 py-2.5 text-sm font-bold text-red-600 transition hover:bg-red-50 active:scale-95 sm:w-auto"
                     >
-                        Удалить клинику
+                        {t('delete')}
                     </button>
                 </div>
                 </div>
@@ -206,7 +205,7 @@ export default function ClinicDetailsPage() {
             <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
                 <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-violet-200">
                     <p className="text-xs font-bold uppercase text-slate-400">
-                        Всего заказов
+                        {t('totalOrders')}
                     </p>
                     <p className="mt-2 text-3xl font-black text-slate-900">
                         {totalOrdersCount}
@@ -215,28 +214,28 @@ export default function ClinicDetailsPage() {
 
                 <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-violet-200">
                     <p className="text-xs font-bold uppercase text-slate-400">
-                        Общая сумма
+                        {t('totalAmount')}
                     </p>
                     <p className="mt-2 text-2xl font-black text-slate-900">
-                        {formatMoney(totalOrdersSum)}
+                        {formatCurrency(totalOrdersSum)}
                     </p>
                 </div>
 
                 <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-violet-200">
                     <p className="text-xs font-bold uppercase text-slate-400">
-                        Оплачено
+                        {t('paid')}
                     </p>
                     <p className="mt-2 text-2xl font-black text-slate-950">
-                        {formatMoney(totalPaidSum)}
+                        {formatCurrency(totalPaidSum)}
                     </p>
                 </div>
 
                 <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-violet-200">
                     <p className="text-xs font-bold uppercase text-slate-400">
-                        Долг
+                        {t('debt')}
                     </p>
                     <p className="mt-2 text-2xl font-black text-slate-950">
-                        {formatMoney(debt)}
+                        {formatCurrency(debt)}
                     </p>
                 </div>
             </div>
@@ -245,24 +244,24 @@ export default function ClinicDetailsPage() {
                 <section className="relative overflow-hidden rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm sm:p-6">
                     <span className="absolute inset-y-0 left-0 w-1 bg-gradient-to-b from-violet-600 to-fuchsia-500" />
                     <h2 className="text-lg font-bold text-slate-900">
-                        Профиль клиники
+                        {t('profile')}
                     </h2>
 
                     <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2">
-                        <InfoItem label="Название" value={clinic.name}/>
-                        <InfoItem label="Контактное лицо" value={clinic.contactPerson}/>
-                        <InfoItem label="Телефон" value={clinic.phone}/>
+                        <InfoItem label={t('name')} value={clinic.name}/>
+                        <InfoItem label={t('contactPerson')} value={clinic.contactPerson}/>
+                        <InfoItem label={t('phone')} value={clinic.phone}/>
                         <InfoItem label="Email" value={clinic.email}/>
-                        <InfoItem label="Адрес" value={clinic.address}/>
-                        <InfoItem label="Тип прайса" value={clinic.priceType}/>
+                        <InfoItem label={t('address')} value={clinic.address}/>
+                        <InfoItem label={t('priceType')} value={clinic.priceType}/>
                     </div>
                 </section>
 
                 <aside className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm sm:p-6">
-                    <div className="flex items-start justify-between gap-3"><div><h2 className="text-sm font-bold text-slate-900">Состояние оплаты</h2><p className="mt-1 text-xs text-slate-400">По всем заказам клиники</p></div><span className="text-2xl font-black text-violet-600">{paidShare}%</span></div>
+                    <div className="flex items-start justify-between gap-3"><div><h2 className="text-sm font-bold text-slate-900">{t('paymentStatus')}</h2><p className="mt-1 text-xs text-slate-400">{t('allOrders')}</p></div><span className="text-2xl font-black text-violet-600">{paidShare}%</span></div>
                     <div className="mt-6 h-2.5 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full bg-gradient-to-r from-violet-600 to-fuchsia-500 transition-all" style={{width: `${paidShare}%`}} /></div>
-                    <div className="mt-5 grid grid-cols-2 gap-3"><div className="rounded-xl border border-slate-200 bg-slate-50 p-3"><p className="text-[10px] text-slate-400">Оплачено</p><p className="mt-1 truncate text-sm font-black text-slate-950" title={formatMoney(totalPaidSum)}>{formatMoney(totalPaidSum)}</p></div><div className="rounded-xl border border-slate-200 bg-slate-50 p-3"><p className="text-[10px] text-slate-400">Остаток</p><p className="mt-1 truncate text-sm font-black text-slate-950" title={formatMoney(debt)}>{formatMoney(debt)}</p></div></div>
-                    <div className="mt-5 border-t border-slate-100 pt-4"><div className="flex items-center justify-between text-xs"><span className="text-slate-500">Тип прайса</span><span className="rounded-lg bg-violet-50 px-2.5 py-1 font-bold text-violet-700">{clinic.priceType || 'Не указан'}</span></div></div>
+                    <div className="mt-5 grid grid-cols-2 gap-3"><div className="rounded-xl border border-slate-200 bg-slate-50 p-3"><p className="text-[10px] text-slate-400">{t('paid')}</p><p className="mt-1 truncate text-sm font-black text-slate-950" title={formatCurrency(totalPaidSum)}>{formatCurrency(totalPaidSum)}</p></div><div className="rounded-xl border border-slate-200 bg-slate-50 p-3"><p className="text-[10px] text-slate-400">{t('balance')}</p><p className="mt-1 truncate text-sm font-black text-slate-950" title={formatCurrency(debt)}>{formatCurrency(debt)}</p></div></div>
+                    <div className="mt-5 border-t border-slate-100 pt-4"><div className="flex items-center justify-between text-xs"><span className="text-slate-500">{t('priceType')}</span><span className="rounded-lg bg-violet-50 px-2.5 py-1 font-bold text-violet-700">{clinic.priceType || t('unspecified')}</span></div></div>
                 </aside>
             </div>
 
@@ -270,10 +269,10 @@ export default function ClinicDetailsPage() {
                 <div className="flex flex-col gap-3 border-b border-slate-200 bg-slate-50 px-5 py-4 md:flex-row md:items-center md:justify-between">
                     <div>
                         <h2 className="text-sm font-bold uppercase tracking-wider text-slate-500">
-                            Врачи клиники
+                            {t('doctors')}
                         </h2>
                         <p className="mt-1 text-xs text-slate-400">
-                            На странице: {doctors.length}
+                            {t('onPage', {count: doctors.length})}
                         </p>
                     </div>
 
@@ -285,11 +284,11 @@ export default function ClinicDetailsPage() {
                     />
                 </div>
 
-                <div className="grid max-h-[420px] grid-cols-1 gap-3 overflow-y-auto p-4 sm:p-5 md:grid-cols-2 [scrollbar-color:#8b5cf6_transparent]">
+                <div className="grid max-h-[420px] grid-cols-1 gap-3 overflow-y-auto p-4 sm:p-5 md:grid-cols-2">
                     {isDoctorsError && (
                         <QueryErrorNotice
                             className="md:col-span-2"
-                            message="Не удалось загрузить врачей клиники."
+                            message={t('doctorsError')}
                             onRetry={() => void refetchDoctors()}
                             isRetrying={isDoctorsLoading}
                         />
@@ -297,13 +296,13 @@ export default function ClinicDetailsPage() {
 
                     {isDoctorsLoading && !doctorsData && (
                         <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-400 md:col-span-2">
-                            Загрузка врачей...
+                            {t('loadingDoctors')}
                         </div>
                     )}
 
                     {!isDoctorsLoading && !isDoctorsError && doctors.length === 0 && (
                         <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-400 md:col-span-2">
-                            Врачи не найдены
+                            {t('noDoctors')}
                         </div>
                     )}
 
@@ -312,7 +311,7 @@ export default function ClinicDetailsPage() {
                             key={doctor.fullName}
                             className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-3 transition hover:border-violet-200 hover:shadow-sm"
                         >
-                            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-violet-100 text-xs font-black text-violet-700">{doctor.fullName.trim().charAt(0).toLocaleUpperCase('ru-RU')}</span><p className="font-bold text-slate-900">
+                            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-violet-100 text-xs font-black text-violet-700">{doctor.fullName.trim().charAt(0).toLocaleUpperCase()}</span><p className="font-bold text-slate-900">
                                 {doctor.fullName}
                             </p>
                         </div>
@@ -324,10 +323,10 @@ export default function ClinicDetailsPage() {
                 <div className="flex flex-col gap-3 border-b border-slate-200 bg-slate-50 px-5 py-4 md:flex-row md:items-center md:justify-between">
                     <div>
                         <h2 className="text-sm font-bold uppercase tracking-wider text-slate-500">
-                            Пациенты клиники
+                            {t('patients')}
                         </h2>
                         <p className="mt-1 text-xs text-slate-400">
-                            На странице: {patients.length}
+                            {t('onPage', {count: patients.length})}
                         </p>
                     </div>
 
@@ -339,11 +338,11 @@ export default function ClinicDetailsPage() {
                     />
                 </div>
 
-                <div className="grid max-h-[420px] grid-cols-1 gap-3 overflow-y-auto p-4 sm:p-5 md:grid-cols-2 [scrollbar-color:#8b5cf6_transparent]">
+                <div className="grid max-h-[420px] grid-cols-1 gap-3 overflow-y-auto p-4 sm:p-5 md:grid-cols-2">
                     {isPatientsError && (
                         <QueryErrorNotice
                             className="md:col-span-2"
-                            message="Не удалось загрузить пациентов клиники."
+                            message={t('patientsError')}
                             onRetry={() => void refetchPatients()}
                             isRetrying={isPatientsLoading}
                         />
@@ -351,13 +350,13 @@ export default function ClinicDetailsPage() {
 
                     {isPatientsLoading && !patientsData && (
                         <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-400 md:col-span-2">
-                            Загрузка пациентов...
+                            {t('loadingPatients')}
                         </div>
                     )}
 
                     {!isPatientsLoading && !isPatientsError && patients.length === 0 && (
                         <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-400 md:col-span-2">
-                            Пациенты не найдены
+                            {t('noPatients')}
                         </div>
                     )}
 
@@ -366,7 +365,7 @@ export default function ClinicDetailsPage() {
                             key={patient.fullName}
                             className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-3 transition hover:border-violet-200 hover:shadow-sm"
                         >
-                            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-violet-100 text-xs font-black text-violet-700">{patient.fullName.trim().charAt(0).toLocaleUpperCase('ru-RU')}</span><p className="font-bold text-slate-900">
+                            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-violet-100 text-xs font-black text-violet-700">{patient.fullName.trim().charAt(0).toLocaleUpperCase()}</span><p className="font-bold text-slate-900">
                                 {patient.fullName}
                             </p>
                         </div>
@@ -378,10 +377,10 @@ export default function ClinicDetailsPage() {
                 <div className="flex flex-col gap-3 border-b border-slate-200 bg-slate-50 px-5 py-4 md:flex-row md:items-center md:justify-between">
                     <div>
                         <h2 className="text-sm font-bold uppercase tracking-wider text-slate-500">
-                            Заказы клиники
+                            {t('orders')}
                         </h2>
                         <p className="mt-1 text-xs text-slate-400">
-                            На странице: {clinicOrders.length}
+                            {t('onPage', {count: clinicOrders.length})}
                         </p>
                     </div>
 
@@ -393,18 +392,18 @@ export default function ClinicDetailsPage() {
                     />
                 </div>
 
-                <div className="max-h-[520px] overflow-auto [scrollbar-color:#8b5cf6_transparent]">
+                <div className="max-h-[520px] overflow-auto">
                     <table className="w-full min-w-[760px] border-collapse text-left lg:min-w-[800px]">
                         <thead
                             className="border-b border-slate-200 bg-slate-50 text-[.7rem] uppercase tracking-widest text-slate-400">
                         <tr>
                             <th className="p-4 font-bold">ID</th>
-                            <th className="p-4 font-bold">Пациент</th>
-                            <th className="p-4 font-bold">Вид работы</th>
-                            <th className="p-4 font-bold">Статус</th>
-                            <th className="p-4 font-bold">Сумма</th>
-                            <th className="p-4 font-bold">Оплачено</th>
-                            <th className="p-4 font-bold text-right">Действие</th>
+                            <th className="p-4 font-bold">{t('patient')}</th>
+                            <th className="p-4 font-bold">{t('workType')}</th>
+                            <th className="p-4 font-bold">{t('status')}</th>
+                            <th className="p-4 font-bold">{t('amount')}</th>
+                            <th className="p-4 font-bold">{t('paid')}</th>
+                            <th className="p-4 font-bold text-right">{t('action')}</th>
                         </tr>
                         </thead>
 
@@ -413,7 +412,7 @@ export default function ClinicDetailsPage() {
                             <tr>
                                 <td colSpan={7} className="p-4">
                                     <QueryErrorNotice
-                                        message="Не удалось загрузить заказы клиники."
+                                        message={t('ordersError')}
                                         onRetry={() => void refetchOrders()}
                                         isRetrying={isOrdersLoading}
                                     />
@@ -424,7 +423,7 @@ export default function ClinicDetailsPage() {
                         {isOrdersLoading && !ordersData && (
                             <tr>
                                 <td colSpan={7} className="p-8 text-center text-sm text-slate-400">
-                                    Загрузка заказов...
+                                    {t('loadingOrders')}
                                 </td>
                             </tr>
                         )}
@@ -432,7 +431,7 @@ export default function ClinicDetailsPage() {
                         {!isOrdersLoading && !isOrdersError && clinicOrders.length === 0 && (
                             <tr>
                                 <td colSpan={7} className="p-8 text-center text-sm text-slate-400">
-                                    Заказы не найдены
+                                    {t('noOrders')}
                                 </td>
                             </tr>
                         )}
@@ -457,16 +456,16 @@ export default function ClinicDetailsPage() {
                                 <td className="p-4">
                                         <span
                                             className={`${getOrderStatusClass(order.isActive)} rounded-lg px-2 py-1 text-[10px] font-bold uppercase`}>
-                                            {getOrderStatusLabel(order.isActive)}
+                                            {order.isActive ? t('active') : t('closed')}
                                         </span>
                                 </td>
 
                                 <td className="p-4 text-sm font-bold text-slate-700">
-                                    {formatMoney(order.totalAmount)}
+                                    {formatCurrency(order.totalAmount)}
                                 </td>
 
                                 <td className="p-4 text-sm font-bold text-green-600">
-                                    {formatMoney(order.paidAmount)}
+                                    {formatCurrency(order.paidAmount)}
                                 </td>
 
                                 <td className="p-4 text-right">
@@ -474,7 +473,7 @@ export default function ClinicDetailsPage() {
                                         href={`/orders/${order.id}`}
                                         className="rounded-lg border border-blue-600 px-3 py-1.5 text-xs font-bold text-blue-600 transition hover:bg-blue-600 hover:text-white"
                                     >
-                                        Открыть заказ
+                                        {t('openOrder')}
                                     </Link>
                                 </td>
                             </tr>

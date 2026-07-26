@@ -32,7 +32,7 @@ describe('personal notes autosave helpers', () => {
     });
 
     it('explains a 404 as an expired note', () => {
-        expect(getPersonalNoteError({ status: 404 })).toContain('истекла');
+        expect(getPersonalNoteError({ status: 404 })).toBe('expired');
     });
 
     it('normalizes nullable text returned by the backend', () => {

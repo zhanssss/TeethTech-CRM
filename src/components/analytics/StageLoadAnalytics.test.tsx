@@ -1,8 +1,20 @@
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { fireEvent, render as rtlRender, screen, within } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import {NextIntlClientProvider} from 'next-intl';
 
 import StageLoadAnalytics from './StageLoadAnalytics';
+import ruMessages from '@/src/messages/ru';
+
+function render(ui: ReactNode) {
+    return rtlRender(ui, {
+        wrapper: ({children}) => (
+            <NextIntlClientProvider locale="ru" messages={ruMessages}>
+                {children}
+            </NextIntlClientProvider>
+        ),
+    });
+}
 
 vi.mock('recharts', () => ({
     ResponsiveContainer: ({ children }: { children: ReactNode }) => <>{children}</>,

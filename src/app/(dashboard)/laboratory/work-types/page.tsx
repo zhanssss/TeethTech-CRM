@@ -1,6 +1,7 @@
 'use client';
 
 import {useMemo, useState} from 'react';
+import {useTranslations} from 'next-intl';
 
 import {
     useDeleteWorkTypeMutation,
@@ -12,8 +13,14 @@ import WorkTypeDetailsModal from '@/src/components/laboratory/WorkTypeDetailsMod
 import ConfirmDialog from '@/src/components/ui/ConfirmDialog';
 import ErrorState from '@/src/components/ui/ErrorState';
 import type {WorkTypes} from '@/src/types/laboratory-types/workTypes.types';
+import {useAppLocale} from '@/src/i18n/provider';
+import {intlLocaleByLocale} from '@/src/i18n/config';
 
 export default function LaboratoryWorkTypesPage() {
+    const t = useTranslations('laboratory.workTypes');
+    const commonT = useTranslations('common');
+    const {locale} = useAppLocale();
+    const intlLocale = intlLocaleByLocale[locale];
     const [stagesModalOpen, setStagesModalOpen] = useState(false);
     const [selectedWorkType, setSelectedWorkType] = useState<WorkTypes | null>(null);
     const [workTypeToDelete, setWorkTypeToDelete] = useState<WorkTypes | null>(null);
@@ -46,7 +53,7 @@ export default function LaboratoryWorkTypesPage() {
     const filteredItems = useMemo(() => {
         const query = search
             .trim()
-            .toLocaleLowerCase('ru-RU');
+            .toLocaleLowerCase(intlLocale);
 
         if (!query) {
             return items;
@@ -59,11 +66,11 @@ export default function LaboratoryWorkTypesPage() {
                 item.description,
             ].some((value) =>
                 value
-                    ?.toLocaleLowerCase('ru-RU')
+                    ?.toLocaleLowerCase(intlLocale)
                     .includes(query),
             ),
         );
-    }, [items, search]);
+    }, [intlLocale, items, search]);
 
     const hasActivation = items.some(
         (item) => typeof item.isActive === 'boolean',
@@ -83,15 +90,15 @@ export default function LaboratoryWorkTypesPage() {
                 <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
                     <div>
                         <p className="text-[10px] font-black uppercase tracking-widest text-violet-600">
-                            Лаборатория
+                            {t('badge')}
                         </p>
 
                         <h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-950">
-                            Типы работ
+                            {t('title')}
                         </h1>
 
                         <p className="mt-1 text-sm text-slate-500">
-                            Настройка типов работ и последовательности этапов производства
+                            {t('subtitle')}
                         </p>
                     </div>
 
@@ -100,7 +107,7 @@ export default function LaboratoryWorkTypesPage() {
                         onClick={() => setStagesModalOpen(true)}
                         className="w-full rounded-xl bg-violet-600 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-violet-950/15 transition hover:bg-violet-700 active:scale-95 sm:w-auto"
                     >
-                        + Создать тип работы
+                        {t('create')}
                     </button>
                 </header>
 
@@ -114,7 +121,7 @@ export default function LaboratoryWorkTypesPage() {
                     <article className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-violet-200">
                         <div className="flex items-center justify-between">
                             <p className="text-xs font-semibold text-slate-500">
-                                Всего типов
+                                {t('total')}
                             </p>
 
                             <span className="h-2.5 w-2.5 rounded-full bg-violet-500" />
@@ -125,14 +132,14 @@ export default function LaboratoryWorkTypesPage() {
                         </p>
 
                         <p className="mt-1 text-[11px] text-slate-400">
-                            в справочнике лаборатории
+                            {t('totalHint')}
                         </p>
                     </article>
 
                     <article className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-violet-200">
                         <div className="flex items-center justify-between">
                             <p className="text-xs font-semibold text-slate-500">
-                                Доступно
+                                {t('available')}
                             </p>
 
                             <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
@@ -143,7 +150,7 @@ export default function LaboratoryWorkTypesPage() {
                         </p>
 
                         <p className="mt-1 text-[11px] text-slate-400">
-                            активных типов работ
+                            {t('availableHint')}
                         </p>
                     </article>
 
@@ -151,7 +158,7 @@ export default function LaboratoryWorkTypesPage() {
                         <article className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-violet-200">
                             <div className="flex items-center justify-between">
                                 <p className="text-xs font-semibold text-slate-500">
-                                    Отключено
+                                    {t('disabled')}
                                 </p>
 
                                 <span className="h-2.5 w-2.5 rounded-full bg-slate-400" />
@@ -162,7 +169,7 @@ export default function LaboratoryWorkTypesPage() {
                             </p>
 
                             <p className="mt-1 text-[11px] text-slate-400">
-                                недоступно для выбора
+                                {t('disabledHint')}
                             </p>
                         </article>
                     )}
@@ -172,11 +179,11 @@ export default function LaboratoryWorkTypesPage() {
                     <div className="flex flex-col gap-4 border-b border-slate-200 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
                         <div>
                             <h2 className="text-base font-bold text-slate-900">
-                                Список типов работ
+                                {t('list')}
                             </h2>
 
                             <p className="mt-1 text-xs text-slate-500">
-                                Показано: {filteredItems.length} из {items.length}
+                                {t('shown', {shown: filteredItems.length, total: items.length})}
                             </p>
                         </div>
 
@@ -187,7 +194,7 @@ export default function LaboratoryWorkTypesPage() {
                                 onChange={(event) =>
                                     setSearch(event.target.value)
                                 }
-                                placeholder="Название, код или описание"
+                                placeholder={t('search')}
                                 className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm outline-none transition focus:border-violet-500 focus:bg-white focus:ring-2 focus:ring-violet-100"
                             />
 
@@ -196,7 +203,7 @@ export default function LaboratoryWorkTypesPage() {
                                     type="button"
                                     onClick={() => setSearch('')}
                                     className="absolute right-3 top-1/2 -translate-y-1/2 text-lg text-slate-400 transition hover:text-slate-700"
-                                    aria-label="Очистить поиск"
+                                    aria-label={t('clearSearch')}
                                 >
                                     ×
                                 </button>
@@ -218,7 +225,7 @@ export default function LaboratoryWorkTypesPage() {
 
                         {isError && (
                             <ErrorState compact>
-                                Не удалось загрузить типы работ
+                                {t('loadError')}
                             </ErrorState>
                         )}
 
@@ -231,11 +238,11 @@ export default function LaboratoryWorkTypesPage() {
                                     </div>
 
                                     <h3 className="mt-4 text-sm font-bold text-slate-800">
-                                        Типов работ пока нет
+                                        {t('empty')}
                                     </h3>
 
                                     <p className="mt-1 max-w-sm text-sm text-slate-500">
-                                        Создайте первый тип работы и настройте последовательность его этапов.
+                                        {t('emptyHint')}
                                     </p>
 
                                     <button
@@ -245,7 +252,7 @@ export default function LaboratoryWorkTypesPage() {
                                         }
                                         className="mt-4 rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-violet-700"
                                     >
-                                        Создать тип работы
+                                        {t('createFirst')}
                                     </button>
                                 </div>
                             )}
@@ -256,11 +263,11 @@ export default function LaboratoryWorkTypesPage() {
                             filteredItems.length === 0 && (
                                 <div className="flex min-h-48 flex-col items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-5 text-center">
                                     <h3 className="text-sm font-bold text-slate-700">
-                                        Ничего не найдено
+                                        {t('noResults')}
                                     </h3>
 
                                     <p className="mt-1 text-sm text-slate-500">
-                                        Попробуйте изменить поисковый запрос.
+                                        {t('noResultsHint')}
                                     </p>
 
                                     <button
@@ -268,7 +275,7 @@ export default function LaboratoryWorkTypesPage() {
                                         onClick={() => setSearch('')}
                                         className="mt-3 rounded-lg px-3 py-2 text-xs font-bold text-violet-600 transition hover:bg-violet-50"
                                     >
-                                        Очистить поиск
+                                        {t('clearSearch')}
                                     </button>
                                 </div>
                             )}
@@ -276,7 +283,7 @@ export default function LaboratoryWorkTypesPage() {
                         {!isLoading &&
                             !isError &&
                             filteredItems.length > 0 && (
-                                <div className="grid max-h-[65dvh] gap-3 overflow-y-auto pr-1 md:grid-cols-2 xl:max-h-[650px] xl:grid-cols-3 [scrollbar-color:#8b5cf6_transparent]">
+                                <div className="grid max-h-[65dvh] gap-3 overflow-y-auto pr-1 md:grid-cols-2 xl:max-h-[650px] xl:grid-cols-3">
                                     {filteredItems.map((item) => (
                                         <article
                                             key={item.id}
@@ -288,9 +295,7 @@ export default function LaboratoryWorkTypesPage() {
                                                         {item.name
                                                             .trim()
                                                             .charAt(0)
-                                                            .toLocaleUpperCase(
-                                                                'ru-RU',
-                                                            )}
+                                                            .toLocaleUpperCase(intlLocale)}
                                                     </div>
 
                                                     <div className="min-w-0">
@@ -316,8 +321,8 @@ export default function LaboratoryWorkTypesPage() {
                                                             }`}
                                                         >
                                                         {item.isActive
-                                                            ? 'Активный'
-                                                            : 'Отключён'}
+                                                            ? t('active')
+                                                            : t('inactive')}
                                                     </span>
                                                     )}
                                             </div>
@@ -329,31 +334,31 @@ export default function LaboratoryWorkTypesPage() {
                                                     </p>
                                                 ) : (
                                                     <p className="text-sm italic text-slate-400">
-                                                        Описание не указано
+                                                        {t('noDescription')}
                                                     </p>
                                                 )}
                                             </div>
 
                                             <div className="mt-4 flex items-center justify-between gap-2 border-t border-slate-200 pt-3">
                                                 <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                                                    Тип работы
+                                                    {t('type')}
                                                 </span>
 
                                                 <div className="flex items-center gap-1">
                                                     <button
                                                         type="button"
                                                         onClick={() => setWorkTypeToDelete(item)}
-                                                        aria-label={`Удалить тип работы ${item.name}`}
+                                                        aria-label={t('deleteAria', {name: item.name})}
                                                         className="rounded-lg px-2.5 py-1.5 text-xs font-bold text-red-500 transition hover:bg-red-50 hover:text-red-700"
                                                     >
-                                                        Удалить
+                                                        {commonT('actions.delete')}
                                                     </button>
                                                     <button
                                                         type="button"
                                                         onClick={() => setSelectedWorkType(item)}
                                                         className="rounded-lg bg-violet-50 px-3 py-1.5 text-xs font-bold text-violet-700 transition hover:bg-violet-100"
                                                     >
-                                                        Подробнее →
+                                                        {t('details')}
                                                     </button>
                                                 </div>
                                             </div>
@@ -380,18 +385,9 @@ export default function LaboratoryWorkTypesPage() {
 
             <ConfirmDialog
                 open={workTypeToDelete !== null}
-                title="Удалить тип работы?"
-                description={
-                    <>
-                        Тип работы{' '}
-                        <strong className="font-semibold text-slate-700">
-                            {workTypeToDelete?.name}
-                        </strong>{' '}
-                        и связанный с ним производственный маршрут будут удалены.
-                        Это действие нельзя отменить.
-                    </>
-                }
-                confirmLabel="Удалить тип работы"
+                title={t('deleteTitle')}
+                description={t('deleteDescription', {name: workTypeToDelete?.name ?? ''})}
+                confirmLabel={t('deleteConfirm')}
                 isLoading={isDeleting}
                 onClose={() => setWorkTypeToDelete(null)}
                 onConfirm={handleDeleteWorkType}

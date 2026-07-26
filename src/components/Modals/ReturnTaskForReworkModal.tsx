@@ -1,6 +1,7 @@
 'use client';
 
 import { FormEvent, useId, useMemo, useRef, useState } from 'react';
+import { useTranslations } from 'next-intl';
 
 import Modal from '@/src/components/ui/Modal';
 import {
@@ -9,20 +10,18 @@ import {
 } from '@/src/services/api/tasksReworkApi';
 import { useGetStockOverviewQuery } from '@/src/services/api/warehouseApi';
 import type { QualityIncidentType } from '@/src/types/task.types';
+import { useAppFormatters } from '@/src/i18n/provider';
 
-const INCIDENT_TYPES: Array<{ value: QualityIncidentType; label: string }> = [
-    { value: 'REWORK', label: 'Переделка' },
-    { value: 'DEFECT', label: 'Брак' },
-];
+const INCIDENT_TYPES: QualityIncidentType[] = ['REWORK', 'DEFECT'];
 
 const REASON_CODES = [
-    { value: 'QUALITY_DEFECT', label: 'Дефект качества' },
-    { value: 'WRONG_SIZE', label: 'Неверный размер' },
-    { value: 'WRONG_COLOR', label: 'Неверный цвет' },
-    { value: 'DAMAGED', label: 'Повреждение' },
-    { value: 'TECHNOLOGY_VIOLATION', label: 'Нарушение технологии' },
-    { value: 'OTHER', label: 'Другое' },
-];
+    'QUALITY_DEFECT',
+    'WRONG_SIZE',
+    'WRONG_COLOR',
+    'DAMAGED',
+    'TECHNOLOGY_VIOLATION',
+    'OTHER',
+] as const;
 
 type ReturnTaskForReworkModalProps = {
     taskId: string;
@@ -41,6 +40,10 @@ export default function ReturnTaskForReworkModal({
     onClose,
     onSuccess,
 }: ReturnTaskForReworkModalProps) {
+    const t = useTranslations('tasks.rework');
+    const qualityT = useTranslations('tasks.quality');
+    const commonT = useTranslations('common');
+    const formats = useAppFormatters();
     const titleId = useId();
     const [selectedStatusId, setSelectedStatusId] = useState('');
     const [assignedTo, setAssignedTo] = useState('');
@@ -83,7 +86,7 @@ export default function ReturnTaskForReworkModal({
         () => new Set(stockWriteOffs.map((item) => item.nomenclatureId).filter(Boolean)),
         [stockWriteOffs]
     );
-    const stockWriteOffValidationError = getStockWriteOffValidationError(stockWriteOffs);
+    const stockWriteOffValidationError = getStockWriteOffValidationError(stockWriteOffs, t);
     const isFormValid = Boolean(
         selectedStatusId
         && assignedTo
@@ -116,7 +119,7 @@ export default function ReturnTaskForReworkModal({
             nomenclatureId
             && stockWriteOffs.some((item) => item.id !== id && item.nomenclatureId === nomenclatureId)
         ) {
-            setFormError('Эта номенклатура уже добавлена в дополнительные материалы.');
+            setFormError(t('duplicate'));
             return;
         }
 
@@ -145,14 +148,14 @@ export default function ReturnTaskForReworkModal({
         if (!isFormValid || !selectedOption || !incidentType) {
             setFormError(
                 stockWriteOffValidationError
-                || 'Заполните этап, ответственного, тип, причину и описание.'
+                || t('required')
             );
             return;
         }
 
         if (!employees.some((employee) => employee.userId === assignedTo)) {
             setAssignedTo('');
-            setFormError('Выбранный сотрудник больше недоступен для этого этапа.');
+            setFormError(t('employeeUnavailable'));
             void refetchOptions();
             return;
         }
@@ -185,6 +188,7 @@ export default function ReturnTaskForReworkModal({
                 setAssignedTo('');
                 await refetchOptions();
             }
+            setFormError(getReworkApiErrorMessage(error, t));
         }
     };
 
@@ -199,13 +203,13 @@ export default function ReturnTaskForReworkModal({
                 <header className="flex items-start justify-between gap-4 border-b border-slate-200 bg-gradient-to-r from-amber-50 to-white p-5 dark:border-slate-700 dark:from-amber-950/20 dark:to-slate-900 sm:p-6">
                     <div>
                         <p className="text-[10px] font-black uppercase tracking-[0.18em] text-amber-600">
-                            Контроль качества
+                            {t('badge')}
                         </p>
                         <h2 id={titleId} className="mt-1 text-xl font-black text-slate-950 dark:text-white">
-                            Вернуть задачу на переделку
+                            {t('title')}
                         </h2>
                         <p className="mt-1 text-sm text-slate-500">
-                            Выберите этап, исполнителя и зафиксируйте причину возврата.
+                            {t('subtitle')}
                         </p>
                     </div>
 
@@ -213,7 +217,7 @@ export default function ReturnTaskForReworkModal({
                         type="button"
                         onClick={onClose}
                         disabled={isSubmitting}
-                        aria-label="Закрыть"
+                        aria-label={commonT('actions.close')}
                         className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-xl font-bold leading-none text-slate-400 shadow-sm transition hover:bg-slate-100 disabled:cursor-wait dark:bg-slate-800"
                     >
                         &times;
@@ -225,7 +229,7 @@ export default function ReturnTaskForReworkModal({
                         <div className="h-16 animate-pulse rounded-xl bg-slate-100" />
                         <div className="h-16 animate-pulse rounded-xl bg-slate-100" />
                         <p className="text-center text-sm font-semibold text-slate-500">
-                            Загружаем доступные этапы и сотрудников…
+                            {t('loadingOptions')}
                         </p>
                     </div>
                 ) : null}
@@ -234,7 +238,7 @@ export default function ReturnTaskForReworkModal({
                     <div className="p-5 sm:p-6">
                         <div className="rounded-xl border border-red-200 bg-red-50 p-4" role="alert">
                             <p className="text-sm font-bold text-red-800">
-                                {getApiErrorMessage(optionsError, 'Не удалось получить доступные этапы возврата.')}
+                                {getReworkApiErrorMessage(optionsError, t, t('optionsError'))}
                             </p>
                             <button
                                 type="button"
@@ -242,7 +246,7 @@ export default function ReturnTaskForReworkModal({
                                 disabled={isOptionsFetching}
                                 className="mt-3 rounded-lg bg-red-700 px-4 py-2 text-xs font-bold text-white transition hover:bg-red-800 disabled:cursor-wait disabled:opacity-60"
                             >
-                                {isOptionsFetching ? 'Обновляем…' : 'Повторить'}
+                                {isOptionsFetching ? t('updating') : commonT('actions.retry')}
                             </button>
                         </div>
                     </div>
@@ -251,9 +255,9 @@ export default function ReturnTaskForReworkModal({
                 {!isOptionsLoading && !isOptionsError && reworkOptions.length === 0 ? (
                     <div className="p-5 sm:p-6">
                         <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-8 text-center">
-                            <p className="font-bold text-slate-700">Нет доступных этапов для возврата</p>
+                            <p className="font-bold text-slate-700">{t('noStages')}</p>
                             <p className="mt-1 text-sm text-slate-500">
-                                Текущий этап или состояние задачи не допускает переделку.
+                                {t('noStagesHint')}
                             </p>
                         </div>
                     </div>
@@ -262,14 +266,14 @@ export default function ReturnTaskForReworkModal({
                 {!isOptionsLoading && !isOptionsError && reworkOptions.length > 0 ? (
                     <form onSubmit={handleSubmit} className="min-h-0 overflow-y-auto p-5 sm:p-6">
                         <div className="space-y-5">
-                            <Field label="С какого этапа начать исправление?" required>
+                            <Field label={t('startStage')} required>
                                 <select
                                     value={selectedStatusId}
                                     onChange={(event) => handleStatusChange(event.target.value)}
                                     className={inputClassName}
                                     required
                                 >
-                                    <option value="">Выберите этап</option>
+                                    <option value="">{t('stagePlaceholder')}</option>
                                     {reworkOptions.map((option) => (
                                         <option key={option.statusId} value={option.statusId}>
                                             {option.statusName}
@@ -278,7 +282,7 @@ export default function ReturnTaskForReworkModal({
                                 </select>
                             </Field>
 
-                            <Field label="Ответственный" required>
+                            <Field label={t('responsible')} required>
                                 <select
                                     value={assignedTo}
                                     onChange={(event) => {
@@ -290,65 +294,65 @@ export default function ReturnTaskForReworkModal({
                                     required
                                 >
                                     <option value="">
-                                        {!selectedStatusId ? 'Сначала выберите этап' : 'Выберите сотрудника'}
+                                        {!selectedStatusId ? t('employeeBeforeStage') : t('employeePlaceholder')}
                                     </option>
                                     {employees.map((employee) => (
                                         <option key={employee.userId} value={employee.userId}>
                                             {employee.fullName}
-                                            {employee.isCurrent ? ' — текущий исполнитель' : ''}
-                                            {' — '}активных задач: {employee.activeTaskCount}
+                                            {employee.isCurrent ? ` — ${t('currentEmployee')}` : ''}
+                                            {' — '}{t('activeTasks', {count: employee.activeTaskCount})}
                                         </option>
                                     ))}
                                 </select>
                                 {selectedStatusId && employees.length === 0 ? (
                                     <p className="mt-2 text-xs font-bold text-amber-700">
-                                        Для этого этапа нет доступных сотрудников
+                                        {t('noEmployees')}
                                     </p>
                                 ) : null}
                             </Field>
 
                             <div className="grid gap-4 sm:grid-cols-2">
-                                <Field label="Тип инцидента" required>
+                                <Field label={t('incidentType')} required>
                                     <select
                                         value={incidentType}
                                         onChange={(event) => setIncidentType(event.target.value as QualityIncidentType | '')}
                                         className={inputClassName}
                                         required
                                     >
-                                        <option value="">Выберите тип</option>
+                                        <option value="">{t('typePlaceholder')}</option>
                                         {INCIDENT_TYPES.map((option) => (
-                                            <option key={option.value} value={option.value}>{option.label}</option>
+                                            <option key={option} value={option}>{qualityT(`incidentTypes.${option}`)}</option>
                                         ))}
                                     </select>
                                 </Field>
 
-                                <Field label="Причина" required>
+                                <Field label={t('reason')} required>
                                     <select
                                         value={reasonCode}
                                         onChange={(event) => setReasonCode(event.target.value)}
                                         className={inputClassName}
                                         required
                                     >
-                                        <option value="">Выберите причину</option>
+                                        <option value="">{t('reasonPlaceholder')}</option>
                                         {REASON_CODES.map((option) => (
-                                            <option key={option.value} value={option.value}>{option.label}</option>
+                                            <option key={option} value={option}>{qualityT(`reasons.${option}`)}</option>
                                         ))}
                                     </select>
                                 </Field>
                             </div>
 
-                            <Field label="Описание проблемы" required>
+                            <Field label={t('description')} required>
                                 <textarea
                                     value={description}
                                     onChange={(event) => setDescription(event.target.value)}
-                                    placeholder="Опишите дефект и что необходимо исправить"
+                                    placeholder={t('descriptionPlaceholder')}
                                     className={`${inputClassName} min-h-28 resize-y`}
                                     required
                                 />
                             </Field>
 
                             <div className="grid gap-4 sm:grid-cols-2">
-                                <Field label="Материальные потери">
+                                <Field label={t('materialLoss')}>
                                     <input
                                         type="number"
                                         min="0"
@@ -360,7 +364,7 @@ export default function ReturnTaskForReworkModal({
                                     />
                                 </Field>
 
-                                <Field label="Удержание">
+                                <Field label={t('deduction')}>
                                     <input
                                         type="number"
                                         min="0"
@@ -380,10 +384,10 @@ export default function ReturnTaskForReworkModal({
                                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                                     <div>
                                         <h3 id={`${titleId}-materials`} className="text-sm font-black text-slate-900">
-                                            Дополнительные материалы
+                                            {t('extraMaterials')}
                                         </h3>
                                         <p className="mt-1 text-xs text-slate-500">
-                                            Необязательно. Укажите материалы, которые нужно списать при переделке.
+                                            {t('extraMaterialsHint')}
                                         </p>
                                     </div>
                                     <button
@@ -398,20 +402,20 @@ export default function ReturnTaskForReworkModal({
                                         }
                                         className="shrink-0 rounded-xl border border-amber-200 bg-white px-3.5 py-2 text-xs font-black text-amber-700 transition hover:bg-amber-50 disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-400"
                                     >
-                                        + Добавить позицию
+                                        {t('addItem')}
                                     </button>
                                 </div>
 
                                 {stockOverviewQuery.isLoading ? (
                                     <p className="mt-4 text-xs font-semibold text-slate-500" aria-live="polite">
-                                        Загружаем складские остатки…
+                                        {t('loadingStock')}
                                     </p>
                                 ) : null}
 
                                 {stockOverviewQuery.isError ? (
                                     <div className="mt-4 flex flex-col gap-2 rounded-xl border border-red-200 bg-red-50 p-3 sm:flex-row sm:items-center sm:justify-between">
                                         <p className="text-xs font-bold text-red-700">
-                                            Не удалось загрузить номенклатуру. Задачу можно вернуть без материалов.
+                                            {t('stockError')}
                                         </p>
                                         <button
                                             type="button"
@@ -419,7 +423,7 @@ export default function ReturnTaskForReworkModal({
                                             disabled={stockOverviewQuery.isFetching}
                                             className="shrink-0 text-xs font-black text-red-700 underline underline-offset-2 disabled:cursor-wait disabled:opacity-60"
                                         >
-                                            {stockOverviewQuery.isFetching ? 'Обновляем…' : 'Повторить'}
+                                            {stockOverviewQuery.isFetching ? t('updating') : commonT('actions.retry')}
                                         </button>
                                     </div>
                                 ) : null}
@@ -428,7 +432,7 @@ export default function ReturnTaskForReworkModal({
                                     && !stockOverviewQuery.isError
                                     && stockItems.length === 0 ? (
                                         <p className="mt-4 text-xs font-semibold text-slate-500">
-                                            На складе пока нет доступных позиций.
+                                            {t('emptyStock')}
                                         </p>
                                     ) : null}
 
@@ -450,23 +454,23 @@ export default function ReturnTaskForReworkModal({
                                                 <div key={item.id} className="rounded-xl border border-slate-200 bg-white p-3">
                                                     <div className="flex items-center justify-between gap-3">
                                                         <p className="text-xs font-black text-slate-700">
-                                                            Позиция {index + 1}
+                                                            {t('item', {number: index + 1})}
                                                         </p>
                                                         <button
                                                             type="button"
                                                             onClick={() => handleRemoveStockWriteOff(item.id)}
                                                             disabled={isSubmitting}
-                                                            aria-label={`Удалить материал ${index + 1}`}
+                                                            aria-label={t('removeAria', {number: index + 1})}
                                                             className="text-xs font-bold text-slate-400 transition hover:text-red-600 disabled:cursor-wait"
                                                         >
-                                                            Удалить
+                                                            {commonT('actions.delete')}
                                                         </button>
                                                     </div>
 
                                                     <div className="mt-3 grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(150px,.38fr)]">
                                                         <label className="block">
                                                             <span className="mb-1.5 block text-[11px] font-black uppercase tracking-wide text-slate-500">
-                                                                Номенклатура <span className="text-red-500">*</span>
+                                                                {t('nomenclature')} <span className="text-red-500">*</span>
                                                             </span>
                                                             <select
                                                                 value={item.nomenclatureId}
@@ -474,7 +478,7 @@ export default function ReturnTaskForReworkModal({
                                                                 className={inputClassName}
                                                                 required
                                                             >
-                                                                <option value="">Выберите позицию</option>
+                                                                <option value="">{t('itemPlaceholder')}</option>
                                                                 {stockItems.map((option) => (
                                                                     <option
                                                                         key={option.nomenclatureId}
@@ -484,20 +488,20 @@ export default function ReturnTaskForReworkModal({
                                                                             && selectedNomenclatureIds.has(option.nomenclatureId)
                                                                         }
                                                                     >
-                                                                        {option.name} — {formatStockQuantity(option.currentQuantity, option.unit)}
+                                                                        {option.name} — {formats.number(option.currentQuantity, {maximumFractionDigits: 3})} {option.unit}
                                                                     </option>
                                                                 ))}
                                                             </select>
                                                             {stockItem ? (
                                                                 <p className="mt-1.5 text-[11px] text-slate-500">
-                                                                    Текущий остаток: {formatStockQuantity(stockItem.currentQuantity, stockItem.unit)}
+                                                                    {t('currentStock', {quantity: `${formats.number(stockItem.currentQuantity, {maximumFractionDigits: 3})} ${stockItem.unit}`})}
                                                                 </p>
                                                             ) : null}
                                                         </label>
 
                                                         <label className="block">
                                                             <span className="mb-1.5 block text-[11px] font-black uppercase tracking-wide text-slate-500">
-                                                                Количество <span className="text-red-500">*</span>
+                                                                {t('quantity')} <span className="text-red-500">*</span>
                                                             </span>
                                                             <input
                                                                 type="number"
@@ -511,7 +515,7 @@ export default function ReturnTaskForReworkModal({
                                                             />
                                                             {stockItem ? (
                                                                 <p className="mt-1.5 text-[11px] text-slate-500">
-                                                                    Единица: {stockItem.unit}
+                                                                    {t('unit', {unit: stockItem.unit})}
                                                                 </p>
                                                             ) : null}
                                                         </label>
@@ -519,13 +523,13 @@ export default function ReturnTaskForReworkModal({
 
                                                     {hasInvalidQuantity ? (
                                                         <p className="mt-2 text-xs font-bold text-red-600" role="alert">
-                                                            Количество должно быть больше нуля.
+                                                            {t('quantityPositive')}
                                                         </p>
                                                     ) : null}
 
                                                     {exceedsCurrentStock ? (
                                                         <p className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-800" role="status">
-                                                            Количество превышает текущий остаток на складе.
+                                                            {t('quantityOverflow')}
                                                         </p>
                                                     ) : null}
                                                 </div>
@@ -534,7 +538,7 @@ export default function ReturnTaskForReworkModal({
                                     </div>
                                 ) : (
                                     <p className="mt-4 rounded-xl border border-dashed border-slate-300 bg-white px-3 py-4 text-center text-xs text-slate-500">
-                                        Материалы не добавлены
+                                        {t('noMaterials')}
                                     </p>
                                 )}
                             </section>
@@ -553,14 +557,14 @@ export default function ReturnTaskForReworkModal({
                                 disabled={isSubmitting}
                                 className="rounded-xl border border-slate-200 px-5 py-2.5 text-sm font-bold text-slate-600 transition hover:bg-slate-50 disabled:cursor-wait disabled:opacity-60"
                             >
-                                Отмена
+                                {commonT('actions.cancel')}
                             </button>
                             <button
                                 type="submit"
                                 disabled={!isFormValid || employees.length === 0 || isSubmitting}
                                 className="rounded-xl bg-amber-600 px-5 py-2.5 text-sm font-black text-white transition hover:bg-amber-700 disabled:cursor-not-allowed disabled:bg-slate-300"
                             >
-                                {isSubmitting ? 'Возвращаем…' : 'Вернуть на переделку'}
+                                {isSubmitting ? t('submitting') : t('submit')}
                             </button>
                         </footer>
                     </form>
@@ -610,26 +614,27 @@ function isPositiveQuantity(value: string) {
     return Number.isFinite(quantity) && quantity > 0;
 }
 
-function getStockWriteOffValidationError(items: StockWriteOffDraft[]) {
+type ReworkTranslator = ReturnType<typeof useTranslations<'tasks.rework'>>;
+
+function getStockWriteOffValidationError(
+    items: StockWriteOffDraft[],
+    t: ReworkTranslator
+) {
     if (items.some((item) => !item.nomenclatureId)) {
-        return 'Выберите номенклатуру для каждой позиции дополнительных материалов.';
+        return t('selectAllItems');
     }
 
     if (items.some((item) => !isPositiveQuantity(item.quantity))) {
-        return 'Количество дополнительных материалов должно быть больше нуля.';
+        return t('allPositive');
     }
 
     const nomenclatureIds = items.map((item) => item.nomenclatureId);
 
     if (new Set(nomenclatureIds).size !== nomenclatureIds.length) {
-        return 'Одну номенклатуру нельзя добавить дважды.';
+        return t('noDuplicates');
     }
 
     return '';
-}
-
-function formatStockQuantity(value: number, unit: string) {
-    return `${value.toLocaleString('ru-RU', { maximumFractionDigits: 3 })} ${unit}`;
 }
 
 function getErrorStatus(error: unknown) {
@@ -638,16 +643,20 @@ function getErrorStatus(error: unknown) {
     return typeof error.status === 'number' ? error.status : undefined;
 }
 
-function getApiErrorMessage(error: unknown, fallback = 'Не удалось вернуть задачу на переделку.') {
+function getReworkApiErrorMessage(
+    error: unknown,
+    t: ReworkTranslator,
+    fallback = t('submitError')
+) {
     const status = getErrorStatus(error);
     const serverMessage = getServerMessage(error);
 
-    if (status === 400) return serverMessage || 'Проверьте обязательные поля и введённые суммы.';
-    if (status === 401) return 'Сессия истекла. Войдите в систему повторно.';
-    if (status === 403) return 'У вас нет доступа к задаче или этой операции.';
-    if (status === 404) return 'Задача, этап, сотрудник или инцидент не найден.';
-    if (status === 409) return 'Данные задачи изменились. Этапы и сотрудники обновлены — проверьте выбор.';
-    if (status === 500) return 'Внутренняя ошибка сервера. Попробуйте ещё раз позже.';
+    if (status === 400) return serverMessage || t('errors.badRequest');
+    if (status === 401) return t('errors.unauthorized');
+    if (status === 403) return t('errors.forbidden');
+    if (status === 404) return t('errors.notFound');
+    if (status === 409) return t('errors.conflict');
+    if (status === 500) return t('errors.server');
 
     return serverMessage || fallback;
 }

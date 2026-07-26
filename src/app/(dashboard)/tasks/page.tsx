@@ -22,15 +22,17 @@ import {
 } from '@dnd-kit/sortable';
 import {CSS} from '@dnd-kit/utilities';
 import type { KanbanColumn, WorkBoardTask } from '@/src/types/task.types';
+import {useTranslations} from 'next-intl';
+import {useAppFormatters} from '@/src/i18n/provider';
 
 // --- 1. КОНСТАНТЫ ---
 
 const COLUMNS: KanbanColumn[] = [
-    {id: 'TODO', title: 'Нужно сделать', color: 'border-t-slate-500'},
-    {id: 'MODELING', title: 'Моделирование', color: 'border-t-blue-500'},
-    {id: 'MILLING', title: 'Фрезеровка', color: 'border-t-purple-500'},
-    {id: 'POST_PROCESSING', title: 'Обработка', color: 'border-t-orange-500'},
-    {id: 'DONE', title: 'Готово', color: 'border-t-green-500'},
+    {id: 'TODO', title: 'TODO', color: 'border-t-slate-500'},
+    {id: 'MODELING', title: 'MODELING', color: 'border-t-blue-500'},
+    {id: 'MILLING', title: 'MILLING', color: 'border-t-purple-500'},
+    {id: 'POST_PROCESSING', title: 'POST_PROCESSING', color: 'border-t-orange-500'},
+    {id: 'DONE', title: 'DONE', color: 'border-t-green-500'},
 ];
 
 const materialColors: { [key: string]: string } = {
@@ -44,7 +46,7 @@ const initialTasks: WorkBoardTask[] = [
     {
         id: 'TT-101',
         patient: 'Алиев К.',
-        type: 'Коронка',
+        type: 'CROWN',
         material: 'Zirconia',
         units: 1,
         priority: 'high',
@@ -55,7 +57,7 @@ const initialTasks: WorkBoardTask[] = [
     {
         id: 'TT-102',
         patient: 'Иванова М.',
-        type: 'Винир',
+        type: 'VENEER',
         material: 'E-max',
         units: 6,
         priority: 'urgent',
@@ -66,7 +68,7 @@ const initialTasks: WorkBoardTask[] = [
     {
         id: 'TT-103',
         patient: 'Смирнов Д.',
-        type: 'Протез',
+        type: 'DENTURE',
         material: 'PMMA',
         units: 14,
         priority: 'medium',
@@ -77,7 +79,7 @@ const initialTasks: WorkBoardTask[] = [
     {
         id: 'TT-104',
         patient: 'Петров А.',
-        type: 'Вкладка',
+        type: 'INLAY',
         material: 'Zirconia',
         units: 2,
         priority: 'low',
@@ -88,7 +90,7 @@ const initialTasks: WorkBoardTask[] = [
     {
         id: 'TT-105',
         patient: 'Нурахметов Б.',
-        type: 'Мост',
+        type: 'BRIDGE',
         material: 'Zirconia',
         units: 3,
         priority: 'high',
@@ -101,6 +103,8 @@ const initialTasks: WorkBoardTask[] = [
 // --- 2. КОМПОНЕНТ КАРТОЧКИ (TaskCard) ---
 
 const TaskCard = ({task, role}: { task: WorkBoardTask, role: string | null }) => {
+    const t = useTranslations('orders.board');
+    const format = useAppFormatters();
     const {attributes, listeners, setNodeRef, transform, transition, isDragging} = useSortable({
         id: task.id,
         data: {type: 'Task', task}
@@ -131,13 +135,13 @@ const TaskCard = ({task, role}: { task: WorkBoardTask, role: string | null }) =>
                         <div className="flex items-center gap-1 text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">
                             <div
                                 className="w-4 h-4 rounded-full bg-slate-300 flex items-center justify-center text-[8px] text-white font-bold">T{task.techId}</div>
-                            <span>Tech: {task.techId}</span>
+                            <span>{t('technician', {id: task.techId})}</span>
                         </div>
                     )}
                 </div>
                 <div>
-                    <h3 className="text-slate-900 font-semibold text-sm leading-tight">{task.type} ({task.units} ед.)</h3>
-                    <p className="text-xs text-slate-600 mt-1">Пациент: {task.patient}</p>
+                    <h3 className="text-slate-900 font-semibold text-sm leading-tight">{t(`workTypes.${task.type as 'CROWN' | 'VENEER' | 'DENTURE' | 'INLAY' | 'BRIDGE'}`)} ({task.units})</h3>
+                    <p className="text-xs text-slate-600 mt-1">{t('patient', {name: task.patient})}</p>
                 </div>
                 <div className="flex flex-wrap gap-1.5">
                 <span
@@ -148,8 +152,8 @@ const TaskCard = ({task, role}: { task: WorkBoardTask, role: string | null }) =>
                         className="w-7 h-7 rounded-full bg-slate-600 border-2 border-white text-white flex items-center justify-center font-bold text-xs shadow-inner">{task.patient[0]}</div>
                     <div
                         className={`text-right text-xs p-1.5 rounded ${isOverdue ? 'bg-red-100 text-red-800' : isToday ? 'bg-orange-100 text-orange-800' : 'text-slate-500'}`}>
-                        <p className="text-[10px] uppercase tracking-wider leading-none">Срок</p>
-                        <p className="mt-0.5 leading-none">{new Date(task.deadline).toLocaleDateString('ru-RU', {
+                        <p className="text-[10px] uppercase tracking-wider leading-none">{t('deadline')}</p>
+                        <p className="mt-0.5 leading-none">{format.date(task.deadline, {
                             day: 'numeric',
                             month: 'short'
                         })}</p>
@@ -184,6 +188,17 @@ const DroppableColumn = ({id, children, column}: DroppableColumnProps) => {
 };
 
 export default function BoardPage() {
+    const t = useTranslations('orders.board');
+    const tStages = useTranslations('analytics.stages.codes');
+    const getStageLabel = (stage: KanbanColumn['id']) => {
+        switch (stage) {
+            case 'TODO': return tStages('TODO');
+            case 'MODELING': return tStages('MODELING');
+            case 'MILLING': return tStages('MILLING');
+            case 'POST_PROCESSING': return tStages('POST_PROCESSING');
+            case 'DONE': return tStages('DONE');
+        }
+    };
     const {id: userId, role} = useSelector((state: RootState) => state.auth);
     const [tasks, setTasks] = useState(initialTasks);
 
@@ -247,8 +262,8 @@ export default function BoardPage() {
             <div className="flex min-h-[calc(100dvh-8rem)] flex-col space-y-5">
                 <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div>
-                        <h1 className="text-2xl font-bold text-slate-900">Производственная доска</h1>
-                        <p className="text-slate-500 text-sm">{role === 'DISPATCHER' ? 'Мониторинг лаборатории' : 'Мои задачи'}</p>
+                        <h1 className="text-2xl font-bold text-slate-900">{t('title')}</h1>
+                        <p className="text-slate-500 text-sm">{role === 'DISPATCHER' ? t('monitoring') : t('myTasks')}</p>
                     </div>
                 </header>
 
@@ -261,7 +276,7 @@ export default function BoardPage() {
                                 {/* Заголовок колонки */}
                                 <div
                                     className="p-4 flex justify-between items-center border-b border-slate-200 bg-white/50 rounded-t-xl">
-                                    <h2 className="font-bold text-sm text-slate-800 uppercase tracking-wider">{column.title}</h2>
+                                    <h2 className="font-bold text-sm text-slate-800 uppercase tracking-wider">{getStageLabel(column.id)}</h2>
                                     <span
                                         className="bg-slate-200 text-slate-700 text-xs font-bold px-2.5 py-1 rounded-full">
                     {tasksInColumn.length}
@@ -277,7 +292,7 @@ export default function BoardPage() {
                                             <TaskCard key={task.id} task={task} role={role}/>
                                         ))}
                                         {tasksInColumn.length === 0 && (
-                                            <div className="text-center py-8 text-slate-400 text-xs italic">Пусто</div>
+                                            <div className="text-center py-8 text-slate-400 text-xs italic">{t('empty')}</div>
                                         )}
                                     </div>
                                 </SortableContext>

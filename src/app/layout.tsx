@@ -1,11 +1,26 @@
 import type {Metadata} from 'next';
+import {cookies, headers} from 'next/headers';
 import './globals.css';
 import StoreProvider from './StoreProvider';
+import {AppI18nProvider} from '@/src/i18n/provider';
+import {localeCookieName} from '@/src/i18n/config';
+import {resolveLocale} from '@/src/i18n/locale';
+import {loadMessages} from '@/src/i18n/messages';
 
-export const metadata: Metadata = {
-    title: 'TeethTech CRM',
-    description: 'Система управления зуботехнической лабораторией',
-};
+export async function generateMetadata(): Promise<Metadata> {
+    const cookieStore = await cookies();
+    const headerStore = await headers();
+    const locale = resolveLocale(
+        cookieStore.get(localeCookieName)?.value,
+        headerStore.get('accept-language')
+    );
+    const messages = await loadMessages(locale);
+
+    return {
+        title: 'TeethTech CRM',
+        description: messages.common.appDescription,
+    };
+}
 
 const themeScript = `
 (() => {
@@ -17,20 +32,30 @@ const themeScript = `
   } catch (_) {}
 })();`;
 
-export default function RootLayout({
-                                       children,
-                                   }: Readonly<{
+export default async function RootLayout({
+                                             children,
+                                         }: Readonly<{
     children: React.ReactNode;
 }>) {
+    const cookieStore = await cookies();
+    const headerStore = await headers();
+    const locale = resolveLocale(
+        cookieStore.get(localeCookieName)?.value,
+        headerStore.get('accept-language')
+    );
+    const messages = await loadMessages(locale);
+
     return (
-        <html lang="ru" suppressHydrationWarning>
+        <html lang={locale} suppressHydrationWarning>
             <head>
                 <script dangerouslySetInnerHTML={{ __html: themeScript }} />
             </head>
             <body>
-                <StoreProvider>
-                    {children}
-                </StoreProvider>
+                <AppI18nProvider initialLocale={locale} initialMessages={messages}>
+                    <StoreProvider>
+                        {children}
+                    </StoreProvider>
+                </AppI18nProvider>
             </body>
         </html>
     );

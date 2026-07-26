@@ -5,6 +5,7 @@ import {
     type InputHTMLAttributes,
     useRef,
 } from 'react';
+import {useTranslations} from 'next-intl';
 
 import {
     formatPhoneNumber,
@@ -45,6 +46,7 @@ export default function PhoneInput({
     title,
     ...inputProps
 }: PhoneInputProps) {
+    const t = useTranslations('common');
     const inputRef = useRef<HTMLInputElement>(null);
     const formattedValue = formatPhoneNumber(value);
 
@@ -90,7 +92,7 @@ export default function PhoneInput({
             onChange={handleChange}
             pattern={PHONE_NUMBER_PATTERN}
             placeholder={placeholder ?? '+7 (___) ___ __ __'}
-            title={title ?? 'Введите номер полностью в формате +7 (xxx) xxx xx xx'}
+            title={title ?? t('phoneFormatHint')}
         />
     );
 }

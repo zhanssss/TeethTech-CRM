@@ -1,3 +1,8 @@
+import {defaultLocale, isLocale, localeCookieName, type Locale} from '@/src/i18n/config';
+import enMessages from '@/src/messages/en/apiNotifications';
+import kkMessages from '@/src/messages/kk/apiNotifications';
+import ruMessages from '@/src/messages/ru/apiNotifications';
+
 type ErrorData = {
     message?: unknown;
     detail?: unknown;
@@ -6,74 +11,24 @@ type ErrorData = {
     businessMessage?: unknown;
 };
 
-const SUCCESS_MESSAGES: Record<string, string | null> = {
-    loginUser: 'Вход выполнен',
-    registerUser: 'Сотрудник создан',
-    createClinic: 'Клиника создана',
-    updateClinic: 'Данные клиники сохранены',
-    deleteClinic: 'Клиника удалена',
-    createOrder: 'Заказ создан',
-    updateOrder: 'Изменения заказа сохранены',
-    deleteOrder: 'Заказ удалён',
-    updateOrderStatus: 'Статус заказа обновлён',
-    updateTaskStatus: 'Статус задачи обновлён',
-    updateTaskMaterials: 'Материалы задачи сохранены',
-    assignTask: 'Исполнитель назначен',
-    updateTaskAssignment: 'План ответственных сохранён',
-    addTask: 'Задача добавлена',
-    updateUser: 'Данные сотрудника сохранены',
-    updateUserAdminSetup: 'Настройки сотрудника сохранены',
-    changeUserPassword: 'Пароль обновлён',
-    createUsersBatch: 'Сотрудники созданы',
-    deleteUser: 'Сотрудник удалён',
-    createColor: 'Цвет создан',
-    updateColor: 'Цвет сохранён',
-    deleteColor: 'Цвет удалён',
-    createMaterial: 'Материал создан',
-    updateMaterial: 'Материал сохранён',
-    deleteMaterial: 'Материал удалён',
-    createWorkType: 'Тип работы создан',
-    updateWorkType: 'Тип работы сохранён',
-    deleteWorkType: 'Тип работы удалён',
-    returnTaskForRework: 'Задача возвращена на переделку',
-    resolveTaskQualityIncident: 'Инцидент закрыт',
-    uploadTaskFile: 'Файл загружен',
-    initMultipartTaskFileUpload: null,
-    uploadMultipartTaskFilePart: null,
-    completeMultipartTaskFileUpload: 'Файл загружен',
-    abortMultipartTaskFileUpload: null,
-    deleteTaskFile: 'Файл удалён',
-    upsertSalaryConfig: 'Схема оплаты сохранена',
-    createSalaryStatement: 'Ведомость сформирована',
-    deleteSalaryStatement: 'Черновик ведомости удалён',
-    confirmSalaryStatement: 'Выплата подтверждена',
-    createInvoice: 'Счёт создан',
-    issueInvoice: 'Счёт выставлен',
-    registerPayment: 'Оплата зарегистрирована',
-    reversePayment: 'Оплата сторнирована',
-    upsertNomenclatureNorm: 'Норма расхода сохранена',
-    deleteNomenclatureNorm: 'Норма расхода удалена',
-    receiveStock: 'Приход проведён',
-    createWarehouseMaterial: 'Материал добавлен на склад',
-    createProcurementOrder: 'Заказ поставщику создан',
-    submitProcurementOrder: 'Заказ поставщику отправлен в работу',
-    receiveProcurementOrder: 'Поставка принята',
-    upsertProcurementSupplier: 'Поставщик сохранён',
-    createInventoryCheck: 'Инвентаризация создана',
-    startInventoryCheck: 'Инвентаризация начата',
-    cancelInventoryCheck: 'Инвентаризация отменена',
-    completeInventoryCheck: 'Инвентаризация завершена',
-    updateInventoryItem: 'Фактическое количество сохранено',
-    unlinkTelegram: 'Telegram отключён',
-    updateTelegramSettings: 'Настройки Telegram сохранены',
-    updateTelegramToken: 'Токен Telegram-бота сохранён',
-    regenerateTelegramWebhookSecret: 'Webhook secret обновлён',
-    connectTelegramIntegration: 'Webhook Telegram зарегистрирован',
-    disconnectTelegramIntegration: 'Webhook Telegram отключён',
-    createRole: 'Роль создана',
-    updateRole: 'Название роли изменено',
-    deleteRole: 'Роль удалена',
+type ApiNotificationMessages = {
+    success: Record<string, string>;
+    errors: Record<string, string>;
+    defaults: {deleted: string; saved: string; success: string};
+    proxy: {tokenMissing: string; tokenExpired: string; unavailable: string};
 };
+
+const MESSAGE_SETS: Record<Locale, ApiNotificationMessages> = {
+    ru: ruMessages,
+    en: enMessages,
+    kk: kkMessages,
+};
+
+const SILENT_SUCCESS_ENDPOINTS = new Set([
+    'initMultipartTaskFileUpload',
+    'uploadMultipartTaskFilePart',
+    'abortMultipartTaskFileUpload',
+]);
 
 const SILENT_ERROR_ENDPOINTS = new Set([
     'abortMultipartTaskFileUpload',
@@ -84,6 +39,18 @@ const ROLE_ENDPOINTS = new Set([
     'updateRole',
     'deleteRole',
 ]);
+
+function getCurrentMessages(): ApiNotificationMessages {
+    if (typeof document === 'undefined') return MESSAGE_SETS[defaultLocale];
+
+    const savedLocale = document.cookie
+        .split(';')
+        .map((part) => part.trim())
+        .find((part) => part.startsWith(`${localeCookieName}=`))
+        ?.slice(localeCookieName.length + 1);
+    const locale = isLocale(savedLocale) ? savedLocale : defaultLocale;
+    return MESSAGE_SETS[locale];
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
     return typeof value === 'object' && value !== null;
@@ -112,56 +79,60 @@ export function shouldNotifyApiError(endpoint: string) {
 }
 
 export function getApiErrorMessage(error: unknown, endpoint = '') {
+    const messages = getCurrentMessages();
+    const text = messages.errors;
+
     if (!isRecord(error)) {
         return error instanceof Error && error.message
             ? error.message
-            : 'Не удалось выполнить операцию';
+            : text.generic;
     }
 
     const status = error.status;
     const serverMessage = getServerMessage(error.data);
 
     if (endpoint === 'loginUser' && status === 401) {
-        return 'Неверный email или пароль';
+        return text.invalidCredentials;
     }
 
-    if (status === 401) return 'Сессия истекла. Войдите в систему повторно';
+    if (status === 401) return text.sessionExpired;
     if (status === 403 && ROLE_ENDPOINTS.has(endpoint)) {
-        return 'Недостаточно прав для управления ролями';
+        return text.roleForbidden;
     }
     if (status === 404 && ['updateRole', 'deleteRole'].includes(endpoint)) {
-        return 'Роль не найдена. Возможно, она была удалена другим администратором';
+        return text.roleNotFound;
     }
-    if (status === 403) return serverMessage || 'Недостаточно прав для этой операции';
-    if (status === 404) return serverMessage || 'Запрашиваемые данные не найдены';
-    if (status === 409) return serverMessage || 'Данные изменились. Обновите страницу и повторите попытку';
-    if (status === 429) return serverMessage || 'Слишком много запросов. Подождите и повторите попытку';
+    if (status === 403) return serverMessage || text.forbidden;
+    if (status === 404) return serverMessage || text.notFound;
+    if (status === 409) return serverMessage || text.conflict;
+    if (status === 429) return serverMessage || text.tooMany;
     if (status === 400 || status === 422) {
-        return serverMessage || 'Проверьте введённые данные';
+        return serverMessage || text.invalidData;
     }
-    if (status === 502) return serverMessage || 'Не удалось подключиться к серверу';
+    if (status === 502) return serverMessage || text.badGateway;
     if (typeof status === 'number' && status >= 500) {
         if (ROLE_ENDPOINTS.has(endpoint)) {
-            return 'Не удалось выполнить операцию. Попробуйте ещё раз';
+            return text.roleServer;
         }
-        return serverMessage || 'Сервис временно недоступен. Попробуйте позже';
+        return serverMessage || text.unavailable;
     }
     if (status === 'FETCH_ERROR' || status === 'TIMEOUT_ERROR') {
-        return 'Нет соединения с сервером. Проверьте сеть и повторите попытку';
+        return text.network;
     }
     if (status === 'PARSING_ERROR') {
-        return 'Сервер вернул некорректный ответ';
+        return text.parsing;
     }
 
-    return serverMessage || readText(error.error) || 'Не удалось выполнить операцию';
+    return serverMessage || readText(error.error) || text.generic;
 }
 
 export function getApiSuccessMessage(endpoint: string, method?: string) {
-    if (Object.prototype.hasOwnProperty.call(SUCCESS_MESSAGES, endpoint)) {
-        return SUCCESS_MESSAGES[endpoint];
-    }
+    if (SILENT_SUCCESS_ENDPOINTS.has(endpoint)) return null;
+    const messages = getCurrentMessages();
+    const successMessage = messages.success[endpoint];
+    if (successMessage) return successMessage;
 
-    if (method === 'DELETE') return 'Запись удалена';
-    if (method === 'PUT' || method === 'PATCH') return 'Изменения сохранены';
-    return 'Операция выполнена успешно';
+    if (method === 'DELETE') return messages.defaults.deleted;
+    if (method === 'PUT' || method === 'PATCH') return messages.defaults.saved;
+    return messages.defaults.success;
 }

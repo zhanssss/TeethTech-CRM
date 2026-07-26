@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useRouter } from 'next/navigation';
+import {useTranslations} from 'next-intl';
 
 import {
     dismissNotification,
@@ -38,6 +39,7 @@ function StatusIcon({ tone }: Pick<AppNotification, 'tone'>) {
 }
 
 function NotificationToast({ notification }: { notification: AppNotification }) {
+    const t = useTranslations('common.notifications');
     const dispatch = useDispatch<AppDispatch>();
 	const router = useRouter();
     const [isLeaving, setIsLeaving] = useState(false);
@@ -70,6 +72,9 @@ function NotificationToast({ notification }: { notification: AppNotification }) 
 
     const isSuccess = notification.tone === 'success';
 	const isMessage = notification.tone === 'message';
+    const displayTitle = notification.title || (
+        isSuccess ? t('successTitle') : isMessage ? t('newMessage') : t('errorTitle')
+    );
 	const openNotification = () => {
 		if (!notification.href) return;
 		router.push(notification.href);
@@ -109,7 +114,7 @@ function NotificationToast({ notification }: { notification: AppNotification }) 
                     }`}
                 >
 					{isMessage ? (
-						notification.title.trim().slice(0, 1).toLocaleUpperCase('ru') || 'С'
+						displayTitle.trim().slice(0, 1).toLocaleUpperCase() || '•'
 					) : (
 						<StatusIcon tone={notification.tone} />
 					)}
@@ -118,11 +123,11 @@ function NotificationToast({ notification }: { notification: AppNotification }) 
                 <div className="min-w-0 flex-1 pt-0.5">
 					{isMessage ? (
 						<p className="mb-0.5 text-[10px] font-black uppercase tracking-[0.16em] text-blue-600 dark:text-blue-300">
-							Новое сообщение
+							{t('newMessage')}
 						</p>
 					) : null}
                     <h2 className="text-sm font-extrabold tracking-tight text-slate-900 dark:text-slate-50">
-                        {notification.title}
+                        {displayTitle}
                     </h2>
                     <p className="mt-1 text-sm leading-5 text-slate-600 dark:text-slate-300">
                         {notification.message}
@@ -135,7 +140,7 @@ function NotificationToast({ notification }: { notification: AppNotification }) 
                         event.stopPropagation();
                         dismiss();
                     }}
-                    aria-label="Закрыть уведомление"
+                    aria-label={t('close')}
                     className="-mr-1 -mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-xl leading-none text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 dark:text-slate-500 dark:hover:bg-slate-800 dark:hover:text-slate-200"
                 >
                     &times;
@@ -155,11 +160,12 @@ function NotificationToast({ notification }: { notification: AppNotification }) 
 }
 
 export default function NotificationViewport() {
+    const t = useTranslations('common.notifications');
     const notifications = useSelector((state: RootState) => state.notifications.items);
 
     return (
         <div
-            aria-label="Уведомления"
+            aria-label={t('region')}
 			className="pointer-events-none fixed inset-x-3 top-3 z-[120] flex flex-col items-center gap-3 sm:left-auto sm:right-5 sm:top-5 sm:w-[min(26rem,calc(100vw-2.5rem))] sm:items-stretch"
         >
             {notifications.map((notification) => (

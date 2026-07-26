@@ -1,6 +1,7 @@
 'use client';
 
 import LaboratoryCrudPage from '@/src/components/laboratory/LaboratoryCrudPage';
+import {useTranslations} from 'next-intl';
 
 import {
     useGetColorsQuery,
@@ -16,15 +17,16 @@ import type {
 } from '@/src/types/laboratory-types/colors.types';
 
 export default function LaboratoryColorsPage() {
+    const t = useTranslations('laboratory.colors');
     return (
         <LaboratoryCrudPage<Color, boolean | void, CreateColorDto, UpdateColorDto>
-            pageTitle="Цвета"
-            pageDescription="Управление цветами для лабораторных заказов"
-            formTitle="цвет"
-            formDescription="Укажите код, название и статус цвета"
-            listTitle="Список цветов"
-            emptyTitle="Цветов пока нет"
-            emptyDescription="Добавьте первый цвет через форму слева"
+            pageTitle={t('title')}
+            pageDescription={t('description')}
+            formTitle={t('formTitle')}
+            formDescription={t('formDescription')}
+            listTitle={t('listTitle')}
+            emptyTitle={t('emptyTitle')}
+            emptyDescription={t('emptyDescription')}
             useGetQuery={useGetColorsQuery}
             queryArg={false}
             useCreateMutation={useCreateColorMutation}
@@ -33,21 +35,21 @@ export default function LaboratoryColorsPage() {
             fields={[
                 {
                     name: 'code',
-                    label: 'Код цвета',
+                    label: t('code'),
                     placeholder: 'A1',
                     type: 'text',
                     required: true,
                 },
                 {
                     name: 'name',
-                    label: 'Название',
-                    placeholder: 'Белый',
+                    label: t('name'),
+                    placeholder: t('namePlaceholder'),
                     type: 'text',
                     required: true,
                 },
                 {
                     name: 'isActive',
-                    label: 'Активный цвет',
+                    label: t('active'),
                     type: 'checkbox',
                 },
             ]}

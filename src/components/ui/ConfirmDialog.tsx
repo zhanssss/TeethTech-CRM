@@ -1,6 +1,7 @@
 'use client';
 
 import type { ReactNode } from 'react';
+import {useTranslations} from 'next-intl';
 
 import Modal from '@/src/components/ui/Modal';
 
@@ -44,16 +45,19 @@ export default function ConfirmDialog({
     open,
     title,
     description,
-    confirmLabel = 'Подтвердить',
-    cancelLabel = 'Отмена',
+    confirmLabel,
+    cancelLabel,
     isLoading = false,
     tone = 'danger',
     onConfirm,
     onClose,
 }: ConfirmDialogProps) {
+    const t = useTranslations('common.actions');
     if (!open) return null;
 
     const styles = toneStyles[tone];
+    const resolvedConfirmLabel = confirmLabel ?? t('confirm');
+    const resolvedCancelLabel = cancelLabel ?? t('cancel');
 
     return (
         <Modal contentClassName="max-w-md overflow-hidden p-0">
@@ -87,7 +91,7 @@ export default function ConfirmDialog({
                         disabled={isLoading}
                         className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
                     >
-                        {cancelLabel}
+                        {resolvedCancelLabel}
                     </button>
                     <button
                         type="button"
@@ -95,7 +99,7 @@ export default function ConfirmDialog({
                         disabled={isLoading}
                         className={`rounded-xl px-4 py-2.5 text-sm font-bold shadow-sm transition focus-visible:outline-none focus-visible:ring-4 disabled:cursor-not-allowed disabled:opacity-60 ${styles.buttonClassName}`}
                     >
-                        {isLoading ? 'Выполняем…' : confirmLabel}
+                        {isLoading ? t('processing') : resolvedConfirmLabel}
                     </button>
                 </div>
             </div>

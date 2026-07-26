@@ -1,19 +1,23 @@
 import type { ChatMessageDto, ChatSummaryDto } from '@/src/types/chat.types'
 
-export function formatChatTime(value: string | null | undefined) {
+export function formatChatTime(value: string | null | undefined, locale = 'en-US') {
 	if (!value) return ''
 
 	const date = new Date(value)
 
 	if (Number.isNaN(date.getTime())) return ''
 
-	return new Intl.DateTimeFormat('ru-RU', {
+	return new Intl.DateTimeFormat(locale, {
 		hour: '2-digit',
 		minute: '2-digit'
 	}).format(date)
 }
 
-export function formatChatDateLabel(value: string | null | undefined) {
+export function formatChatDateLabel(
+	value: string | null | undefined,
+	locale = 'en-US',
+	labels = {today: 'Today', yesterday: 'Yesterday'}
+) {
 	if (!value) return ''
 
 	const date = new Date(value)
@@ -25,10 +29,10 @@ export function formatChatDateLabel(value: string | null | undefined) {
 	const target = new Date(date.getFullYear(), date.getMonth(), date.getDate())
 	const diffDays = Math.round((today.getTime() - target.getTime()) / 86_400_000)
 
-	if (diffDays <= 0) return 'Сегодня'
-	if (diffDays === 1) return 'Вчера'
+	if (diffDays <= 0) return labels.today
+	if (diffDays === 1) return labels.yesterday
 
-	return new Intl.DateTimeFormat('ru-RU', {
+	return new Intl.DateTimeFormat(locale, {
 		day: 'numeric',
 		month: 'short',
 		year: 'numeric'

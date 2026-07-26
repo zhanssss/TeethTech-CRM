@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {useTranslations} from 'next-intl';
 
 import {
     useCreatePersonalNoteMutation,
@@ -22,6 +23,7 @@ import {
     PERSONAL_NOTE_TITLE_LIMIT,
 } from '@/src/utils/personalNotes';
 import ConfirmDialog from '@/src/components/ui/ConfirmDialog';
+import {useAppFormatters} from '@/src/i18n/provider';
 
 type NoteDraft = PersonalNotePayload &
     Partial<Pick<PersonalNote, 'id' | 'createdAt' | 'updatedAt' | 'expiresAt'>>;
@@ -90,30 +92,16 @@ function NoteIcon({
     );
 }
 
-function formatDateTime(value?: string) {
-    if (!value) return '';
-
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return '';
-
-    return new Intl.DateTimeFormat('ru-RU', {
-        day: '2-digit',
-        month: 'short',
-        hour: '2-digit',
-        minute: '2-digit',
-    }).format(date);
-}
-
-function getNoteLabel(note: PersonalNote) {
+function getNoteLabel(note: PersonalNote, untitled: string) {
     const normalized = normalizePersonalNote(note);
     return normalized.title.trim() ||
         normalized.content.trim().split(/\r?\n/u)[0] ||
-        'Без названия';
+        untitled;
 }
 
-function getNotePreview(note: PersonalNote) {
+function getNotePreview(note: PersonalNote, emptyPreview: string) {
     const preview = normalizePersonalNote(note).content.trim().replace(/\s+/gu, ' ');
-    return preview || 'Текст заметки пока пуст';
+    return preview || emptyPreview;
 }
 
 export default function PersonalNotesCard({
@@ -121,6 +109,12 @@ export default function PersonalNotesCard({
     onRequestClose,
     closeRequestId = 0,
 }: PersonalNotesCardProps) {
+    const t = useTranslations('settings.notes');
+    const commonT = useTranslations('common.actions');
+    const formatters = useAppFormatters();
+    const formatNoteDateTime = useCallback((value?: string) => value
+        ? formatters.dateTime(value, {year: undefined, month: 'short'})
+        : '', [formatters]);
     const [search, setSearch] = useState('');
     const [debouncedSearch, setDebouncedSearch] = useState('');
     const [page, setPage] = useState(0);
@@ -281,7 +275,7 @@ export default function PersonalNotesCard({
                     (error as { status?: unknown }).status === 404;
 
                 setIsExpired(expired);
-                setErrorMessage(getPersonalNoteError(error));
+                setErrorMessage(t(getPersonalNoteError(error)));
                 setSaveStatus('error');
                 return false;
             }
@@ -305,7 +299,7 @@ export default function PersonalNotesCard({
         }
 
         return succeeded;
-    }, [clearSaveTimer, createNote, setSaveStatus, updateNote]);
+    }, [clearSaveTimer, createNote, setSaveStatus, t, updateNote]);
 
     useEffect(() => {
         saveLatestRef.current = saveLatest;
@@ -506,8 +500,8 @@ export default function PersonalNotesCard({
             setIsExpired(expired);
             setErrorMessage(
                 expired
-                    ? 'Заметка уже истекла и больше недоступна.'
-                    : 'Не удалось удалить заметку. Попробуйте ещё раз.'
+                    ? t('expired')
+                    : t('deleteError')
             );
             setSaveStatus('error');
         } finally {
@@ -520,18 +514,18 @@ export default function PersonalNotesCard({
     const draftContent = draft.content ?? '';
     const totalPages = Math.max(data?.totalPages ?? 1, 1);
     const statusLabel = useMemo(() => {
-        if (status === 'saving') return 'Сохранение…';
-        if (status === 'saved') return 'Сохранено';
-        if (status === 'error') return 'Ошибка сохранения';
-        return hasPersonalNoteText(draft) ? 'Ожидает сохранения' : 'Новая заметка';
-    }, [draft, status]);
+        if (status === 'saving') return t('saving');
+        if (status === 'saved') return t('saved');
+        if (status === 'error') return t('saveError');
+        return hasPersonalNoteText(draft) ? t('pending') : t('newNote');
+    }, [draft, status, t]);
     const containerClassName = variant === 'modal'
         ? 'fixed bottom-24 right-4 z-[80] flex h-[min(680px,calc(100dvh-7rem))] w-[min(820px,calc(100vw-2rem))] flex-col overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-[0_28px_80px_-22px_rgba(15,23,42,.55)] dark:border-slate-700 dark:bg-slate-900 sm:right-6'
         : 'flex h-[calc(100dvh-8.5rem)] min-h-[600px] w-full flex-col overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900';
 
     return (
         <section
-            aria-label="Личные заметки"
+            aria-label={t('aria')}
             className={containerClassName}
         >
                     <header className="flex min-h-[72px] items-center gap-3 bg-gradient-to-r from-violet-600 to-indigo-600 px-4 text-white">
@@ -539,9 +533,9 @@ export default function PersonalNotesCard({
                             <NoteIcon name="note" />
                         </span>
                         <div className="min-w-0 flex-1">
-                            <h2 className="text-sm font-black">Личные заметки</h2>
+                            <h2 className="text-sm font-black">{t('title')}</h2>
                             <p className="mt-0.5 text-[11px] text-violet-100">
-                                Личный диалог с вашими записями
+                                {t('subtitle')}
                             </p>
                         </div>
                         <button
@@ -551,14 +545,14 @@ export default function PersonalNotesCard({
                             disabled={status === 'saving' || isDeleting}
                         >
                             <NoteIcon name="plus" className="h-4 w-4" />
-                            Новая
+                            {t('new')}
                         </button>
                         {variant === 'modal' ? (
                             <button
                                 type="button"
                                 onClick={() => void closeNotes()}
                                 className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/10 transition hover:bg-white/20"
-                                aria-label="Закрыть личные заметки"
+                                aria-label={t('close')}
                             >
                                 <NoteIcon name="close" />
                             </button>
@@ -568,7 +562,7 @@ export default function PersonalNotesCard({
                     <div className="grid min-h-0 flex-1 grid-cols-1 md:grid-cols-[17rem_minmax(0,1fr)]">
                         <aside className="flex min-h-0 flex-col border-b border-slate-200 bg-slate-50/80 dark:border-slate-700 dark:bg-slate-950 md:border-b-0 md:border-r">
                             <label className="relative m-3 mb-2 block">
-                                <span className="sr-only">Поиск заметок</span>
+                                <span className="sr-only">{t('search')}</span>
                                 <NoteIcon
                                     name="search"
                                     className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
@@ -577,7 +571,7 @@ export default function PersonalNotesCard({
                                     type="search"
                                     value={search}
                                     onChange={(event) => setSearch(event.target.value)}
-                                    placeholder="Поиск заметок"
+                                    placeholder={t('search')}
                                     className="h-10 w-full rounded-xl border border-slate-200 bg-white pl-9 pr-3 text-sm outline-none transition focus:border-violet-400 focus:ring-2 focus:ring-violet-100 dark:border-slate-700 dark:bg-slate-900 dark:focus:ring-violet-500/15"
                                 />
                             </label>
@@ -585,20 +579,20 @@ export default function PersonalNotesCard({
                             <div className="max-h-40 flex-1 overflow-y-auto px-2 pb-2 md:max-h-none">
                                 {isListFetching && notes.length === 0 ? (
                                     <p className="px-3 py-8 text-center text-xs text-slate-400">
-                                        Загрузка заметок…
+                                        {t('loading')}
                                     </p>
                                 ) : null}
 
                                 {isListError ? (
                                     <div className="m-1 rounded-xl border border-red-200 bg-red-50 p-3 text-xs text-red-700">
-                                        <p>Не удалось загрузить заметки.</p>
+                                        <p>{t('loadError')}</p>
                                         <button
                                             type="button"
                                             onClick={() => void refetch()}
                                             className="mt-2 inline-flex items-center gap-1 font-bold"
                                         >
                                             <NoteIcon name="retry" className="h-3.5 w-3.5" />
-                                            Повторить
+                                            {commonT('retry')}
                                         </button>
                                     </div>
                                 ) : null}
@@ -606,8 +600,8 @@ export default function PersonalNotesCard({
                                 {!isListFetching && !isListError && notes.length === 0 ? (
                                     <p className="px-3 py-8 text-center text-xs text-slate-400">
                                         {debouncedSearch
-                                            ? 'По вашему запросу ничего не найдено'
-                                            : 'Заметок пока нет'}
+                                            ? t('noResults')
+                                            : t('empty')}
                                     </p>
                                 ) : null}
 
@@ -627,13 +621,13 @@ export default function PersonalNotesCard({
                                             }`}
                                         >
                                             <span className="block truncate text-sm font-bold">
-                                                {getNoteLabel(note)}
+                                                {getNoteLabel(note, t('untitled'))}
                                             </span>
                                             <span className="mt-1 block truncate text-[11px] text-slate-500">
-                                                {getNotePreview(note)}
+                                                {getNotePreview(note, t('emptyPreview'))}
                                             </span>
                                             <span className="mt-1.5 block text-[9px] text-slate-400">
-                                                {formatDateTime(note.updatedAt)}
+                                                {formatNoteDateTime(note.updatedAt)}
                                             </span>
                                         </button>
                                     );
@@ -648,7 +642,7 @@ export default function PersonalNotesCard({
                                         disabled={page === 0}
                                         className="rounded-lg px-2 py-1 font-bold text-slate-600 disabled:opacity-30"
                                     >
-                                        Назад
+                                        {commonT('back')}
                                     </button>
                                     <span className="text-slate-400">
                                         {page + 1} / {totalPages}
@@ -659,7 +653,7 @@ export default function PersonalNotesCard({
                                         disabled={page >= totalPages - 1}
                                         className="rounded-lg px-2 py-1 font-bold text-slate-600 disabled:opacity-30"
                                     >
-                                        Далее
+                                        {t('next')}
                                     </button>
                                 </div>
                             ) : null}
@@ -698,7 +692,7 @@ export default function PersonalNotesCard({
                                         className="flex h-8 items-center gap-1.5 rounded-lg px-2 text-xs font-bold text-red-600 transition hover:bg-red-50 disabled:opacity-40 dark:hover:bg-red-500/10"
                                     >
                                         <NoteIcon name="trash" className="h-4 w-4" />
-                                        {isDeleting ? 'Удаление…' : 'Удалить'}
+                                        {isDeleting ? t('deleting') : commonT('delete')}
                                     </button>
                                 ) : null}
                             </div>
@@ -711,7 +705,7 @@ export default function PersonalNotesCard({
                                         onClick={isExpired ? recreateExpiredNote : retrySave}
                                         className="shrink-0 font-black underline underline-offset-2"
                                     >
-                                        {isExpired ? 'Создать новую' : 'Повторить'}
+                                        {isExpired ? t('recreate') : commonT('retry')}
                                     </button>
                                 </div>
                             ) : null}
@@ -721,8 +715,8 @@ export default function PersonalNotesCard({
                                     value={draftTitle}
                                     onChange={(event) => updateDraft('title', event.target.value)}
                                     maxLength={PERSONAL_NOTE_TITLE_LIMIT}
-                                    placeholder="Заголовок"
-                                    aria-label="Заголовок заметки"
+                                    placeholder={t('titlePlaceholder')}
+                                    aria-label={t('titleAria')}
                                     className="w-full border-0 bg-transparent px-0 text-lg font-black text-slate-900 outline-none placeholder:text-slate-300 dark:text-white"
                                 />
                                 <div className="mt-1 text-right text-[9px] text-slate-400">
@@ -732,15 +726,15 @@ export default function PersonalNotesCard({
                                     value={draftContent}
                                     onChange={(event) => updateDraft('content', event.target.value)}
                                     maxLength={PERSONAL_NOTE_CONTENT_LIMIT}
-                                    placeholder="Напишите заметку…"
-                                    aria-label="Текст заметки"
+                                    placeholder={t('contentPlaceholder')}
+                                    aria-label={t('contentAria')}
                                     className="mt-2 min-h-32 flex-1 resize-none border-0 bg-transparent px-0 text-sm leading-6 text-slate-700 outline-none placeholder:text-slate-300 dark:text-slate-200"
                                 />
                                 <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-[10px] text-slate-400">
                                     <span>
                                         {draft.expiresAt
-                                            ? `Хранится до ${formatDateTime(draft.expiresAt)}`
-                                            : 'После сохранения хранится 30 дней'}
+                                            ? t('storedUntil', {date: formatNoteDateTime(draft.expiresAt)})
+                                            : t('retention')}
                                     </span>
                                     <span>
                                         {draftContent.length} / {PERSONAL_NOTE_CONTENT_LIMIT}
@@ -749,15 +743,15 @@ export default function PersonalNotesCard({
                             </div>
 
                             <footer className="border-t border-slate-200 bg-slate-50 px-4 py-2.5 text-[10px] leading-4 text-slate-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-400">
-                                Не храните здесь пароли, медицинские документы и другие секретные данные.
+                                {t('privacy')}
                             </footer>
                         </div>
                     </div>
             <ConfirmDialog
                 open={isDeleteConfirmOpen}
-                title="Удалить заметку?"
-                description="Заметка исчезнет без возможности восстановления."
-                confirmLabel="Удалить заметку"
+                title={t('deleteTitle')}
+                description={t('deleteDescription')}
+                confirmLabel={t('deleteConfirm')}
                 isLoading={isDeleting}
                 onClose={() => setIsDeleteConfirmOpen(false)}
                 onConfirm={removeCurrentNote}

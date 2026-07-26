@@ -3,8 +3,10 @@
 import { type FormEvent, useState } from 'react';
 import { useDispatch } from 'react-redux';
 import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 
 import TeethTechLogo from '@/src/components/branding/TeethTechLogo';
+import LanguageSwitcher from '@/src/components/layout/LanguageSwitcher';
 import ThemeToggle from '@/src/components/layout/ThemeToggle';
 import { setUser } from '@/src/features/auth/authSlice';
 import {
@@ -15,12 +17,6 @@ import {
 import { useNotifications } from '@/src/features/notifications/useNotifications';
 import type { AppDispatch } from '@/src/lib/store';
 import { useLoginUserMutation } from '@/src/services/api/authApi';
-
-const platformFeatures = [
-    'Заказы и производственные этапы',
-    'Команда, задачи и коммуникации',
-    'Склад, финансы и аналитика',
-];
 
 function DentalTechAnimation() {
     return (
@@ -89,6 +85,7 @@ function DentalTechAnimation() {
 }
 
 export default function LoginPage() {
+    const t = useTranslations('auth.login');
     const dispatch = useDispatch<AppDispatch>();
     const router = useRouter();
     const [loginUser, { isLoading }] = useLoginUserMutation();
@@ -97,6 +94,11 @@ export default function LoginPage() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
+    const platformFeatures = [
+        t('features.production'),
+        t('features.team'),
+        t('features.insights'),
+    ];
 
     const handleLogin = async (e: FormEvent<HTMLFormElement>) => {
         e.preventDefault();
@@ -105,7 +107,7 @@ export default function LoginPage() {
         const passwordValue = password;
 
         if (!emailValue || !passwordValue) {
-            notifyError('Заполните email и пароль');
+            notifyError(t('required'));
             return;
         }
 
@@ -135,7 +137,7 @@ export default function LoginPage() {
                 )
             );
         } catch (requestError) {
-            console.error('Ошибка входа:', requestError);
+            console.error('Login failed:', requestError);
         }
     };
 
@@ -150,7 +152,8 @@ export default function LoginPage() {
                 className="pointer-events-none absolute -bottom-40 -right-28 h-96 w-96 rounded-full bg-indigo-300/25 blur-3xl dark:bg-indigo-600/10"
             />
 
-            <div className="absolute right-4 top-4 z-20 sm:right-6 sm:top-6 lg:right-10 lg:top-10">
+            <div className="absolute right-4 top-4 z-20 flex items-center gap-2 sm:right-6 sm:top-6 lg:right-10 lg:top-10">
+                <LanguageSwitcher />
                 <ThemeToggle />
             </div>
 
@@ -182,13 +185,13 @@ export default function LoginPage() {
 
                         <div className="relative z-10 max-w-lg">
                             <span className="inline-flex rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-xs font-semibold tracking-wide text-violet-100 backdrop-blur-sm">
-                                Единое рабочее пространство
+                                {t('workspaceBadge')}
                             </span>
                             <h1 className="mt-6 text-4xl font-black leading-[1.12] tracking-tight xl:text-[2.75rem]">
-                                Управляйте лабораторией без лишней рутины
+                                {t('marketingTitle')}
                             </h1>
                             <p className="mt-5 max-w-md text-sm leading-6 text-violet-100/80">
-                                Все ключевые процессы TeethTech собраны в одном понятном интерфейсе.
+                                {t('marketingDescription')}
                             </p>
 
                             <ul className="mt-8 space-y-3">
@@ -229,7 +232,7 @@ export default function LoginPage() {
                             <div className="mb-10 pr-12 lg:hidden">
                                 <TeethTechLogo className="w-52" priority />
                                 <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">
-                                    Система управления лабораторией
+                                    {t('mobileSubtitle')}
                                 </p>
                             </div>
 
@@ -251,10 +254,10 @@ export default function LoginPage() {
                                     </svg>
                                 </span>
                                 <h2 className="mt-5 text-3xl font-black tracking-tight text-slate-950 dark:text-white">
-                                    Добро пожаловать
+                                    {t('welcome')}
                                 </h2>
                                 <p className="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">
-                                    Введите данные своей учётной записи, чтобы продолжить работу.
+                                    {t('welcomeDescription')}
                                 </p>
                             </div>
 
@@ -264,7 +267,7 @@ export default function LoginPage() {
                                         htmlFor="email"
                                         className="mb-2 block text-sm font-semibold text-slate-700 dark:text-slate-200"
                                     >
-                                        Email
+                                        {t('email')}
                                     </label>
                                     <div className="relative">
                                         <svg
@@ -282,7 +285,7 @@ export default function LoginPage() {
                                             type="email"
                                             value={email}
                                             onChange={(e) => setEmail(e.target.value)}
-                                            placeholder="email@example.com"
+                                            placeholder={t('emailPlaceholder')}
                                             autoComplete="email"
                                             disabled={isLoading}
                                             className="h-12 w-full rounded-xl border border-slate-200 bg-slate-50/80 pl-12 pr-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 hover:border-slate-300 focus:border-violet-500 focus:bg-white focus:ring-4 focus:ring-violet-500/10 disabled:cursor-wait disabled:opacity-70 dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:hover:border-slate-600 dark:focus:border-violet-500 dark:focus:bg-slate-900"
@@ -295,7 +298,7 @@ export default function LoginPage() {
                                         htmlFor="password"
                                         className="mb-2 block text-sm font-semibold text-slate-700 dark:text-slate-200"
                                     >
-                                        Пароль
+                                        {t('password')}
                                     </label>
                                     <div className="relative">
                                         <svg
@@ -313,7 +316,7 @@ export default function LoginPage() {
                                             type={showPassword ? 'text' : 'password'}
                                             value={password}
                                             onChange={(e) => setPassword(e.target.value)}
-                                            placeholder="Введите пароль"
+                                            placeholder={t('passwordPlaceholder')}
                                             autoComplete="current-password"
                                             disabled={isLoading}
                                             className="h-12 w-full rounded-xl border border-slate-200 bg-slate-50/80 pl-12 pr-12 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 hover:border-slate-300 focus:border-violet-500 focus:bg-white focus:ring-4 focus:ring-violet-500/10 disabled:cursor-wait disabled:opacity-70 dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:hover:border-slate-600 dark:focus:border-violet-500 dark:focus:bg-slate-900"
@@ -322,7 +325,7 @@ export default function LoginPage() {
                                             type="button"
                                             onClick={() => setShowPassword((current) => !current)}
                                             className="absolute right-2 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-200/70 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200"
-                                            aria-label={showPassword ? 'Скрыть пароль' : 'Показать пароль'}
+                                            aria-label={showPassword ? t('hidePassword') : t('showPassword')}
                                             aria-pressed={showPassword}
                                         >
                                             <svg
@@ -356,11 +359,11 @@ export default function LoginPage() {
                                     {isLoading ? (
                                         <>
                                             <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-                                            Входим…
+                                            {t('submitting')}
                                         </>
                                     ) : (
                                         <>
-                                            Войти в систему
+                                            {t('submit')}
                                             <svg
                                                 aria-hidden="true"
                                                 viewBox="0 0 20 20"
@@ -385,7 +388,7 @@ export default function LoginPage() {
                                 >
                                     <path d="M6 8V6a4 4 0 0 1 8 0v2m-9 0h10v8H5V8Z" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                                 </svg>
-                                Защищённый вход в рабочую систему
+                                {t('secureLogin')}
                             </div>
                         </div>
                     </section>

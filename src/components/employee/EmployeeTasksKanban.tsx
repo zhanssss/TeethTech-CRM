@@ -13,6 +13,8 @@ import type {
     EmployeeKanbanTask,
     Task,
 } from '@/src/types/task.types';
+import {useTranslations} from 'next-intl';
+import {useAppFormatters} from '@/src/i18n/provider';
 
 type ColumnVariant = 'previous' | 'current' | 'next';
 
@@ -25,26 +27,22 @@ const COLUMN_STYLES: Record<ColumnVariant, {
     previous: {
         accent: 'border-slate-200 bg-slate-50/70 dark:border-slate-700 dark:bg-slate-900/60',
         badge: 'bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-200',
-        eyebrow: 'Предыдущий этап',
-        emptyText: 'На предыдущем этапе задач нет.',
+        eyebrow: 'previous',
+        emptyText: 'previousEmpty',
     },
     current: {
         accent: 'border-violet-300 bg-violet-50/55 ring-1 ring-violet-100 dark:border-violet-500/40 dark:bg-violet-500/10 dark:ring-violet-500/10',
         badge: 'bg-violet-600 text-white shadow-sm shadow-violet-500/25',
-        eyebrow: 'Мой этап',
-        emptyText: 'Сейчас у вас нет задач в работе.',
+        eyebrow: 'current',
+        emptyText: 'currentEmpty',
     },
     next: {
         accent: 'border-indigo-200 bg-indigo-50/45 dark:border-indigo-500/30 dark:bg-indigo-500/10',
         badge: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300',
-        eyebrow: 'Следующий этап',
-        emptyText: 'На следующий этап задачи ещё не переданы.',
+        eyebrow: 'next',
+        emptyText: 'nextEmpty',
     },
 };
-
-function formatMoney(value: number) {
-    return new Intl.NumberFormat('ru-RU').format(value);
-}
 
 function ColumnIcon({ variant }: { variant: ColumnVariant }) {
     const path = variant === 'previous'
@@ -55,15 +53,15 @@ function ColumnIcon({ variant }: { variant: ColumnVariant }) {
     return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4" aria-hidden="true">{path}</svg>;
 }
 
-function getTaskLabel(task: EmployeeKanbanTask) {
-    return task.workTypeName || task.workTypeCode || `Задача ${task.id.slice(0, 8)}`;
+function getTaskLabel(task: EmployeeKanbanTask, fallback: string) {
+    return task.workTypeName || task.workTypeCode || fallback;
 }
 
-function mapTaskToDetails(task: EmployeeKanbanTask): Task {
+function mapTaskToDetails(task: EmployeeKanbanTask, fallback: string, unspecified: string): Task {
     return {
         id: task.id,
-        title: getTaskLabel(task),
-        status: task.currentStatusFormName || task.currentStatusCode || 'Не указан',
+        title: getTaskLabel(task, fallback),
+        status: task.currentStatusFormName || task.currentStatusCode || unspecified,
         currentStatusId: task.currentStatusId,
         currentStatusCode: task.currentStatusCode,
         isCompleted: task.isCompleted,
@@ -82,13 +80,14 @@ function mapTaskToDetails(task: EmployeeKanbanTask): Task {
 }
 
 function MoveTaskButton({ task }: { task: EmployeeKanbanTask }) {
+    const t = useTranslations('workspace.kanban');
     const [isOpen, setIsOpen] = useState(false);
     const nextStatusId = task.allowedNextStatusIds[0];
 
     if (!nextStatusId) {
         return (
             <p className="text-xs font-semibold text-slate-400">
-                Нет доступного перехода
+                {t('noTransition')}
             </p>
         );
     }
@@ -100,13 +99,13 @@ function MoveTaskButton({ task }: { task: EmployeeKanbanTask }) {
                 onClick={() => setIsOpen(true)}
                 className="inline-flex min-h-9 w-full items-center justify-center rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-4 py-2 text-xs font-black text-white shadow-lg shadow-violet-500/20 transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:translate-y-0 disabled:bg-slate-300"
             >
-                Завершить этап <span aria-hidden="true" className="ml-2">→</span>
+                {t('completeStage')} <span aria-hidden="true" className="ml-2">→</span>
             </button>
             {isOpen ? (
                 <TaskMaterialTransitionModal
                     taskId={task.id}
                     nextStatusId={nextStatusId}
-                    defaultComment={`Завершён этап: ${task.currentStatusFormName || task.currentStatusCode}`}
+                    defaultComment={t('completedComment', {stage: task.currentStatusFormName || task.currentStatusCode})}
                     onClose={() => setIsOpen(false)}
                 />
             ) : null}
@@ -123,13 +122,16 @@ function EmployeeTaskCard({
     canMoveNext: boolean;
     onOpen: () => void;
 }) {
+    const t = useTranslations('workspace.kanban');
+    const {currency} = useAppFormatters();
     const status = task.currentStatusFormName || task.currentStatusCode;
+    const taskLabel = getTaskLabel(task, t('task', {id: task.id.slice(0, 8)}));
 
     return (
         <article
             role="button"
             tabIndex={0}
-            aria-label={`Открыть детали задачи ${getTaskLabel(task)}`}
+            aria-label={t('openDetails', {task: taskLabel})}
             onClick={onOpen}
             onKeyDown={(event) => {
                 if (event.target === event.currentTarget && (event.key === 'Enter' || event.key === ' ')) {
@@ -145,16 +147,16 @@ function EmployeeTaskCard({
                     {task.workTypeCode || task.id.slice(0, 8)}
                 </span>
                 <span className="shrink-0 text-xs font-semibold text-slate-400">
-                    {task.quantity} ед.
+                    {t('units', {count: task.quantity})}
                 </span>
             </div>
 
 			<h3 className="mt-2.5 text-sm font-black leading-snug text-slate-900 dark:text-white">
-                {getTaskLabel(task)}
+                {taskLabel}
             </h3>
             <div className="mt-2 space-y-1.5 text-xs leading-5 text-slate-500">
                 <MaterialChips materialNames={task.materialNames} compact />
-                {task.colorCode ? <p>Цвет {task.colorCode}</p> : null}
+                {task.colorCode ? <p>{t('color', {color: task.colorCode})}</p> : null}
             </div>
 
             {status && (
@@ -165,24 +167,24 @@ function EmployeeTaskCard({
 
 			<dl className="mt-3 grid grid-cols-2 gap-2 rounded-xl bg-slate-50 p-2.5 text-xs dark:bg-slate-800">
                 <div>
-                    <dt className="font-bold uppercase tracking-wide text-slate-400">Зубы</dt>
+                    <dt className="font-bold uppercase tracking-wide text-slate-400">{t('teeth')}</dt>
                     <dd className="mt-1 font-semibold text-slate-700">
                         {task.toothNumbers.length ? task.toothNumbers.join(', ') : '—'}
                     </dd>
                 </div>
                 <div>
-                    <dt className="font-bold uppercase tracking-wide text-slate-400">Сумма</dt>
+                    <dt className="font-bold uppercase tracking-wide text-slate-400">{t('amount')}</dt>
                     <dd className="mt-1 font-black text-slate-900">
-                        {formatMoney(task.totalAmount)} ₸
+                        {currency(task.totalAmount)}
                     </dd>
                 </div>
             </dl>
 
 			<div className="mt-3 flex items-end justify-between gap-3 border-t border-slate-100 pt-3 dark:border-slate-800">
                 <div className="min-w-0">
-                    <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Техник</p>
+                    <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">{t('technician')}</p>
                     <p className="mt-1 truncate text-xs font-semibold text-slate-700">
-                        {task.dentalTechnicianFullName || 'Не назначен'}
+                        {task.dentalTechnicianFullName || t('unassigned')}
                     </p>
                 </div>
             </div>
@@ -205,6 +207,7 @@ function KanbanColumn({
     variant: ColumnVariant;
     onOpenTask: (task: EmployeeKanbanTask) => void;
 }) {
+    const t = useTranslations('workspace.kanban.columns');
     const styles = COLUMN_STYLES[variant];
 
     return (
@@ -212,7 +215,7 @@ function KanbanColumn({
 			<header className="rounded-t-[21px] border-b border-slate-200/80 bg-white/80 p-3.5 backdrop-blur-sm dark:border-slate-700 dark:bg-slate-900/80">
                 <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-						<div className="flex items-center gap-1.5 text-[9px] font-black uppercase tracking-[0.16em] text-slate-400"><ColumnIcon variant={variant} />{styles.eyebrow}</div>
+						<div className="flex items-center gap-1.5 text-[9px] font-black uppercase tracking-[0.16em] text-slate-400"><ColumnIcon variant={variant} />{t(styles.eyebrow as 'previous' | 'current' | 'next')}</div>
                         <h3 className="mt-1 truncate text-sm font-black text-slate-900">
                             {column.title || column.statusName}
                         </h3>
@@ -238,7 +241,7 @@ function KanbanColumn({
 
                 {column.tasks.length === 0 && (
                     <div className="rounded-xl border border-dashed border-slate-300 bg-white/70 px-4 py-10 text-center text-xs text-slate-500">
-                        {styles.emptyText}
+                        {t(styles.emptyText as 'previousEmpty' | 'currentEmpty' | 'nextEmpty')}
                     </div>
                 )}
             </div>
@@ -247,6 +250,8 @@ function KanbanColumn({
 }
 
 export default function EmployeeTasksKanban() {
+    const t = useTranslations('workspace.kanban');
+    const commonT = useTranslations('common.actions');
     const [selectedTask, setSelectedTask] = useState<EmployeeKanbanTask | null>(null);
     const {
         data,
@@ -262,11 +267,17 @@ export default function EmployeeTasksKanban() {
             ...data.nextColumn.tasks,
         ].find((task) => task.id === selectedTask.id) ?? selectedTask
         : selectedTask;
-    const selectedDetailsTask = refreshedSelectedTask ? mapTaskToDetails(refreshedSelectedTask) : null;
+    const selectedDetailsTask = refreshedSelectedTask
+        ? mapTaskToDetails(
+            refreshedSelectedTask,
+            t('task', {id: refreshedSelectedTask.id.slice(0, 8)}),
+            t('unspecified')
+        )
+        : null;
 
     if (isLoading) {
         return (
-            <section aria-busy="true" aria-label="Загрузка задач" className="space-y-4">
+            <section aria-busy="true" aria-label={t('loading')} className="space-y-4">
                 <div className="h-20 animate-pulse rounded-2xl bg-slate-200" />
                 <div className="grid gap-4 lg:grid-cols-3">
                     {[0, 1, 2].map((item) => (
@@ -280,14 +291,14 @@ export default function EmployeeTasksKanban() {
     if (isError || !data) {
         return (
             <section className="rounded-2xl border border-red-200 bg-red-50 px-5 py-8 text-center">
-                <h2 className="font-black text-red-900">Не удалось загрузить мои задачи</h2>
-                <p className="mt-1 text-sm text-red-700">Проверьте соединение и попробуйте ещё раз.</p>
+                <h2 className="font-black text-red-900">{t('loadError')}</h2>
+                <p className="mt-1 text-sm text-red-700">{t('retryHint')}</p>
                 <button
                     type="button"
                     onClick={() => refetch()}
                     className="mt-4 rounded-xl bg-red-700 px-4 py-2 text-sm font-bold text-white hover:bg-red-800"
                 >
-                    Повторить
+                    {commonT('retry')}
                 </button>
             </section>
         );
@@ -303,19 +314,19 @@ export default function EmployeeTasksKanban() {
 				<header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                     <div>
 						<p className="text-[10px] font-black uppercase tracking-[0.18em] text-violet-600">
-                            Рабочая смена
+                            {t('shift')}
                         </p>
 						<h2 id="employee-tasks-title" className="mt-1 text-xl font-black text-slate-950 dark:text-white">
-                            Мои задачи
+                            {t('title')}
                         </h2>
                         <p className="mt-1 max-w-2xl text-sm text-slate-500">
-                            Персональный фокус: предыдущий, текущий и следующий этапы работы.
+                            {t('subtitle')}
                         </p>
                     </div>
 
                     <div className="flex items-center gap-2">
 						<span className="rounded-xl bg-slate-100 px-3 py-2 text-xs font-black text-slate-700 dark:bg-slate-800 dark:text-slate-300">
-                            Всего: {totalTasks}
+                            {t('total', {count: totalTasks})}
                         </span>
                         <button
                             type="button"
@@ -323,7 +334,7 @@ export default function EmployeeTasksKanban() {
                             disabled={isFetching}
 							className="rounded-xl border border-violet-200 bg-violet-50 px-3 py-2 text-xs font-black text-violet-700 transition hover:bg-violet-100 disabled:cursor-wait disabled:text-slate-400 dark:border-violet-500/30 dark:bg-violet-500/10 dark:text-violet-300"
                         >
-                            {isFetching ? 'Обновление...' : 'Обновить'}
+                            {isFetching ? t('refreshing') : commonT('refresh')}
                         </button>
                     </div>
                 </header>

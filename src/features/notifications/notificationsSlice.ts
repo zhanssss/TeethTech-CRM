@@ -59,13 +59,7 @@ const notificationsSlice = createSlice({
                 payload: {
                     id: `notification-${Date.now()}-${++notificationSequence}`,
                     tone,
-                    title:
-                        title ??
-                        (tone === 'success'
-                            ? 'Готово'
-                            : tone === 'message'
-                              ? 'Новое сообщение'
-                              : 'Ошибка'),
+                    title: title ?? '',
                     message,
                     duration: duration ?? DEFAULT_DURATION[tone],
                     href,

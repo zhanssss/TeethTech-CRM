@@ -1,9 +1,11 @@
 'use client'
 
 import { useAppTheme } from '@/src/hooks/useAppTheme'
+import {useTranslations} from 'next-intl'
 
 export default function ThemeToggle() {
 	const { theme, setTheme } = useAppTheme()
+	const t = useTranslations('common.theme')
 	const isDark = theme === 'dark'
 
 	const toggleTheme = () => {
@@ -15,8 +17,8 @@ export default function ThemeToggle() {
 			type="button"
 			onClick={toggleTheme}
 			className="group relative inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:border-violet-200 hover:bg-violet-50 hover:text-violet-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
-			aria-label={isDark ? 'Включить светлую тему' : 'Включить тёмную тему'}
-			title={isDark ? 'Светлая тема' : 'Тёмная тема'}
+			aria-label={isDark ? t('enableLight') : t('enableDark')}
+			title={isDark ? t('light') : t('dark')}
 		>
 			{isDark ? (
 				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" className="h-5 w-5" aria-hidden="true">
@@ -29,7 +31,7 @@ export default function ThemeToggle() {
 				</svg>
 			)}
 			<span className="pointer-events-none absolute right-0 top-[calc(100%+8px)] z-50 hidden whitespace-nowrap rounded-lg bg-slate-950 px-2.5 py-1.5 text-[10px] font-bold text-white shadow-xl group-hover:block group-focus-visible:block">
-				{isDark ? 'Светлая тема' : 'Тёмная тема'}
+				{isDark ? t('light') : t('dark')}
 			</span>
 		</button>
 	)

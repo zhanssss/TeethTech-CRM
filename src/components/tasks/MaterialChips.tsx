@@ -1,4 +1,5 @@
 import { compactMaterialNames } from '@/src/utils/materialAccounting';
+import {useTranslations} from 'next-intl';
 
 export default function MaterialChips({
     materialNames,
@@ -9,10 +10,11 @@ export default function MaterialChips({
     compact?: boolean;
     className?: string;
 }) {
+    const t = useTranslations('tasks.card');
     const names = compact ? compactMaterialNames(materialNames) : materialNames ?? [];
 
     if (names.length === 0) {
-        return <span className="text-slate-400">Материалы не указаны</span>;
+        return <span className="text-slate-400">{t('materialsMissing')}</span>;
     }
 
     return (

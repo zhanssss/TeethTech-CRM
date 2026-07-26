@@ -14,7 +14,7 @@ export type WorkflowStatusMatch = {
 export function normalizeWorkflowStageValue(value: string) {
     return value
         .trim()
-        .toLocaleLowerCase('ru-RU')
+        .toLocaleLowerCase()
         .replace(/ё/gu, 'е')
         .replace(/[_\-/]+/gu, ' ')
         .replace(/[^\p{L}\p{N}\s]+/gu, '')

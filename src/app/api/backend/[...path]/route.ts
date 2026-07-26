@@ -8,6 +8,10 @@ import {
     setAuthCookies,
 } from '@/src/lib/serverAuthCookies';
 import type { LoginResponse } from '@/src/types/auth.types';
+import {defaultLocale, isLocale, localeCookieName} from '@/src/i18n/config';
+import enMessages from '@/src/messages/en/apiNotifications';
+import kkMessages from '@/src/messages/kk/apiNotifications';
+import ruMessages from '@/src/messages/ru/apiNotifications';
 
 export const dynamic = 'force-dynamic';
 
@@ -46,6 +50,12 @@ const RESPONSE_HEADERS_TO_SKIP = new Set([
     'set-cookie',
     'transfer-encoding',
 ]);
+
+function getProxyMessages(request: NextRequest) {
+    const savedLocale = request.cookies.get(localeCookieName)?.value;
+    const locale = isLocale(savedLocale) ? savedLocale : defaultLocale;
+    return {ru: ruMessages, en: enMessages, kk: kkMessages}[locale].proxy;
+}
 
 function buildBackendUrl(path: string[], request: NextRequest) {
     const isSockJsRequest = path[0] === 'ws-crm';
@@ -145,6 +155,7 @@ async function getRequestBody(request: NextRequest) {
 }
 
 async function proxyRequest(request: NextRequest, context: RouteContext) {
+    const proxyMessages = getProxyMessages(request);
     const { path = [] } = await context.params;
     const isLoginRequest =
         request.method === 'POST' && path.join('/') === 'auth/login';
@@ -174,14 +185,14 @@ async function proxyRequest(request: NextRequest, context: RouteContext) {
 
             if (!loginResponse?.token) {
                 return NextResponse.json(
-                    { message: 'Сервер авторизации не вернул JWT-токен' },
+                    { message: proxyMessages.tokenMissing },
                     { status: 502 }
                 );
             }
 
             if (getJwtMaxAgeSeconds(loginResponse.token) <= 0) {
                 return NextResponse.json(
-                    { message: 'Сервер авторизации вернул истекший JWT-токен' },
+                    { message: proxyMessages.tokenExpired },
                     { status: 502 }
                 );
             }
@@ -210,7 +221,7 @@ async function proxyRequest(request: NextRequest, context: RouteContext) {
             error,
         });
         return NextResponse.json(
-            { message: 'Не удалось подключиться к серверу API' },
+            { message: proxyMessages.unavailable },
             { status: 502 }
         );
     }

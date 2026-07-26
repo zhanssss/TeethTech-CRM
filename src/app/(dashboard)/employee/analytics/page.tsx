@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo } from 'react';
+import { useTranslations } from 'next-intl';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/src/lib/store';
 import { mockTasks } from '@/src/mock/tasks';
@@ -26,22 +27,7 @@ function StatCard({
     );
 }
 
-function getStatusLabel(status: string) {
-    switch (status) {
-        case 'TODO':
-            return 'Нужно сделать';
-        case 'MODELING':
-            return 'Моделирование';
-        case 'MILLING':
-            return 'Фрезеровка';
-        case 'POST_PROCESSING':
-            return 'Обработка';
-        case 'DONE':
-            return 'Готово';
-        default:
-            return status;
-    }
-}
+type AnalyticsStage = 'TODO' | 'MODELING' | 'MILLING' | 'POST_PROCESSING' | 'DONE';
 
 function getStatusBadge(status: string) {
     switch (status) {
@@ -61,6 +47,7 @@ function getStatusBadge(status: string) {
 }
 
 export default function EmployeeAnalyticsPage() {
+    const t = useTranslations('employees.analytics');
     const { id, name } = useSelector((state: RootState) => state.auth);
     const {
         data: users = [],
@@ -85,7 +72,7 @@ export default function EmployeeAnalyticsPage() {
         (task) => new Date(task.deadline) < new Date()
     );
 
-    const statusStats = [
+    const statusStats: Array<{key: AnalyticsStage; count: number}> = [
         { key: 'TODO', count: myTasks.filter((task) => task.status === 'TODO').length },
         {
             key: 'MODELING',
@@ -115,25 +102,25 @@ export default function EmployeeAnalyticsPage() {
             : 0;
 
     if (isUsersLoading) {
-        return <div className="text-sm text-slate-500">Загрузка аналитики...</div>;
+        return <div className="text-sm text-slate-500">{t('loading')}</div>;
     }
 
     if (isUsersError) {
         return (
             <ErrorState
-                title="Аналитика недоступна"
+                title={t('unavailable')}
                 onRetry={() => void refetchUsers()}
                 isRetrying={isUsersFetching}
             >
-                Не удалось загрузить данные текущего сотрудника.
+                {t('loadError')}
             </ErrorState>
         );
     }
 
     if (!currentEmployee) {
         return (
-            <ErrorState title="Сотрудник не найден">
-                Проверьте, что учётная запись сотрудника активна.
+            <ErrorState title={t('notFound')}>
+                {t('notFoundHint')}
             </ErrorState>
         );
     }
@@ -141,32 +128,32 @@ export default function EmployeeAnalyticsPage() {
     return (
         <div className="mx-auto w-full max-w-[1450px] space-y-6 pb-8">
             <header>
-                <h1 className="text-2xl font-bold text-slate-900">Моя аналитика</h1>
+                <h1 className="text-2xl font-bold text-slate-900">{t('title')}</h1>
                 <p className="text-sm text-slate-500">
-                    Статистика сотрудника {name} по задачам и срокам
+                    {t('subtitle', {name: name ?? currentEmployee.name ?? '—'})}
                 </p>
             </header>
 
             <section className="grid grid-cols-1 gap-4 md:grid-cols-4">
                 <StatCard
-                    title="Всего задач"
+                    title={t('metrics.total')}
                     value={myTasks.length}
-                    hint="Общее количество назначенных задач"
+                    hint={t('metrics.totalHint')}
                 />
                 <StatCard
-                    title="Завершено"
+                    title={t('metrics.completed')}
                     value={completedTasks.length}
-                    hint="Закрытые этапы производства"
+                    hint={t('metrics.completedHint')}
                 />
                 <StatCard
-                    title="В работе"
+                    title={t('metrics.inProgress')}
                     value={activeTasks.length}
-                    hint="Текущие незавершенные задачи"
+                    hint={t('metrics.inProgressHint')}
                 />
                 <StatCard
-                    title="Просрочено"
+                    title={t('metrics.overdue')}
                     value={overdueTasks.length}
-                    hint="Активные задачи с нарушением срока"
+                    hint={t('metrics.overdueHint')}
                 />
             </section>
 
@@ -174,10 +161,10 @@ export default function EmployeeAnalyticsPage() {
                 <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5 xl:col-span-2">
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                         <h2 className="text-sm font-bold uppercase tracking-wider text-slate-500">
-                            Нагрузка по статусам
+                            {t('loadByStatus')}
                         </h2>
                         <span className="rounded-full bg-slate-100 px-3 py-1 text-[10px] font-black uppercase text-slate-600">
-                            Completion {completionRate}%
+                            {t('completion', {rate: completionRate})}
                         </span>
                     </div>
 
@@ -186,7 +173,7 @@ export default function EmployeeAnalyticsPage() {
                             <div key={item.key}>
                                 <div className="mb-2 flex items-center justify-between text-sm">
                                     <span className="font-semibold text-slate-700">
-                                        {getStatusLabel(item.key)}
+                                        {t(`stages.${item.key}`)}
                                     </span>
                                     <span className="text-slate-400">{item.count}</span>
                                 </div>
@@ -210,13 +197,13 @@ export default function EmployeeAnalyticsPage() {
 
                 <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
                     <h2 className="text-sm font-bold uppercase tracking-wider text-slate-500">
-                        Эффективность
+                        {t('efficiency')}
                     </h2>
 
                     <div className="mt-5 space-y-4">
                         <div className="rounded-xl bg-slate-50 p-4">
                             <p className="text-xs font-bold uppercase text-slate-400">
-                                Выполнено вовремя
+                                {t('onTime')}
                             </p>
                             <p className="mt-2 text-2xl font-black text-slate-900">
                                 {currentEmployee.stats.onTimeRate}%
@@ -225,16 +212,16 @@ export default function EmployeeAnalyticsPage() {
 
                         <div className="rounded-xl bg-slate-50 p-4">
                             <p className="text-xs font-bold uppercase text-slate-400">
-                                Средний срок
+                                {t('average')}
                             </p>
                             <p className="mt-2 text-2xl font-black text-slate-900">
-                                {currentEmployee.stats.averageDays} дн.
+                                {t('days', {days: currentEmployee.stats.averageDays ?? 0})}
                             </p>
                         </div>
 
                         <div className="rounded-xl bg-slate-50 p-4">
                             <p className="text-xs font-bold uppercase text-slate-400">
-                                Специализация
+                                {t('specialization')}
                             </p>
                             <p className="mt-2 text-sm font-bold text-slate-900">
                                 {currentEmployee.specialization}
@@ -247,7 +234,7 @@ export default function EmployeeAnalyticsPage() {
             <section className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
                 <div className="border-b border-slate-200 bg-slate-50 px-5 py-4">
                     <h2 className="text-sm font-bold uppercase tracking-wider text-slate-500">
-                        Ближайшие дедлайны
+                        {t('deadlines')}
                     </h2>
                 </div>
 
@@ -263,7 +250,7 @@ export default function EmployeeAnalyticsPage() {
                                         {task.title}
                                     </p>
                                     <p className="mt-1 text-xs text-slate-500">
-                                        Пациент: {task.patient} · Заказ #{task.orderId}
+                                        {t('taskMeta', {patient: task.patient, order: task.orderId})}
                                     </p>
                                 </div>
 
@@ -273,18 +260,18 @@ export default function EmployeeAnalyticsPage() {
                                             task.status
                                         )}`}
                                     >
-                                        {getStatusLabel(task.status)}
+                                        {task.status === 'TODO' || task.status === 'MODELING' || task.status === 'MILLING' || task.status === 'POST_PROCESSING' || task.status === 'DONE' ? t(`stages.${task.status}`) : task.status}
                                     </span>
 
                                     <span className="rounded-lg bg-red-50 px-2.5 py-1 text-[10px] font-bold uppercase text-red-700">
                                         {task.deadline}
-                   npm                 </span>
+                                    </span>
                                 </div>
                             </div>
                         ))
                     ) : (
                         <div className="px-5 py-8 text-sm text-slate-400">
-                            Нет активных дедлайнов
+                            {t('emptyDeadlines')}
                         </div>
                     )}
                 </div>

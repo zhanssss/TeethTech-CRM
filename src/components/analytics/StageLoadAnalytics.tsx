@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useSyncExternalStore } from 'react';
+import {useTranslations} from 'next-intl';
 import {
     Area,
     AreaChart,
@@ -78,30 +79,28 @@ function storeHiddenStageKeys(storageKey: string | null, hiddenStageKeys: Readon
     window.dispatchEvent(new Event(STAGE_FILTER_EVENT));
 }
 
-const stageLabels: Record<string, string> = {
-    TODO: 'Новые',
-    SCANNING: 'Сканирование',
-    MODELING: 'Моделирование',
-    MILLING: 'Фрезеровка',
-    PRINTING: '3D-печать',
-    CASTING: 'Литьё',
-    POST_PROCESSING: 'Постобработка',
-    QUALITY_CONTROL: 'Контроль',
-    READY: 'Готово',
-    DONE: 'Завершено',
-};
-
-const stageOrder = Object.keys(stageLabels);
-const formatStageName = (value: string) => stageLabels[value] ?? value.replaceAll('_', ' ').toLocaleLowerCase('ru-RU');
+const stageOrder = [
+    'TODO',
+    'SCANNING',
+    'MODELING',
+    'MILLING',
+    'PRINTING',
+    'CASTING',
+    'POST_PROCESSING',
+    'QUALITY_CONTROL',
+    'READY',
+    'DONE',
+];
 
 function LoadTooltip({ active, payload, label }: { active?: boolean; payload?: Array<{ value?: number }>; label?: string }) {
+    const t = useTranslations('analytics.stages');
     if (!active || !payload?.length) return null;
     return (
         <div className="rounded-xl border border-slate-200 bg-white px-3.5 py-3 shadow-xl shadow-slate-950/10">
             <p className="text-xs font-medium text-slate-500">{label}</p>
             <div className="mt-1.5 flex items-center gap-2">
                 <span className="h-2 w-2 rounded-full bg-violet-500" />
-                <span className="text-xs text-slate-500">Задач</span>
+                <span className="text-xs text-slate-500">{t('taskCount')}</span>
                 <strong className="ml-2 text-sm text-slate-900">{payload[0].value ?? 0}</strong>
             </div>
         </div>
@@ -109,6 +108,22 @@ function LoadTooltip({ active, payload, label }: { active?: boolean; payload?: A
 }
 
 export default function StageLoadAnalytics({ stageLoads, userId }: StageLoadAnalyticsProps) {
+    const t = useTranslations('analytics.stages');
+    const formatStageName = (value: string) => {
+        switch (value) {
+            case 'TODO': return t('codes.TODO');
+            case 'SCANNING': return t('codes.SCANNING');
+            case 'MODELING': return t('codes.MODELING');
+            case 'MILLING': return t('codes.MILLING');
+            case 'PRINTING': return t('codes.PRINTING');
+            case 'CASTING': return t('codes.CASTING');
+            case 'POST_PROCESSING': return t('codes.POST_PROCESSING');
+            case 'QUALITY_CONTROL': return t('codes.QUALITY_CONTROL');
+            case 'READY': return t('codes.READY');
+            case 'DONE': return t('codes.DONE');
+            default: return value.replaceAll('_', ' ').toLowerCase();
+        }
+    };
     const storageKey = getStageFilterStorageKey(userId);
     const serializedHiddenStageKeys = useSyncExternalStore(
         subscribeToStageFilter,
@@ -145,19 +160,19 @@ export default function StageLoadAnalytics({ stageLoads, userId }: StageLoadAnal
         <section className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-[0_1px_2px_rgba(15,23,42,0.03)] sm:p-6">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div>
-                    <h2 className="text-sm font-bold text-slate-900">Обзор производственной нагрузки</h2>
-                    <p className="mt-1 text-xs text-slate-400">Количество активных задач на каждом этапе</p>
+                    <h2 className="text-sm font-bold text-slate-900">{t('title')}</h2>
+                    <p className="mt-1 text-xs text-slate-400">{t('subtitle')}</p>
                 </div>
                 <div className="flex flex-wrap items-center gap-3 text-[11px] text-slate-500">
-                    <span className="flex items-center gap-2"><span className="h-0.5 w-5 bg-violet-500" />Задачи</span>
-                    <span className="flex items-center gap-2"><span className="w-5 border-t border-dashed border-violet-300" />Среднее: {average.toFixed(1)}</span>
+                    <span className="flex items-center gap-2"><span className="h-0.5 w-5 bg-violet-500" />{t('tasks')}</span>
+                    <span className="flex items-center gap-2"><span className="w-5 border-t border-dashed border-violet-300" />{t('average', {value: average.toFixed(1)})}</span>
                     {data.length > 0 && (
                         <details className="group relative">
                             <summary className="flex cursor-pointer list-none items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 font-semibold text-slate-600 shadow-sm transition hover:border-violet-300 hover:text-violet-700 [&::-webkit-details-marker]:hidden">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" className="h-3.5 w-3.5" aria-hidden="true">
                                     <path d="M4 6h16M7 12h10m-7 6h4" strokeWidth="1.8" strokeLinecap="round" />
                                 </svg>
-                                Этапы
+                                {t('axis')}
                                 <span className="rounded-md bg-violet-50 px-1.5 py-0.5 text-[10px] text-violet-700">
                                     {visibleData.length}/{data.length}
                                 </span>
@@ -165,16 +180,16 @@ export default function StageLoadAnalytics({ stageLoads, userId }: StageLoadAnal
                                     <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.17l3.71-3.94a.75.75 0 1 1 1.08 1.04l-4.25 4.5a.75.75 0 0 1-1.08 0l-4.25-4.5a.75.75 0 0 1 .02-1.06Z" clipRule="evenodd" />
                                 </svg>
                             </summary>
-                            <div className="absolute right-0 z-20 mt-2 w-64 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl shadow-slate-950/10">
+                            <div className="absolute right-0 z-20 mt-2 w-[min(16rem,calc(100vw-3rem))] max-w-full overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl shadow-slate-950/10">
                                 <div className="flex items-center justify-between border-b border-slate-100 px-3 py-2.5">
-                                    <span className="font-semibold text-slate-700">Этапы на оси X</span>
+                                    <span className="font-semibold text-slate-700">{t('axisLabel')}</span>
                                     <div className="flex items-center gap-2">
                                         <button type="button" onClick={showAllStages} disabled={visibleData.length === data.length} className="font-semibold text-violet-600 transition hover:text-violet-800 disabled:cursor-default disabled:text-slate-300">
-                                            Все
+                                            {t('all')}
                                         </button>
                                         <span className="text-slate-200">|</span>
                                         <button type="button" onClick={hideAllStages} disabled={visibleData.length === 0} className="font-semibold text-slate-500 transition hover:text-slate-800 disabled:cursor-default disabled:text-slate-300">
-                                            Скрыть
+                                            {t('hide')}
                                         </button>
                                     </div>
                                 </div>
@@ -227,25 +242,25 @@ export default function StageLoadAnalytics({ stageLoads, userId }: StageLoadAnal
                             <path d="M3 3l18 18M10.6 10.6A2 2 0 0 0 13.4 13.4M9.9 4.24A10.5 10.5 0 0 1 12 4c5 0 8.5 4 9.5 6.5a9.9 9.9 0 0 1-2.17 3.43M6.61 6.61A10.84 10.84 0 0 0 2.5 10.5C3.5 13 7 17 12 17c1.04 0 2-.17 2.87-.46" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
                         </svg>
                     </span>
-                    <h3 className="mt-4 text-sm font-semibold text-slate-900">Все этапы скрыты</h3>
-                    <p className="mt-1 text-xs text-slate-400">Выберите нужные этапы в фильтре оси X.</p>
+                    <h3 className="mt-4 text-sm font-semibold text-slate-900">{t('allHidden')}</h3>
+                    <p className="mt-1 text-xs text-slate-400">{t('chooseStages')}</p>
                     <button type="button" onClick={showAllStages} className="mt-4 rounded-lg bg-violet-600 px-3.5 py-2 text-xs font-semibold text-white transition hover:bg-violet-700">
-                        Показать все этапы
+                        {t('showAll')}
                     </button>
                 </div>
             ) : (
                 <div className="flex h-[350px] flex-col items-center justify-center text-center">
                     <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-violet-50 text-violet-500">⌁</span>
-                    <h3 className="mt-4 text-sm font-semibold text-slate-900">Нет данных по этапам</h3>
-                    <p className="mt-1 text-xs text-slate-400">Данные появятся после назначения задач.</p>
+                    <h3 className="mt-4 text-sm font-semibold text-slate-900">{t('empty')}</h3>
+                    <p className="mt-1 text-xs text-slate-400">{t('emptyDescription')}</p>
                 </div>
             )}
 
             {visibleData.length > 0 && (
                 <div className="grid gap-3 border-t border-slate-100 pt-5 sm:grid-cols-3">
-                    <div><p className="text-[11px] text-slate-400">Всего на этапах</p><p className="mt-1 text-lg font-bold text-slate-900">{total}</p></div>
-                    <div><p className="text-[11px] text-slate-400">Пиковый этап</p><p className="mt-1 truncate text-sm font-semibold text-slate-800">{peak?.name ?? '—'}</p></div>
-                    <div><p className="text-[11px] text-slate-400">Задач на пике</p><p className="mt-1 text-lg font-bold text-violet-600">{peak?.count ?? 0}</p></div>
+                    <div><p className="text-[11px] text-slate-400">{t('total')}</p><p className="mt-1 text-lg font-bold text-slate-900">{total}</p></div>
+                    <div><p className="text-[11px] text-slate-400">{t('peakStage')}</p><p className="mt-1 truncate text-sm font-semibold text-slate-800">{peak?.name ?? '—'}</p></div>
+                    <div><p className="text-[11px] text-slate-400">{t('peakTasks')}</p><p className="mt-1 text-lg font-bold text-violet-600">{peak?.count ?? 0}</p></div>
                 </div>
             )}
         </section>

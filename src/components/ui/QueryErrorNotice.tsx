@@ -1,6 +1,7 @@
 'use client';
 
 import type { ReactNode } from 'react';
+import {useTranslations} from 'next-intl';
 
 type QueryErrorNoticeProps = {
     message: ReactNode;
@@ -15,6 +16,7 @@ export default function QueryErrorNotice({
     isRetrying = false,
     className = '',
 }: QueryErrorNoticeProps) {
+    const t = useTranslations('common.actions');
     return (
         <div
             role="alert"
@@ -28,7 +30,7 @@ export default function QueryErrorNotice({
                     disabled={isRetrying}
                     className="shrink-0 rounded-lg bg-red-600 px-3 py-2 text-xs font-bold text-white transition hover:bg-red-700 disabled:cursor-wait disabled:bg-red-300"
                 >
-                    {isRetrying ? 'Повторяем...' : 'Повторить'}
+                    {isRetrying ? t('retrying') : t('retry')}
                 </button>
             ) : null}
         </div>

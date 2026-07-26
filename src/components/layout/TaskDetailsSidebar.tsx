@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { useSelector } from 'react-redux';
 import ReturnTaskForReworkModal from '@/src/components/Modals/ReturnTaskForReworkModal';
 import Modal from '@/src/components/ui/Modal';
@@ -11,6 +12,7 @@ import MaterialChips from '@/src/components/tasks/MaterialChips';
 import TaskMaterialAccountingPanel from '@/src/components/tasks/TaskMaterialAccountingPanel';
 import { RootState } from '@/src/lib/store';
 import type { Task, TaskAttachment, TaskImage } from '@/src/types/task.types';
+import { useAppFormatters } from '@/src/i18n/provider';
 
 type TaskDetailsSidebarProps = {
     task: Task | null;
@@ -27,6 +29,10 @@ export default function TaskDetailsSidebar({
                                                onAddAttachments,
                                            onAddImages,
                                            }: TaskDetailsSidebarProps) {
+    const t = useTranslations('tasks.sidebar');
+    const historyT = useTranslations('tasks.history');
+    const commonT = useTranslations('common');
+    const formats = useAppFormatters();
     const [commentText, setCommentText] = useState('');
     const [reworkModalTaskId, setReworkModalTaskId] = useState('');
     const [renderedTask, setRenderedTask] = useState<Task | null>(selectedTask);
@@ -102,13 +108,13 @@ export default function TaskDetailsSidebar({
                 <div className="flex items-start justify-between gap-4 border-b border-slate-200 p-4 sm:p-5">
                     <div className="min-w-0">
                         <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-                            Детали задачи
+                            {t('details')}
                         </p>
                         <h2 className="mt-1 truncate text-lg font-black text-slate-900 sm:text-xl">
-                            {task.title ?? `Задача #${task.id}`}
+                            {task.title ?? t('taskNumber', {id: task.id})}
                         </h2>
                         <p className="mt-1 text-xs font-semibold text-slate-500">
-                            Статус: {task.status}
+                            {t('status', {status: task.status})}
                         </p>
                         {canReturnForRework ? (
                             <button
@@ -118,7 +124,7 @@ export default function TaskDetailsSidebar({
                                 }}
                                 className="mt-3 rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-black text-amber-800 transition hover:border-amber-400 hover:bg-amber-100"
                             >
-                                Вернуть на переделку
+                                {t('returnForRework')}
                             </button>
                         ) : null}
                     </div>
@@ -128,15 +134,15 @@ export default function TaskDetailsSidebar({
                         onClick={onClose}
                         className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-500 hover:bg-slate-100"
                     >
-                        Закрыть
+                        {commonT('actions.close')}
                     </button>
                 </div>
 
                 <div className="flex-1 overflow-y-auto p-4 sm:p-5">
-                    <nav className="mb-5 grid grid-cols-2 rounded-xl bg-slate-100 p-1" aria-label="Разделы задачи">
+                    <nav className="mb-5 grid grid-cols-2 rounded-xl bg-slate-100 p-1" aria-label={t('sectionsAria')}>
                         {([
-                            ['overview', 'Обзор'],
-                            ['materials', 'Материалы'],
+                            ['overview', t('overview')],
+                            ['materials', t('materials')],
                         ] as const).map(([tab, label]) => (
                             <button
                                 key={tab}
@@ -164,31 +170,31 @@ export default function TaskDetailsSidebar({
                             />
                         ) : (
                             <section className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-6 text-center text-sm text-slate-500">
-                                Материальный учёт доступен после сохранения производственной задачи.
+                                {t('materialsAfterSave')}
                             </section>
                         )
                     ) : (
                     <div className="space-y-5 sm:space-y-6">
                     <section className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                         <h3 className="text-xs font-black uppercase tracking-widest text-slate-500">
-                            Основная информация
+                            {t('mainInfo')}
                         </h3>
 
                         <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
-                            {task.patient && <InfoItem label="Пациент" value={task.patient} />}
-                            {task.orderId && <InfoItem label="Заказ" value={`#${task.orderId}`} />}
-                            {task.deadline && <InfoItem label="Срок" value={task.deadline} />}
-                            {task.priority && <InfoItem label="Приоритет" value={task.priority} />}
-                            {task.type && <InfoItem label="Вид работы" value={task.type} />}
+                            {task.patient && <InfoItem label={t('patient')} value={task.patient} />}
+                            {task.orderId && <InfoItem label={t('order')} value={`#${task.orderId}`} />}
+                            {task.deadline && <InfoItem label={t('deadline')} value={task.deadline} />}
+                            {task.priority && <InfoItem label={t('priority')} value={task.priority} />}
+                            {task.type && <InfoItem label={t('workType')} value={task.type} />}
                             {task.materialNames ? (
                                 <div className="rounded-xl border border-slate-200 bg-white p-3 sm:col-span-2">
-                                    <p className="text-[10px] font-black uppercase text-slate-400">Материалы задачи</p>
+                                    <p className="text-[10px] font-black uppercase text-slate-400">{t('taskMaterials')}</p>
                                     <MaterialChips materialNames={task.materialNames} className="mt-2" />
                                 </div>
                             ) : null}
-                            <InfoItem label="Кол-во" value={task.units} />
-                            {task.unitPrice ? <InfoItem label="Цена" value={task.unitPrice.toLocaleString('ru-RU')} /> : null}
-                            {task.discount ? <InfoItem label="Скидка" value={task.discount.toLocaleString('ru-RU')} /> : null}
+                            <InfoItem label={t('quantity')} value={task.units} />
+                            {task.unitPrice ? <InfoItem label={t('price')} value={formats.currency(task.unitPrice)} /> : null}
+                            {task.discount ? <InfoItem label={t('discount')} value={formats.number(task.discount)} /> : null}
                         </div>
                     </section>
 
@@ -218,7 +224,7 @@ export default function TaskDetailsSidebar({
 
                     <section>
                         <h3 className="text-xs font-black uppercase tracking-widest text-slate-500">
-                            Комментарии
+                            {t('comments')}
                         </h3>
 
                         {onAddComment ? (
@@ -226,7 +232,7 @@ export default function TaskDetailsSidebar({
                                 <textarea
                                     value={commentText}
                                     onChange={(event) => setCommentText(event.target.value)}
-                                    placeholder="Написать комментарий..."
+                                    placeholder={t('commentPlaceholder')}
                                     className="min-h-24 w-full resize-none rounded-xl border border-slate-200 bg-white p-3 text-sm text-slate-700 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
                                 />
 
@@ -236,7 +242,7 @@ export default function TaskDetailsSidebar({
                                     className="w-full rounded-xl bg-blue-600 px-4 py-2 text-sm font-bold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300"
                                     disabled={!commentText.trim()}
                                 >
-                                    Добавить комментарий
+                                    {t('addComment')}
                                 </button>
                             </div>
                         ) : null}
@@ -264,7 +270,7 @@ export default function TaskDetailsSidebar({
                                 ))}
                             </div>
                         ) : (
-                            <EmptyText text="Комментариев пока нет" />
+                            <EmptyText text={t('noComments')} />
                         )}
                     </section>
                     </div>
@@ -279,18 +285,18 @@ export default function TaskDetailsSidebar({
                             <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-600 to-indigo-600 text-white shadow-lg shadow-violet-500/20">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-6 w-6"><path d="M3 12a9 9 0 1 0 3-6.7" strokeLinecap="round"/><path d="M3 4v5h5M12 7v5l3 2" strokeLinecap="round" strokeLinejoin="round"/></svg>
                             </span>
-                            <div className="min-w-0"><p className="text-[10px] font-black uppercase tracking-[.18em] text-violet-600 dark:text-violet-300">Журнал задачи</p><h2 className="mt-1 truncate text-xl font-black text-slate-950 dark:text-white sm:text-2xl">История изменений</h2><p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{task.title ?? `Задача #${task.id}`} · статусы, назначения и контроль качества</p></div>
+                            <div className="min-w-0"><p className="text-[10px] font-black uppercase tracking-[.18em] text-violet-600 dark:text-violet-300">{t('journal')}</p><h2 className="mt-1 truncate text-xl font-black text-slate-950 dark:text-white sm:text-2xl">{historyT('title')}</h2><p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{t('historySubtitle', {task: task.title ?? t('taskNumber', {id: task.id})})}</p></div>
                         </div>
-                        <button type="button" onClick={() => setIsHistoryDetailsOpen(false)} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 shadow-sm transition hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800" aria-label="Закрыть историю"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-5 w-5"><path d="M18 6 6 18M6 6l12 12" strokeLinecap="round"/></svg></button>
+                        <button type="button" onClick={() => setIsHistoryDetailsOpen(false)} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 shadow-sm transition hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800" aria-label={t('closeHistory')}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-5 w-5"><path d="M18 6 6 18M6 6l12 12" strokeLinecap="round"/></svg></button>
                     </div>
 
                     <div className="grid min-h-0 flex-1 gap-5 overflow-y-auto bg-slate-50/70 p-4 dark:bg-slate-950 sm:p-6 lg:grid-cols-[minmax(0,1.55fr)_minmax(300px,.85fr)]">
                         <TaskHistoryTimeline taskId={task.id} fallbackItems={task.history} className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900" />
                         <div className="space-y-5">
-                            {UUID_PATTERN.test(task.id) ? <QualityIncidentsPanel taskId={task.id} className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900" /> : <section className="rounded-[24px] border border-dashed border-slate-300 bg-white p-5 text-center text-sm text-slate-400 dark:border-slate-700 dark:bg-slate-900">Контроль качества доступен после сохранения задачи.</section>}
+                            {UUID_PATTERN.test(task.id) ? <QualityIncidentsPanel taskId={task.id} className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900" /> : <section className="rounded-[24px] border border-dashed border-slate-300 bg-white p-5 text-center text-sm text-slate-400 dark:border-slate-700 dark:bg-slate-900">{t('qualityAfterSave')}</section>}
                             <section className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900">
-                                <p className="text-xs font-black uppercase tracking-widest text-slate-500">Сводка задачи</p>
-                                <div className="mt-4 grid grid-cols-2 gap-2"><HistorySummaryItem label="Статус" value={task.status} /><HistorySummaryItem label="Приоритет" value={task.priority} /><HistorySummaryItem label="Пациент" value={task.patient} /><HistorySummaryItem label="Срок" value={task.deadline} /></div>
+                                <p className="text-xs font-black uppercase tracking-widest text-slate-500">{t('summary')}</p>
+                                <div className="mt-4 grid grid-cols-2 gap-2"><HistorySummaryItem label={commonT('fields.status')} value={task.status} /><HistorySummaryItem label={t('priority')} value={task.priority} /><HistorySummaryItem label={t('patient')} value={task.patient} /><HistorySummaryItem label={t('deadline')} value={task.deadline} /></div>
                             </section>
                         </div>
                     </div>

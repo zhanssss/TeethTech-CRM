@@ -5,6 +5,7 @@ import {  CreateClinicDto} from '@/src/types/clinic.types';
 import Modal from "../ui/Modal";
 import PhoneInput from '../ui/PhoneInput';
 import {useCreateClinicMutation} from "@/src/services/api/clinicsApi";
+import {useTranslations} from 'next-intl';
 
 type CreateClinicModalProps = {
     isOpen: boolean;
@@ -15,6 +16,8 @@ export default function CreateClinicModal({
                                               isOpen,
                                               onClose,
                                           }: CreateClinicModalProps) {
+    const t = useTranslations('clinics.form');
+    const commonT = useTranslations('common');
     const [formData, setFormData] = useState<CreateClinicDto>({
         name: '',
         contactPerson: '',
@@ -52,11 +55,11 @@ export default function CreateClinicModal({
         <Modal contentClassName="max-w-2xl overflow-hidden p-0">
             <div className="flex items-start justify-between gap-4 border-b border-slate-200 bg-gradient-to-r from-violet-50 to-white px-5 py-5 dark:border-slate-700 dark:from-violet-950/30 dark:to-slate-900 sm:px-6">
                 <div className="min-w-0">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-violet-600">Новая запись</p><h2 className="mt-1 text-xl font-black text-slate-950 dark:text-white">
-                        Добавить клинику
+                    <p className="text-[10px] font-black uppercase tracking-widest text-violet-600">{t('newRecord')}</p><h2 className="mt-1 text-xl font-black text-slate-950 dark:text-white">
+                        {t('createTitle')}
                     </h2>
                     <p className="text-xs text-slate-500">
-                        Заполните данные клиники для добавления в базу
+                        {t('createSubtitle')}
                     </p>
                 </div>
 
@@ -73,7 +76,7 @@ export default function CreateClinicModal({
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                     <div>
                         <label className="mb-1 block text-xs font-bold uppercase text-slate-400">
-                            Название клиники
+                            {t('name')}
                         </label>
                         <input
                             required
@@ -89,7 +92,7 @@ export default function CreateClinicModal({
 
                     <div>
                         <label className="mb-1 block text-xs font-bold uppercase text-slate-400">
-                            Контактное лицо
+                            {t('contactPerson')}
                         </label>
                         <input
                             type="text"
@@ -97,14 +100,14 @@ export default function CreateClinicModal({
                             onChange={(e) =>
                                 setFormData({...formData, contactPerson: e.target.value})
                             }
-                            placeholder="ФИО администратора / врача"
+                            placeholder={t('contactPlaceholder')}
                             className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-500 focus:bg-white"
                         />
                     </div>
 
                     <div>
                         <label className="mb-1 block text-xs font-bold uppercase text-slate-400">
-                            Телефон
+                            {t('phone')}
                         </label>
                         <PhoneInput
                             value={formData.phone}
@@ -141,11 +144,11 @@ export default function CreateClinicModal({
                             onChange={(e) =>
                                 setFormData({...formData, bin: e.target.value})
                             }
-                            placeholder="12 цифр"
+                            placeholder={t('binPlaceholder')}
                             className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-500 focus:bg-white"
                         />
                         <label className="mb-1 block text-xs font-bold uppercase text-slate-400">
-                            Адрес
+                            {t('address')}
                         </label>
                         <input
                             required
@@ -154,7 +157,7 @@ export default function CreateClinicModal({
                             onChange={(e) =>
                                 setFormData({...formData, address: e.target.value})
                             }
-                            placeholder="г. Астана, ул. ..."
+                            placeholder={t('addressPlaceholder')}
                             className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-500 focus:bg-white"
                         />
                     </div>
@@ -166,14 +169,14 @@ export default function CreateClinicModal({
                         onClick={onClose}
                         className="w-full rounded-xl px-5 py-2.5 text-sm font-bold text-slate-400 transition hover:text-slate-700 sm:w-auto"
                     >
-                        Отмена
+                        {commonT('actions.cancel')}
                     </button>
 
                     <button
                         type="submit"
                         className="w-full rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-7 py-2.5 text-sm font-bold text-white shadow-lg shadow-violet-500/20 transition hover:-translate-y-0.5 active:scale-95 sm:w-auto"
                     >
-                        {isLoading ? 'Создание...' : 'Добавить клинику'}
+                        {isLoading ? t('creating') : t('createTitle')}
                     </button>
                 </div>
             </form>

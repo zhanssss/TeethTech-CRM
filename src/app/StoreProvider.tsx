@@ -1,7 +1,8 @@
 'use client'
 
-import {ReactNode, useEffect, useState} from "react";
+import {ReactNode, useEffect, useRef, useState} from "react";
 import {Provider} from "react-redux";
+import {useTranslations} from 'next-intl';
 import {finishAuthHydration, setUser} from '@/src/features/auth/authSlice';
 import {enqueueNotification} from '@/src/features/notifications/notificationsSlice';
 import {normalizeAuthRole} from '@/src/features/auth/authUtils';
@@ -10,7 +11,13 @@ import NotificationViewport from '@/src/components/ui/NotificationViewport';
 import {makeStore} from '../lib/store';
 
 export default function StoreProvider({children}: {children: ReactNode}){
+ const t = useTranslations('common.notifications');
+ const tRef = useRef(t);
  const [store] = useState(makeStore);
+
+    useEffect(() => {
+        tRef.current = t;
+    }, [t]);
 
     useEffect(() => {
         let isMounted = true;
@@ -29,7 +36,7 @@ export default function StoreProvider({children}: {children: ReactNode}){
                         store.dispatch(
                             enqueueNotification({
                                 tone: 'error',
-                                message: 'Не удалось проверить текущую сессию. Попробуйте обновить страницу.',
+                                message: tRef.current('sessionCheckFailed'),
                             })
                         );
                     }
@@ -55,7 +62,7 @@ export default function StoreProvider({children}: {children: ReactNode}){
                     store.dispatch(
                         enqueueNotification({
                             tone: 'error',
-                            message: 'Нет связи с сервером авторизации. Проверьте подключение и повторите попытку.',
+                            message: tRef.current('authServerUnavailable'),
                         })
                     );
                     store.dispatch(finishAuthHydration());

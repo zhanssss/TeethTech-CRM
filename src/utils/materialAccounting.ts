@@ -11,12 +11,14 @@ export function normalizeMaterialIds(materialIds: string[]) {
     return Array.from(new Set(materialIds.map((id) => id.trim()).filter(Boolean)));
 }
 
-export function validateMaterialIds(materialIds: string[]) {
+export type MaterialIdsValidationError = 'required' | 'duplicate' | '';
+
+export function validateMaterialIds(materialIds: string[]): MaterialIdsValidationError {
     const normalized = normalizeMaterialIds(materialIds);
 
-    if (normalized.length === 0) return 'Выберите хотя бы один материал';
+    if (normalized.length === 0) return 'required';
     if (normalized.length !== materialIds.filter((id) => id.trim()).length) {
-        return 'Материалы не должны повторяться';
+        return 'duplicate';
     }
 
     return '';
@@ -37,11 +39,19 @@ export function isZeroMaterialUsage(usage: MaterialUsageRequest) {
         && usage.returnedQuantity === 0;
 }
 
-export function validateMaterialUsages(usages: MaterialUsageRequest[]) {
+export type MaterialUsageValidationError =
+    | 'duplicate'
+    | 'negative'
+    | 'issuedPositive'
+    | 'wasteReason'
+    | 'totalsMismatch'
+    | '';
+
+export function validateMaterialUsages(usages: MaterialUsageRequest[]): MaterialUsageValidationError {
     const ids = usages.map((usage) => usage.nomenclatureId);
 
     if (new Set(ids).size !== ids.length) {
-        return 'Один складской материал нельзя добавить в отчёт дважды';
+        return 'duplicate';
     }
 
     for (const usage of usages) {
@@ -53,16 +63,16 @@ export function validateMaterialUsages(usages: MaterialUsageRequest[]) {
         ];
 
         if (quantities.some((quantity) => !Number.isFinite(quantity) || quantity < 0)) {
-            return 'Все количества должны быть неотрицательными';
+            return 'negative';
         }
         if (usage.issuedQuantity <= 0) {
-            return 'Выданное количество должно быть больше нуля';
+            return 'issuedPositive';
         }
         if (usage.wasteQuantity > 0 && !usage.note?.trim()) {
-            return 'Укажите причину потерь для каждой строки с фактическими потерями';
+            return 'wasteReason';
         }
         if (Math.abs(getMaterialUsageDifference(usage)) > MATERIAL_BALANCE_EPSILON) {
-            return 'Выдано должно равняться сумме использованного, потерь и возврата';
+            return 'totalsMismatch';
         }
     }
 
@@ -77,8 +87,8 @@ export function compactMaterialNames(materialNames?: string[] | null, visibleCou
     return hiddenCount > 0 ? [...visible, `+${hiddenCount}`] : visible;
 }
 
-export function taskMatchesMaterialSearch(task: TaskDashboardTask, search: string) {
-    const query = search.trim().toLocaleLowerCase('ru-RU');
+export function taskMatchesMaterialSearch(task: TaskDashboardTask, search: string, locale = 'en-US') {
+    const query = search.trim().toLocaleLowerCase(locale);
     if (!query) return true;
 
     return [
@@ -89,7 +99,7 @@ export function taskMatchesMaterialSearch(task: TaskDashboardTask, search: strin
         task.workTypeName,
         task.technicianName,
         ...(task.materialNames ?? []),
-    ].some((value) => typeof value === 'string' && value.toLocaleLowerCase('ru-RU').includes(query));
+    ].some((value) => typeof value === 'string' && value.toLocaleLowerCase(locale).includes(query));
 }
 
 export function getReportedQuantity(item?: MaterialAccountingItem) {
@@ -123,8 +133,8 @@ export function canSubmitMaterialTransition({
 }
 
 export function getVariancePresentation(varianceQuantity: number) {
-    if (varianceQuantity > 0) return { label: 'перерасход', tone: 'danger' as const };
-    if (varianceQuantity < 0) return { label: 'экономия', tone: 'success' as const };
+    if (varianceQuantity > 0) return { label: 'overrun', tone: 'danger' as const };
+    if (varianceQuantity < 0) return { label: 'saving', tone: 'success' as const };
     return { label: '', tone: 'neutral' as const };
 }
 

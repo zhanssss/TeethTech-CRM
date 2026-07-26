@@ -23,6 +23,8 @@ import type {
     SalaryStatementTask,
 } from '@/src/types/finance.types';
 import ConfirmDialog from '@/src/components/ui/ConfirmDialog';
+import {useTranslations} from 'next-intl';
+import {useAppFormatters} from '@/src/i18n/provider';
 
 type SalaryUserOption = {
     id: string;
@@ -47,22 +49,16 @@ const emptyReport: FinanceReport = {
     marginPercentage: 0,
 };
 
-const paymentTypeLabels: Record<SalaryPaymentType, string> = {
-    FIXED: 'Фиксированная',
-    PIECEWORK: 'Сдельная',
-    HYBRID: 'Гибридная',
-};
-
-const roleLabels: Record<string, string> = {
-    ADMIN: 'Админ',
-    DISPATCHER: 'Диспетчер',
-    TECHNICIAN: 'Техник',
-    FINANCIER: 'Финансист',
-    HEAD_TECHNICIAN: 'Старший техник',
-    ROLE_ADMIN: 'Админ',
-    ROLE_DISPATCHER: 'Диспетчер',
-    ROLE_TECHNICIAN: 'Техник',
-};
+const roleKeyByCode = {
+    ADMIN: 'roles.ADMIN',
+    DISPATCHER: 'roles.DISPATCHER',
+    TECHNICIAN: 'roles.TECHNICIAN',
+    FINANCIER: 'roles.FINANCIER',
+    HEAD_TECHNICIAN: 'roles.HEAD_TECHNICIAN',
+    ROLE_ADMIN: 'roles.ADMIN',
+    ROLE_DISPATCHER: 'roles.DISPATCHER',
+    ROLE_TECHNICIAN: 'roles.TECHNICIAN',
+} as const;
 
 function padDatePart(value: number) {
     return String(value).padStart(2, '0');
@@ -90,36 +86,21 @@ function toApiDate(value: string) {
     return Number.isNaN(date.getTime()) ? new Date().toISOString() : date.toISOString();
 }
 
-function formatMoney(value?: number | null) {
-    return `${(value ?? 0).toLocaleString('ru-RU')} ₸`;
-}
-
-function formatDateTime(value?: string | null) {
-    if (!value) return 'Не указано';
-
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return value;
-
-    return new Intl.DateTimeFormat('ru-RU', {
-        day: 'numeric',
-        month: 'short',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-    }).format(date);
-}
-
 function getSalaryEmployeeName(employee: SalaryEmployee) {
     return employee.name || employee.email || employee.id;
 }
 
-function getUserRole(user: SalaryUserOption) {
-    const role = user.role || user.roles?.[0] || user.specialization || 'Без роли';
-    return roleLabels[role] ?? role;
+type LegacyPayrollTranslator = ReturnType<typeof useTranslations<'accounting.payroll.legacy'>>;
+
+function getUserRole(user: SalaryUserOption, t: LegacyPayrollTranslator) {
+    const role = user.role || user.roles?.[0] || user.specialization;
+    if (!role) return t('noRole');
+    const roleKey = roleKeyByCode[role as keyof typeof roleKeyByCode];
+    return roleKey ? t(roleKey) : role;
 }
 
-function getUserName(users: SalaryUserOption[], userId: string) {
-    return users.find((user) => user.id === userId)?.fullName ?? 'Сотрудник';
+function getUserName(users: SalaryUserOption[], userId: string, fallback: string) {
+    return users.find((user) => user.id === userId)?.fullName ?? fallback;
 }
 
 function getInitialPaymentType(user?: SalaryUserOption): SalaryPaymentType {
@@ -133,12 +114,14 @@ function UserSelect({
     users,
     onChange,
     disabled,
+    emptyLabel,
 }: {
     id: string;
     value: string;
     users: SalaryUserOption[];
     onChange: (value: string) => void;
     disabled?: boolean;
+    emptyLabel: string;
 }) {
     return (
         <select
@@ -149,7 +132,7 @@ function UserSelect({
             className="min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-slate-100"
         >
             {users.length === 0 ? (
-                <option value="">Нет сотрудников</option>
+                <option value="">{emptyLabel}</option>
             ) : (
                 users.map((user) => (
                     <option key={user.id} value={user.id}>
@@ -162,6 +145,10 @@ function UserSelect({
 }
 
 export default function AccountingPage() {
+    const t = useTranslations('accounting.main');
+    const payrollT = useTranslations('accounting.payroll.legacy');
+    const reportT = useTranslations('accounting.report');
+    const {currency: formatMoney, dateTime: formatDateTime} = useAppFormatters();
     const pathname = usePathname();
     const isPayrollPage = pathname === '/accounting/payroll';
     const [reportStart, setReportStart] = useState(getDefaultStartDate);
@@ -247,8 +234,8 @@ export default function AccountingPage() {
     const baseSalary = baseSalaryDraft ?? String(salaryConfig?.baseSalary ?? selectedConfigUser?.salary ?? 0);
     const commissionPercent = commissionPercentDraft ?? String(salaryConfig?.commissionPercent ?? 0);
     const statementEmployeeName = statementEmployeeId
-        ? getUserName(users, statementEmployeeId)
-        : 'Сотрудник';
+        ? getUserName(users, statementEmployeeId, payrollT('employee'))
+        : payrollT('employee');
     const displayedStatementTasks: SalaryStatementTask[] = statementTasks ?? statement?.tasks ?? [];
     const handleGenerateReport = () => {
         const nextRequest = {
@@ -278,7 +265,7 @@ export default function AccountingPage() {
         setConfigError('');
 
         if (!configUserId) {
-            setConfigError('Выберите сотрудника.');
+            setConfigError(payrollT('selectEmployee'));
             return;
         }
 
@@ -300,7 +287,7 @@ export default function AccountingPage() {
         setStatement(null);
 
         if (!statementEmployeeId) {
-            setStatementError('Выберите сотрудника.');
+            setStatementError(payrollT('selectEmployee'));
             return;
         }
 
@@ -349,29 +336,28 @@ export default function AccountingPage() {
         <div className="mx-auto w-full max-w-[1500px] space-y-6 pb-8">
             {!isPayrollPage && (
                 <>
-            <header className="relative overflow-hidden rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900 lg:flex lg:items-end lg:justify-between">
+            <header className="relative overflow-hidden rounded-[28px] border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-6 lg:flex lg:items-end lg:justify-between">
                 <div>
-                    <p className="text-[10px] font-black uppercase tracking-[.18em] text-violet-600">Финансовый центр</p><h1 className="mt-1 text-3xl font-black text-slate-950 dark:text-white">Финансовый отчёт</h1>
+                    <p className="text-[10px] font-black uppercase tracking-[.18em] text-violet-600">{t('eyebrow')}</p><h1 className="mt-1 text-2xl font-black text-slate-950 dark:text-white sm:text-3xl">{t('title')}</h1>
                     <p className="mt-1 text-sm text-slate-500">
-                        Ордера, оплаты, зарплаты, склад и бухгалтерская сверка за выбранный период
+                        {t('subtitle')}
                     </p>
                 </div>
 
-                <div className={`rounded-xl border px-4 py-3 text-sm shadow-sm ${
+                <div className={`mt-4 rounded-xl border px-4 py-3 text-sm shadow-sm lg:mt-0 ${
                     report.grossProfit >= 0
                         ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
                         : 'border-red-200 bg-red-50 text-red-700'
                 }`}>
-                    Получено оплат:{' '}
-                    <span className="font-black">{formatMoney(report.netRevenue)}</span>
+                    {t('received', {amount: formatMoney(report.netRevenue)})}
                 </div>
             </header>
 
-            <section className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+            <section className="rounded-[24px] border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-5">
                 <div className="grid gap-3 lg:grid-cols-[1fr_1fr_auto] lg:items-end">
                     <label className="block">
                         <span className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-500">
-                            Начало периода
+                            {t('start')}
                         </span>
                         <input
                             type="datetime-local"
@@ -383,7 +369,7 @@ export default function AccountingPage() {
 
                     <label className="block">
                         <span className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-500">
-                            Конец периода
+                            {t('end')}
                         </span>
                         <input
                             type="datetime-local"
@@ -399,18 +385,21 @@ export default function AccountingPage() {
                         disabled={isReportFetching}
                         className="inline-flex min-h-11 items-center justify-center rounded-xl bg-blue-600 px-5 text-sm font-bold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300"
                     >
-                        {isReportFetching ? 'Формирование…' : 'Сформировать отчет'}
+                        {isReportFetching ? t('generating') : t('generate')}
                     </button>
                 </div>
 
                 {isReportError && (
                     <p className="mt-3 text-sm font-semibold text-red-600">
-                        Не удалось загрузить финансовый отчет.
+                        {t('loadError')}
                     </p>
                 )}
 
                 <p className="mt-3 text-xs text-slate-400">
-                    Период отчета: {formatDateTime(report.startDate || reportRequest.startDate)} - {formatDateTime(report.endDate || reportRequest.endDate)}
+                    {t('period', {
+                        start: formatDateTime(report.startDate || reportRequest.startDate),
+                        end: formatDateTime(report.endDate || reportRequest.endDate),
+                    })}
                 </p>
             </section>
 
@@ -422,11 +411,11 @@ export default function AccountingPage() {
                 <>
             <header>
                 <p className="text-xs font-bold uppercase tracking-[0.18em] text-blue-600">
-                    Финансы
+                    {payrollT('badge')}
                 </p>
-                <h1 className="mt-1 text-2xl font-bold text-slate-900">Зарплаты</h1>
+                <h1 className="mt-1 text-2xl font-bold text-slate-900">{payrollT('title')}</h1>
                 <p className="mt-1 text-sm text-slate-500">
-                    Схемы оплаты сотрудников, расчёт и история зарплатных ведомостей
+                    {payrollT('subtitle')}
                 </p>
             </header>
 
@@ -437,14 +426,14 @@ export default function AccountingPage() {
                 >
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                         <div>
-                            <h2 className="font-bold text-slate-900">Схема оплаты</h2>
+                            <h2 className="font-bold text-slate-900">{payrollT('configTitle')}</h2>
                             <p className="mt-1 text-sm text-slate-500">
-                                Оклад, сдельная ставка или гибридная схема для сотрудника
+                                {payrollT('configSubtitle')}
                             </p>
                         </div>
                         {isConfigFetching && (
                             <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700">
-                                Загрузка
+                                {payrollT('loading')}
                             </span>
                         )}
                     </div>
@@ -452,12 +441,13 @@ export default function AccountingPage() {
                     <div className="mt-5 space-y-4">
                         <label className="block">
                             <span className="mb-1.5 block text-xs font-bold text-slate-500">
-                                Сотрудник
+                                {payrollT('employeeField')}
                             </span>
                             <UserSelect
                                 id="salary-config-user"
                                 value={configUserId}
                                 users={users}
+                                emptyLabel={payrollT('noEmployees')}
                                 disabled={isUsersLoading}
                                 onChange={handleConfigUserChange}
                             />
@@ -466,22 +456,22 @@ export default function AccountingPage() {
                         <div className="grid gap-3 sm:grid-cols-3">
                             <label className="block">
                                 <span className="mb-1.5 block text-xs font-bold text-slate-500">
-                                    Тип оплаты
+                                    {payrollT('paymentType')}
                                 </span>
                                 <select
                                     value={paymentType}
                                     onChange={(event) => setPaymentTypeDraft(event.target.value as SalaryPaymentType)}
                                     className="min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                                 >
-                                    <option value="FIXED">Фиксированная</option>
-                                    <option value="PIECEWORK">Сдельная</option>
-                                    <option value="HYBRID">Гибридная</option>
+                                    <option value="FIXED">{reportT('paymentTypes.FIXED')}</option>
+                                    <option value="PIECEWORK">{reportT('paymentTypes.PIECEWORK')}</option>
+                                    <option value="HYBRID">{reportT('paymentTypes.HYBRID')}</option>
                                 </select>
                             </label>
 
                             <label className="block">
                                 <span className="mb-1.5 block text-xs font-bold text-slate-500">
-                                    Оклад
+                                    {payrollT('salary')}
                                 </span>
                                 <input
                                     type="number"
@@ -494,7 +484,7 @@ export default function AccountingPage() {
 
                             <label className="block">
                                 <span className="mb-1.5 block text-xs font-bold text-slate-500">
-                                    Процент
+                                    {payrollT('percent')}
                                 </span>
                                 <input
                                     type="number"
@@ -510,12 +500,12 @@ export default function AccountingPage() {
 
                         <div className="rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-600">
                             <span className="font-bold text-slate-800">
-                                {selectedConfigUser?.fullName ?? 'Сотрудник'}
+                                {selectedConfigUser?.fullName ?? payrollT('employee')}
                             </span>
                             <span className="mx-2 text-slate-300">/</span>
-                            {selectedConfigUser ? getUserRole(selectedConfigUser) : 'роль не указана'}
+                            {selectedConfigUser ? getUserRole(selectedConfigUser, payrollT) : payrollT('roleMissing')}
                             <span className="mx-2 text-slate-300">/</span>
-                            {isConfigLoadError ? 'схема еще не настроена' : paymentTypeLabels[paymentType]}
+                            {isConfigLoadError ? payrollT('configMissing') : reportT(`paymentTypes.${paymentType}`)}
                         </div>
 
                         {configError && (
@@ -529,7 +519,7 @@ export default function AccountingPage() {
                             disabled={isSavingConfig || !configUserId}
                             className="inline-flex min-h-11 w-full items-center justify-center rounded-xl bg-slate-900 px-5 text-sm font-bold text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-300 sm:w-auto"
                         >
-                            {isSavingConfig ? 'Сохранение...' : 'Сохранить схему'}
+                            {isSavingConfig ? payrollT('saving') : payrollT('saveConfig')}
                         </button>
                     </div>
                 </form>
@@ -538,20 +528,21 @@ export default function AccountingPage() {
                     onSubmit={handleStatementSubmit}
                     className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:p-5"
                 >
-                    <h2 className="font-bold text-slate-900">Зарплатная ведомость</h2>
+                    <h2 className="font-bold text-slate-900">{payrollT('statementTitle')}</h2>
                     <p className="mt-1 text-sm text-slate-500">
-                        Расчет начислений по завершенным задачам за период
+                        {payrollT('statementSubtitle')}
                     </p>
 
                     <div className="mt-5 grid gap-3 md:grid-cols-2">
                         <label className="block md:col-span-2">
                             <span className="mb-1.5 block text-xs font-bold text-slate-500">
-                                Сотрудник
+                                {payrollT('employeeField')}
                             </span>
                             <UserSelect
                                 id="salary-statement-user"
                                 value={statementEmployeeId}
                                 users={users}
+                                emptyLabel={payrollT('noEmployees')}
                                 disabled={isUsersLoading}
                                 onChange={setSelectedStatementEmployeeId}
                             />
@@ -559,7 +550,7 @@ export default function AccountingPage() {
 
                         <label className="block">
                             <span className="mb-1.5 block text-xs font-bold text-slate-500">
-                                Начало
+                                {payrollT('start')}
                             </span>
                             <input
                                 type="datetime-local"
@@ -571,7 +562,7 @@ export default function AccountingPage() {
 
                         <label className="block">
                             <span className="mb-1.5 block text-xs font-bold text-slate-500">
-                                Конец
+                                {payrollT('end')}
                             </span>
                             <input
                                 type="datetime-local"
@@ -583,7 +574,7 @@ export default function AccountingPage() {
 
                         <label className="block md:col-span-2">
                             <span className="mb-1.5 block text-xs font-bold text-slate-500">
-                                Комментарий
+                                {payrollT('comment')}
                             </span>
                             <textarea
                                 value={statementComment}
@@ -606,7 +597,7 @@ export default function AccountingPage() {
                             disabled={isCreatingStatement || !statementEmployeeId}
                             className="inline-flex min-h-11 items-center justify-center rounded-xl bg-blue-600 px-5 text-sm font-bold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300"
                         >
-                            {isCreatingStatement ? 'Расчет...' : 'Сформировать ведомость'}
+                            {isCreatingStatement ? payrollT('calculating') : payrollT('createStatement')}
                         </button>
 
                         <button
@@ -615,7 +606,7 @@ export default function AccountingPage() {
                             disabled={!statement?.statementId || statement.status === 'PAID' || isConfirmingStatement}
                             className="inline-flex min-h-11 items-center justify-center rounded-xl border border-emerald-600 px-5 text-sm font-bold text-emerald-700 transition hover:bg-emerald-50 disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-300"
                         >
-                            {isConfirmingStatement ? 'Подтверждение...' : 'Подтвердить выплату'}
+                            {isConfirmingStatement ? payrollT('confirming') : payrollT('confirmPayment')}
                         </button>
 
                         <button
@@ -624,7 +615,7 @@ export default function AccountingPage() {
                             disabled={!statement?.statementId || statement.status !== 'DRAFT' || isDeletingStatement}
                             className="inline-flex min-h-11 items-center justify-center rounded-xl border border-red-500 px-5 text-sm font-bold text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-300"
                         >
-                            {isDeletingStatement ? 'Удаление...' : 'Удалить черновик'}
+                            {isDeletingStatement ? payrollT('deleting') : payrollT('deleteDraft')}
                         </button>
                     </div>
                 </form>
@@ -632,7 +623,7 @@ export default function AccountingPage() {
 
             {isUsersError && (
                 <section className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-700">
-                    Не удалось загрузить сотрудников. Настройка зарплат временно недоступна.
+                    {payrollT('usersError')}
                 </section>
             )}
 
@@ -641,7 +632,7 @@ export default function AccountingPage() {
                     <div className="flex flex-col gap-3 border-b border-slate-100 px-5 py-4 md:flex-row md:items-center md:justify-between">
                         <div>
                             <h2 className="font-bold text-slate-900">
-                                Ведомость: {statement.employeeName || statementEmployeeName}
+                                {payrollT('statement', {employee: statement.employeeName || statementEmployeeName})}
                             </h2>
                             <p className="mt-1 text-sm text-slate-500">
                                 {formatDateTime(statement.startDate)} - {formatDateTime(statement.endDate)}
@@ -650,33 +641,33 @@ export default function AccountingPage() {
 
                         <div className="flex flex-wrap gap-2 text-xs font-bold">
                             <span className="rounded-full bg-slate-100 px-3 py-1.5 text-slate-700">
-                                {paymentTypeLabels[statement.paymentType]}
+                                {reportT(`paymentTypes.${statement.paymentType}`)}
                             </span>
                             <span className={`rounded-full px-3 py-1.5 ${
                                 statement.status === 'PAID'
                                     ? 'bg-emerald-100 text-emerald-700'
                                     : 'bg-amber-100 text-amber-700'
                             }`}>
-                                {statement.status === 'PAID' ? 'Оплачено' : 'Черновик'}
+                                {statement.status === 'PAID' ? payrollT('paid') : payrollT('draft')}
                             </span>
                         </div>
                     </div>
 
                     <div className="grid grid-cols-1 gap-px bg-slate-100 md:grid-cols-4">
                         <div className="bg-white p-4">
-                            <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Оклад</p>
+                            <p className="text-xs font-bold uppercase tracking-wide text-slate-400">{payrollT('salary')}</p>
                             <p className="mt-2 text-xl font-black text-slate-900">{formatMoney(statement.baseSalaryAmount)}</p>
                         </div>
                         <div className="bg-white p-4">
-                            <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Сдельно</p>
+                            <p className="text-xs font-bold uppercase tracking-wide text-slate-400">{payrollT('piecework')}</p>
                             <p className="mt-2 text-xl font-black text-slate-900">{formatMoney(statement.pieceworkAmount)}</p>
                         </div>
                         <div className="bg-white p-4">
-                            <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Задач</p>
+                            <p className="text-xs font-bold uppercase tracking-wide text-slate-400">{payrollT('tasks')}</p>
                             <p className="mt-2 text-xl font-black text-slate-900">{statement.totalTaskCount}</p>
                         </div>
                         <div className="bg-white p-4">
-                            <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Итого</p>
+                            <p className="text-xs font-bold uppercase tracking-wide text-slate-400">{payrollT('total')}</p>
                             <p className="mt-2 text-xl font-black text-emerald-700">{formatMoney(statement.totalAmount)}</p>
                         </div>
                     </div>
@@ -685,7 +676,7 @@ export default function AccountingPage() {
                         <div className={`border-b border-slate-100 px-5 py-3 text-sm font-semibold ${
                             isStatementTasksError ? 'bg-red-50 text-red-700' : 'bg-blue-50 text-blue-700'
                         }`}>
-                            {isStatementTasksError ? 'Не удалось загрузить детализацию задач ведомости.' : 'Загружаем детализацию задач ведомости...'}
+                            {isStatementTasksError ? payrollT('tasksError') : payrollT('tasksLoading')}
                         </div>
                     )}
 
@@ -693,13 +684,13 @@ export default function AccountingPage() {
                         <table className="w-full min-w-[900px] border-collapse text-left">
                             <thead className="border-b border-slate-200 bg-slate-50 text-[11px] uppercase tracking-widest text-slate-400">
                                 <tr>
-                                    <th className="p-4 font-bold">Задача</th>
-                                    <th className="p-4 font-bold">Заказ</th>
-                                    <th className="p-4 font-bold">Работа</th>
-                                    <th className="p-4 font-bold">Кол-во</th>
-                                    <th className="p-4 font-bold">Сумма задачи</th>
-                                    <th className="p-4 font-bold">Начислено</th>
-                                    <th className="p-4 text-right font-bold">Завершено</th>
+                                    <th className="p-4 font-bold">{payrollT('columns.task')}</th>
+                                    <th className="p-4 font-bold">{payrollT('columns.order')}</th>
+                                    <th className="p-4 font-bold">{payrollT('columns.work')}</th>
+                                    <th className="p-4 font-bold">{payrollT('columns.quantity')}</th>
+                                    <th className="p-4 font-bold">{payrollT('columns.taskAmount')}</th>
+                                    <th className="p-4 font-bold">{payrollT('columns.accrued')}</th>
+                                    <th className="p-4 text-right font-bold">{payrollT('columns.completed')}</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
@@ -732,7 +723,7 @@ export default function AccountingPage() {
                                 {displayedStatementTasks.length === 0 && (
                                     <tr>
                                         <td colSpan={7} className="p-8 text-center text-sm text-slate-400">
-                                            В ведомости нет задач за выбранный период.
+                                            {payrollT('noTasks')}
                                         </td>
                                     </tr>
                                 )}
@@ -745,19 +736,19 @@ export default function AccountingPage() {
             <section className="rounded-lg border border-slate-200 bg-white shadow-sm">
                 <div className="flex flex-col gap-2 border-b border-slate-100 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
                     <div>
-                        <h2 className="font-bold text-slate-900">История ведомостей</h2>
+                        <h2 className="font-bold text-slate-900">{payrollT('history')}</h2>
                         <p className="mt-1 text-sm text-slate-500">
                             {formatDateTime(historyRequest.start)} - {formatDateTime(historyRequest.end)}
                         </p>
                     </div>
                     <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600">
-                        {isHistoryFetching ? 'Загрузка...' : `${salaryStatementsHistory.length} шт.`}
+                        {isHistoryFetching ? payrollT('loading') : payrollT('count', {count: salaryStatementsHistory.length})}
                     </span>
                 </div>
 
                 {isHistoryError && (
                     <div className="border-b border-red-100 bg-red-50 px-5 py-3 text-sm font-semibold text-red-700">
-                        Не удалось загрузить историю ведомостей.
+                        {payrollT('historyError')}
                     </div>
                 )}
 
@@ -765,25 +756,25 @@ export default function AccountingPage() {
                     <table className="w-full min-w-[820px] border-collapse text-left">
                         <thead className="border-b border-slate-200 bg-slate-50 text-[11px] uppercase tracking-widest text-slate-400">
                             <tr>
-                                <th className="p-4 font-bold">Сотрудник</th>
-                                <th className="p-4 font-bold">Период</th>
-                                <th className="p-4 font-bold">Тип</th>
-                                <th className="p-4 font-bold">Статус</th>
-                                <th className="p-4 font-bold">Задач</th>
-                                <th className="p-4 text-right font-bold">Итого</th>
+                                <th className="p-4 font-bold">{payrollT('employeeField')}</th>
+                                <th className="p-4 font-bold">{payrollT('period')}</th>
+                                <th className="p-4 font-bold">{payrollT('type')}</th>
+                                <th className="p-4 font-bold">{payrollT('status')}</th>
+                                <th className="p-4 font-bold">{payrollT('tasks')}</th>
+                                <th className="p-4 text-right font-bold">{payrollT('total')}</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
                             {salaryStatementsHistory.map((historyItem) => (
                                 <tr key={historyItem.statementId} className="transition hover:bg-blue-50/30">
                                     <td className="p-4 text-sm font-bold text-slate-800">
-                                        {historyItem.employeeName || getUserName(users, historyItem.employeeId)}
+                                        {historyItem.employeeName || getUserName(users, historyItem.employeeId, payrollT('employee'))}
                                     </td>
                                     <td className="p-4 text-sm text-slate-500">
                                         {formatDateTime(historyItem.startDate)} - {formatDateTime(historyItem.endDate)}
                                     </td>
                                     <td className="p-4 text-sm text-slate-600">
-                                        {paymentTypeLabels[historyItem.paymentType]}
+                                        {reportT(`paymentTypes.${historyItem.paymentType}`)}
                                     </td>
                                     <td className="p-4">
                                         <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${
@@ -791,7 +782,7 @@ export default function AccountingPage() {
                                                 ? 'bg-emerald-100 text-emerald-700'
                                                 : 'bg-amber-100 text-amber-700'
                                         }`}>
-                                            {historyItem.status === 'PAID' ? 'Оплачено' : 'Черновик'}
+                                            {historyItem.status === 'PAID' ? payrollT('paid') : payrollT('draft')}
                                         </span>
                                     </td>
                                     <td className="p-4 text-sm font-semibold text-slate-700">
@@ -806,7 +797,7 @@ export default function AccountingPage() {
                             {!isHistoryFetching && salaryStatementsHistory.length === 0 && (
                                 <tr>
                                     <td colSpan={6} className="p-8 text-center text-sm text-slate-400">
-                                        За выбранный период ведомостей нет.
+                                        {payrollT('historyEmpty')}
                                     </td>
                                 </tr>
                             )}
@@ -818,9 +809,9 @@ export default function AccountingPage() {
             )}
             <ConfirmDialog
                 open={statementAction === 'confirm'}
-                title="Подтвердить выплату?"
-                description="Ведомость получит статус «Оплачено». После этого черновик нельзя будет удалить."
-                confirmLabel="Да, выплата проведена"
+                title={payrollT('confirmTitle')}
+                description={payrollT('confirmDescription')}
+                confirmLabel={payrollT('confirmLabel')}
                 tone="primary"
                 isLoading={isConfirmingStatement}
                 onClose={() => setStatementAction(null)}
@@ -828,9 +819,9 @@ export default function AccountingPage() {
             />
             <ConfirmDialog
                 open={statementAction === 'delete'}
-                title="Удалить черновик?"
-                description="Расчёт ведомости будет удалён. Выплаты сотрудникам это не затронет."
-                confirmLabel="Удалить черновик"
+                title={payrollT('deleteTitle')}
+                description={payrollT('deleteDescription')}
+                confirmLabel={payrollT('deleteLabel')}
                 isLoading={isDeletingStatement}
                 onClose={() => setStatementAction(null)}
                 onConfirm={handleDeleteStatement}

@@ -69,10 +69,10 @@ async function getAccessToken(): Promise<string> {
 
 function notifyConnectionStatus() {
 	const status = state.isConnected
-		? 'Подключено'
+		? 'connected'
 		: state.isReconnecting
-			? 'Переподключение'
-			: 'Офлайн'
+			? 'reconnecting'
+			: 'offline'
 	return status
 }
 

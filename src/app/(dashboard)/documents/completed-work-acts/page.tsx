@@ -1,6 +1,7 @@
 'use client';
 
 import { type FormEvent, useMemo, useState } from 'react';
+import { useTranslations } from 'next-intl';
 
 import { useNotifications } from '@/src/features/notifications/useNotifications';
 import { getApiErrorMessage } from '@/src/services/apiNotifications';
@@ -13,6 +14,8 @@ import type {
     CompletedWorkAct,
     CompletedWorkActCandidate,
 } from '@/src/types/document.types';
+import { useAppFormatters, useAppLocale } from '@/src/i18n/provider';
+import { intlLocaleByLocale } from '@/src/i18n/config';
 
 function pad(value: number) {
     return String(value).padStart(2, '0');
@@ -39,26 +42,25 @@ function apiBoundary(value: string, end: boolean) {
     return date.toISOString();
 }
 
-function money(value?: number | null) {
-    return new Intl.NumberFormat('ru-RU', {
-        style: 'currency',
-        currency: 'KZT',
-        maximumFractionDigits: 2,
-    }).format(value ?? 0);
+type AppFormatters = ReturnType<typeof useAppFormatters>;
+type ActsTranslator = ReturnType<typeof useTranslations<'documents.completedActs'>>;
+
+function money(formats: AppFormatters, value?: number | null) {
+    return formats.currency(value ?? 0, { maximumFractionDigits: 2 });
 }
 
-function number(value?: number | null) {
-    return new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 4 }).format(value ?? 0);
+function number(formats: AppFormatters, value?: number | null) {
+    return formats.number(value ?? 0, { maximumFractionDigits: 4 });
 }
 
-function date(value?: string | null, withTime = false) {
+function date(formats: AppFormatters, value?: string | null, withTime = false) {
     if (!value) return '—';
     const parsed = new Date(value);
     if (Number.isNaN(parsed.getTime())) return value;
-    return new Intl.DateTimeFormat('ru-RU', {
+    return withTime ? formats.dateTime(parsed, {
         dateStyle: 'long',
-        ...(withTime ? { timeStyle: 'short' as const } : {}),
-    }).format(parsed);
+        timeStyle: 'short',
+    }) : formats.date(parsed, {dateStyle: 'long'});
 }
 
 function xml(value: unknown) {
@@ -74,21 +76,21 @@ function excelCell(value: unknown, type: 'String' | 'Number' = 'String') {
     return `<Cell><Data ss:Type="${type}">${xml(value)}</Data></Cell>`;
 }
 
-function exportExcel(act: CompletedWorkAct) {
+function exportExcel(act: CompletedWorkAct, t: ActsTranslator, formats: AppFormatters) {
     const headers = [
-        'Клиника',
-        'Ордер',
-        'Дата закрытия',
-        'Пациент',
-        'Доктор',
-        'Работа',
-        'Количество',
-        'Цена',
-        'Скидка %',
-        'Скидка сумма',
-        'Сумма',
-        'Оплачено по ордеру',
-        'Долг по ордеру',
+        t('columns.clinic'),
+        t('columns.order'),
+        t('columns.completed'),
+        t('columns.patient'),
+        t('columns.doctor'),
+        t('columns.work'),
+        t('columns.quantity'),
+        t('columns.price'),
+        t('columns.discountPercent'),
+        t('columns.discountAmount'),
+        t('columns.amount'),
+        t('columns.paidOrder'),
+        t('columns.debtOrder'),
     ];
     const rows = act.clinics.flatMap((clinic) =>
         clinic.orders.flatMap((order) => {
@@ -96,7 +98,7 @@ function exportExcel(act: CompletedWorkAct) {
             return lines.map((line) => [
                 excelCell(clinic.clinicName),
                 excelCell(order.orderNumber),
-                excelCell(date(order.completedAt)),
+                excelCell(date(formats, order.completedAt)),
                 excelCell(order.patientName),
                 excelCell(order.doctorName),
                 excelCell(line?.workType ?? ''),
@@ -119,7 +121,7 @@ function exportExcel(act: CompletedWorkAct) {
  <Styles>
   <Style ss:ID="Header"><Font ss:Bold="1"/><Interior ss:Color="#E2E8F0" ss:Pattern="Solid"/></Style>
  </Styles>
- <Worksheet ss:Name="Акт">
+ <Worksheet ss:Name="${xml(t('sheetName'))}">
   <Table>
    <Row ss:StyleID="Header">${headers.map((header) => excelCell(header)).join('')}</Row>
    ${rows.map((row) => `<Row>${row.join('')}</Row>`).join('')}
@@ -139,24 +141,26 @@ function exportExcel(act: CompletedWorkAct) {
     URL.revokeObjectURL(url);
 }
 
-function printAct(act: CompletedWorkAct) {
+function printAct(act: CompletedWorkAct, fallbackTitle: string) {
     const previousTitle = document.title;
-    document.title = act.documentNumber || 'Акт выполненных работ';
+    document.title = act.documentNumber || fallbackTitle;
     window.print();
     document.title = previousTitle;
 }
 
 function Summary({ act }: { act: CompletedWorkAct }) {
+    const t = useTranslations('documents.completedActs');
+    const formats = useAppFormatters();
     const items = [
-        ['Номер акта', act.documentNumber],
-        ['Период', `${date(act.startDate)} — ${date(act.endDate)}`],
-        ['Сформирован', date(act.generatedAt, true)],
-        ['Клиник', number(act.clinicCount)],
-        ['Закрытых ордеров', number(act.orderCount)],
-        ['Работ', number(act.taskCount)],
-        ['Сумма', money(act.totalAmount)],
-        ['Оплачено', money(act.paidAmount)],
-        ['Долг', money(act.debtAmount)],
+        [t('summary.number'), act.documentNumber],
+        [t('summary.period'), `${date(formats, act.startDate)} — ${date(formats, act.endDate)}`],
+        [t('summary.generated'), date(formats, act.generatedAt, true)],
+        [t('summary.clinics'), number(formats, act.clinicCount)],
+        [t('summary.orders'), number(formats, act.orderCount)],
+        [t('summary.works'), number(formats, act.taskCount)],
+        [t('summary.amount'), money(formats, act.totalAmount)],
+        [t('summary.paid'), money(formats, act.paidAmount)],
+        [t('summary.debt'), money(formats, act.debtAmount)],
     ];
     return (
         <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5">
@@ -173,30 +177,32 @@ function Summary({ act }: { act: CompletedWorkAct }) {
 }
 
 function ActPreview({ act }: { act: CompletedWorkAct }) {
+    const t = useTranslations('documents.completedActs');
+    const formats = useAppFormatters();
     return (
-        <article className="completed-work-act-print mx-auto max-w-[1120px] bg-white p-6 text-slate-950 shadow-sm sm:p-10 print:max-w-none print:p-0 print:shadow-none">
+        <article className="completed-work-act-print mx-auto max-w-[1120px] bg-white p-4 text-slate-950 shadow-sm sm:p-10 print:max-w-none print:p-0 print:shadow-none">
             <header className="border-b-2 border-slate-900 pb-5 text-center">
-                <h2 className="text-2xl font-black">{act.title || 'Акт выполненных работ'}</h2>
+                <h2 className="text-2xl font-black">{act.title || t('title')}</h2>
                 <p className="mt-2 text-sm font-bold">№ {act.documentNumber}</p>
-                <p className="mt-1 text-sm">за период {date(act.startDate)} — {date(act.endDate)}</p>
-                <p className="mt-1 text-xs text-slate-500">Дата формирования: {date(act.generatedAt, true)}</p>
+                <p className="mt-1 text-sm">{t('act.period', {start: date(formats, act.startDate), end: date(formats, act.endDate)})}</p>
+                <p className="mt-1 text-xs text-slate-500">{t('act.generated', {date: date(formats, act.generatedAt, true)})}</p>
             </header>
 
             <div className="mt-8 space-y-10">
                 {act.clinics.map((clinic) => (
                     <section key={clinic.clinicId} className="break-inside-avoid-page">
                         <div className="grid gap-x-8 gap-y-1 text-sm sm:grid-cols-2">
-                            <p className="sm:col-span-2"><strong>Заказчик:</strong> {clinic.clinicName}</p>
-                            <p><strong>БИН:</strong> {clinic.bin || '—'}</p>
-                            <p><strong>Телефон:</strong> {clinic.phone || '—'}</p>
-                            <p className="sm:col-span-2"><strong>Адрес:</strong> {clinic.address || '—'}</p>
+                            <p className="sm:col-span-2"><strong>{t('act.customer')}</strong> {clinic.clinicName}</p>
+                            <p><strong>{t('act.bin')}</strong> {clinic.bin || '—'}</p>
+                            <p><strong>{t('act.phone')}</strong> {clinic.phone || '—'}</p>
+                            <p className="sm:col-span-2"><strong>{t('act.address')}</strong> {clinic.address || '—'}</p>
                         </div>
 
                         <div className="mt-4 overflow-x-auto print:overflow-visible">
                             <table className="w-full min-w-[980px] border-collapse text-[10px] print:min-w-0 print:text-[8px]">
                                 <thead>
                                     <tr>
-                                        {['№', 'Ордер', 'Дата закрытия', 'Пациент', 'Доктор', 'Работа', 'Кол-во', 'Цена', 'Скидка %', 'Скидка сумма', 'Сумма'].map((label) => (
+                                        {[t('columns.number'), t('columns.order'), t('columns.completed'), t('columns.patient'), t('columns.doctor'), t('columns.work'), t('columns.shortQuantity'), t('columns.price'), t('columns.discountPercent'), t('columns.discountAmount'), t('columns.amount')].map((label) => (
                                             <th key={label} className="border border-slate-500 bg-slate-100 px-1.5 py-2 text-left font-black print:bg-white">{label}</th>
                                         ))}
                                     </tr>
@@ -208,15 +214,15 @@ function ActPreview({ act }: { act: CompletedWorkAct }) {
                                         <tr key={`${order.orderId}-${line.taskId}`}>
                                             <td className="border border-slate-400 px-1.5 py-2">{index + 1}</td>
                                             <td className="border border-slate-400 px-1.5 py-2 font-bold">{order.orderNumber}</td>
-                                            <td className="border border-slate-400 px-1.5 py-2">{date(order.completedAt)}</td>
+                                            <td className="border border-slate-400 px-1.5 py-2">{date(formats, order.completedAt)}</td>
                                             <td className="border border-slate-400 px-1.5 py-2">{order.patientName || '—'}</td>
                                             <td className="border border-slate-400 px-1.5 py-2">{order.doctorName || '—'}</td>
                                             <td className="border border-slate-400 px-1.5 py-2">{line.workType}</td>
-                                            <td className="border border-slate-400 px-1.5 py-2 text-right">{number(line.quantity)}</td>
-                                            <td className="border border-slate-400 px-1.5 py-2 text-right">{money(line.pricePerUnit)}</td>
-                                            <td className="border border-slate-400 px-1.5 py-2 text-right">{number(line.discountPercent)}%</td>
-                                            <td className="border border-slate-400 px-1.5 py-2 text-right">{money(line.discountAmount)}</td>
-                                            <td className="border border-slate-400 px-1.5 py-2 text-right font-bold">{money(line.totalAmount)}</td>
+                                            <td className="border border-slate-400 px-1.5 py-2 text-right">{number(formats, line.quantity)}</td>
+                                            <td className="border border-slate-400 px-1.5 py-2 text-right">{money(formats, line.pricePerUnit)}</td>
+                                            <td className="border border-slate-400 px-1.5 py-2 text-right">{number(formats, line.discountPercent)}%</td>
+                                            <td className="border border-slate-400 px-1.5 py-2 text-right">{money(formats, line.discountAmount)}</td>
+                                            <td className="border border-slate-400 px-1.5 py-2 text-right font-bold">{money(formats, line.totalAmount)}</td>
                                         </tr>
                                     ))}
                                 </tbody>
@@ -224,9 +230,9 @@ function ActPreview({ act }: { act: CompletedWorkAct }) {
                         </div>
 
                         <dl className="ml-auto mt-4 grid max-w-md grid-cols-[1fr_auto] gap-x-8 gap-y-1 border-t border-slate-400 pt-3 text-sm">
-                            <dt>Итого по клинике:</dt><dd className="text-right font-black">{money(clinic.totalAmount)}</dd>
-                            <dt>Оплачено:</dt><dd className="text-right font-bold">{money(clinic.paidAmount)}</dd>
-                            <dt>Долг:</dt><dd className="text-right font-black text-red-700 print:text-black">{money(clinic.debtAmount)}</dd>
+                            <dt>{t('act.clinicTotal')}</dt><dd className="text-right font-black">{money(formats, clinic.totalAmount)}</dd>
+                            <dt>{t('act.paid')}</dt><dd className="text-right font-bold">{money(formats, clinic.paidAmount)}</dd>
+                            <dt>{t('act.debt')}</dt><dd className="text-right font-black text-red-700 print:text-black">{money(formats, clinic.debtAmount)}</dd>
                         </dl>
                     </section>
                 ))}
@@ -234,14 +240,14 @@ function ActPreview({ act }: { act: CompletedWorkAct }) {
 
             <section className="mt-10 break-inside-avoid border-y-2 border-slate-900 py-4">
                 <dl className="ml-auto grid max-w-md grid-cols-[1fr_auto] gap-x-8 gap-y-2 text-sm">
-                    <dt className="font-bold">Общая сумма:</dt><dd className="text-right font-black">{money(act.totalAmount)}</dd>
-                    <dt>Общая оплата:</dt><dd className="text-right font-black">{money(act.paidAmount)}</dd>
-                    <dt>Общий долг:</dt><dd className="text-right font-black">{money(act.debtAmount)}</dd>
+                    <dt className="font-bold">{t('act.total')}</dt><dd className="text-right font-black">{money(formats, act.totalAmount)}</dd>
+                    <dt>{t('act.totalPaid')}</dt><dd className="text-right font-black">{money(formats, act.paidAmount)}</dd>
+                    <dt>{t('act.totalDebt')}</dt><dd className="text-right font-black">{money(formats, act.debtAmount)}</dd>
                 </dl>
             </section>
 
             <footer className="mt-20 grid grid-cols-3 gap-8 text-sm">
-                {['Исполнитель', 'Заказчик', 'Финансист'].map((label) => (
+                {[t('act.executor'), t('act.customerSignature'), t('act.financier')].map((label) => (
                     <div key={label}>
                         <div className="border-b border-slate-700 pb-8" />
                         <p className="mt-2 text-center">{label}</p>
@@ -253,6 +259,10 @@ function ActPreview({ act }: { act: CompletedWorkAct }) {
 }
 
 export default function CompletedWorkActsPage() {
+    const t = useTranslations('documents.completedActs');
+    const formats = useAppFormatters();
+    const {locale} = useAppLocale();
+    const intlLocale = intlLocaleByLocale[locale];
     const [startDate, setStartDate] = useState(defaultStart);
     const [endDate, setEndDate] = useState(defaultEnd);
     const [clinicId, setClinicId] = useState('');
@@ -285,16 +295,16 @@ export default function CompletedWorkActsPage() {
     ] = usePreviewCompletedWorkActMutation();
     const isBusy = isCandidatesFetching || isPreviewLoading;
     const filteredCandidates = useMemo(() => {
-        const query = search.trim().toLocaleLowerCase('ru-RU');
+        const query = search.trim().toLocaleLowerCase(intlLocale);
         return (candidates ?? []).filter((candidate) => {
             const matchesSearch = !query || [
                 candidate.orderNumber,
                 candidate.patientName,
                 candidate.doctorName,
-            ].some((value) => value?.toLocaleLowerCase('ru-RU').includes(query));
+            ].some((value) => value?.toLocaleLowerCase(intlLocale).includes(query));
             return matchesSearch && (!onlyWithDebt || candidate.debtAmount > 0);
         });
-    }, [candidates, onlyWithDebt, search]);
+    }, [candidates, intlLocale, onlyWithDebt, search]);
     const selectableVisible = filteredCandidates.filter(
         (candidate) => candidate.actStatus === 'NOT_INCLUDED'
     );
@@ -305,11 +315,11 @@ export default function CompletedWorkActsPage() {
         event.preventDefault();
         setValidationError('');
         if (!startDate || !endDate) {
-            setValidationError('Укажите начало и конец периода.');
+            setValidationError(t('validation.period'));
             return;
         }
         if (startDate > endDate) {
-            setValidationError('Начало периода не может быть позже конца.');
+            setValidationError(t('validation.dates'));
             return;
         }
         try {
@@ -358,69 +368,69 @@ export default function CompletedWorkActsPage() {
     return (
         <div className="mx-auto w-full max-w-[1600px] space-y-5 pb-10">
             <header className="print-hidden">
-                <p className="text-[10px] font-black uppercase tracking-[.18em] text-violet-600">Документы</p>
-                <h1 className="mt-1 text-3xl font-black text-slate-950 dark:text-white">Акт выполненных работ</h1>
-                <p className="mt-1 text-sm text-slate-500">Закрытые ордера, выполненные работы, оплаты и задолженность клиник.</p>
+                <p className="text-[10px] font-black uppercase tracking-[.18em] text-violet-600">{t('badge')}</p>
+                <h1 className="mt-1 text-2xl font-black text-slate-950 dark:text-white sm:text-3xl">{t('title')}</h1>
+                <p className="mt-1 text-sm text-slate-500">{t('subtitle')}</p>
             </header>
 
             <form onSubmit={loadCandidates} className="print-hidden rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900">
                 <div className="grid gap-3 lg:grid-cols-[1fr_1fr_1.4fr_auto] lg:items-end">
                     <label>
-                        <span className="mb-1.5 block text-xs font-black text-slate-500">Период с</span>
+                        <span className="mb-1.5 block text-xs font-black text-slate-500">{t('periodFrom')}</span>
                         <input type="date" required value={startDate} onChange={(event) => setStartDate(event.target.value)} disabled={isBusy} className="min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-800" />
                     </label>
                     <label>
-                        <span className="mb-1.5 block text-xs font-black text-slate-500">Период по</span>
+                        <span className="mb-1.5 block text-xs font-black text-slate-500">{t('periodTo')}</span>
                         <input type="date" required value={endDate} onChange={(event) => setEndDate(event.target.value)} disabled={isBusy} className="min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-800" />
                     </label>
                     <label>
-                        <span className="mb-1.5 block text-xs font-black text-slate-500">Клиника</span>
+                        <span className="mb-1.5 block text-xs font-black text-slate-500">{t('clinic')}</span>
                         <select value={clinicId} onChange={(event) => setClinicId(event.target.value)} disabled={isBusy || isClinicsLoading} className="min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-800">
-                            <option value="">Все клиники</option>
+                            <option value="">{t('allClinics')}</option>
                             {(clinicResult?.content ?? []).map((clinic) => <option key={clinic.id} value={clinic.id}>{clinic.name}</option>)}
                         </select>
                     </label>
                     <button type="submit" disabled={isBusy} className="min-h-11 rounded-xl bg-violet-600 px-6 text-sm font-black text-white disabled:bg-slate-300">
-                        {isCandidatesFetching ? 'Загрузка…' : 'Показать ордера'}
+                        {isCandidatesFetching ? t('loading') : t('showOrders')}
                     </button>
                 </div>
                 {validationError ? <p className="mt-3 text-sm font-bold text-red-600">{validationError}</p> : null}
-                {isCandidatesError ? <p className="mt-3 text-sm font-bold text-red-600">Не удалось загрузить закрытые ордера. Проверьте параметры и повторите попытку.</p> : null}
+                {isCandidatesError ? <p className="mt-3 text-sm font-bold text-red-600">{t('candidatesError')}</p> : null}
             </form>
 
             {candidates !== undefined ? (
                 <section className="print-hidden rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900">
                     <div className="flex flex-col gap-3 xl:flex-row xl:items-end xl:justify-between">
                         <div>
-                            <h2 className="text-lg font-black text-slate-900 dark:text-white">Закрытые ордера</h2>
-                            <p className="mt-1 text-xs text-slate-500">Выбрано: {selectedIds.size} из {candidates.length}</p>
+                            <h2 className="text-lg font-black text-slate-900 dark:text-white">{t('closedOrders')}</h2>
+                            <p className="mt-1 text-xs text-slate-500">{t('selectedCount', {selected: selectedIds.size, total: candidates.length})}</p>
                         </div>
                         <div className="flex flex-col gap-2 sm:flex-row">
-                            <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Ордер, пациент или доктор…" className="min-h-10 min-w-72 rounded-xl border border-slate-200 px-3 text-sm dark:border-slate-700 dark:bg-slate-800" />
+                            <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={t('search')} className="min-h-10 min-w-72 rounded-xl border border-slate-200 px-3 text-sm dark:border-slate-700 dark:bg-slate-800" />
                             <label className="flex min-h-10 items-center gap-2 rounded-xl border border-slate-200 px-3 text-xs font-bold text-slate-600 dark:border-slate-700 dark:text-slate-300">
                                 <input type="checkbox" checked={onlyWithDebt} onChange={(event) => setOnlyWithDebt(event.target.checked)} className="accent-violet-600" />
-                                Только с долгом
+                                {t('debtOnly')}
                             </label>
                             <button type="button" onClick={() => void generatePreview()} disabled={!selectedIds.size || isPreviewLoading} className="rounded-xl bg-violet-600 px-5 py-2.5 text-sm font-black text-white disabled:bg-slate-300">
-                                {isPreviewLoading ? 'Формирование…' : 'Сформировать акт'}
+                                {isPreviewLoading ? t('generating') : t('generate')}
                             </button>
                         </div>
                     </div>
 
-                    {isPreviewError ? <p className="mt-3 text-sm font-bold text-red-600">Не удалось сформировать preview по выбранным ордерам.</p> : null}
+                    {isPreviewError ? <p className="mt-3 text-sm font-bold text-red-600">{t('previewError')}</p> : null}
 
                     {candidates.length === 0 ? (
-                        <p className="p-12 text-center text-sm font-bold text-slate-500">За выбранный период закрытых ордеров нет.</p>
+                        <p className="p-12 text-center text-sm font-bold text-slate-500">{t('emptyPeriod')}</p>
                     ) : filteredCandidates.length === 0 ? (
-                        <p className="p-12 text-center text-sm font-bold text-slate-500">По текущим фильтрам ордера не найдены.</p>
+                        <p className="p-12 text-center text-sm font-bold text-slate-500">{t('emptyFilter')}</p>
                     ) : (
                         <div className="mt-4 max-h-[620px] overflow-auto rounded-xl border border-slate-200 dark:border-slate-700">
                             <table className="min-w-[1450px] w-full text-left">
                                 <thead><tr>
                                     <th className="sticky top-0 z-10 bg-slate-100 px-3 py-3 dark:bg-slate-800">
-                                        <input type="checkbox" checked={allVisibleSelected} onChange={toggleVisible} aria-label="Выбрать все видимые ордера" className="accent-violet-600" />
+                                        <input type="checkbox" checked={allVisibleSelected} onChange={toggleVisible} aria-label={t('selectVisible')} className="accent-violet-600" />
                                     </th>
-                                    {['Ордер', 'Клиника', 'Пациент', 'Доктор', 'Дата закрытия', 'Работ', 'Сумма', 'Оплачено', 'Долг', 'Статус акта'].map((label) => <th key={label} className="sticky top-0 z-10 whitespace-nowrap bg-slate-100 px-3 py-3 text-[9px] font-black uppercase tracking-wide text-slate-500 dark:bg-slate-800">{label}</th>)}
+                                    {[t('columns.order'), t('columns.clinic'), t('columns.patient'), t('columns.doctor'), t('columns.completed'), t('columns.works'), t('columns.amount'), t('columns.paid'), t('columns.debt'), t('columns.actStatus')].map((label) => <th key={label} className="sticky top-0 z-10 whitespace-nowrap bg-slate-100 px-3 py-3 text-[9px] font-black uppercase tracking-wide text-slate-500 dark:bg-slate-800">{label}</th>)}
                                 </tr></thead>
                                 <tbody>{filteredCandidates.map((candidate) => {
                                     const selected = selectedIds.has(candidate.orderId);
@@ -432,14 +442,14 @@ export default function CompletedWorkActsPage() {
                                             <td className="whitespace-nowrap border-t border-slate-100 px-3 py-3 text-xs dark:border-slate-800">{candidate.clinicName}</td>
                                             <td className="whitespace-nowrap border-t border-slate-100 px-3 py-3 text-xs dark:border-slate-800">{candidate.patientName || '—'}</td>
                                             <td className="whitespace-nowrap border-t border-slate-100 px-3 py-3 text-xs dark:border-slate-800">{candidate.doctorName || '—'}</td>
-                                            <td className="whitespace-nowrap border-t border-slate-100 px-3 py-3 text-xs dark:border-slate-800">{date(candidate.completedAt)}</td>
-                                            <td className="border-t border-slate-100 px-3 py-3 text-xs dark:border-slate-800">{number(candidate.taskCount)}</td>
-                                            <td className="whitespace-nowrap border-t border-slate-100 px-3 py-3 text-xs font-bold dark:border-slate-800">{money(candidate.totalAmount)}</td>
-                                            <td className="whitespace-nowrap border-t border-slate-100 px-3 py-3 text-xs text-emerald-700 dark:border-slate-800">{money(candidate.paidAmount)}</td>
-                                            <td className="whitespace-nowrap border-t border-slate-100 px-3 py-3 text-xs font-bold text-red-700 dark:border-slate-800">{money(candidate.debtAmount)}</td>
+                                            <td className="whitespace-nowrap border-t border-slate-100 px-3 py-3 text-xs dark:border-slate-800">{date(formats, candidate.completedAt)}</td>
+                                            <td className="border-t border-slate-100 px-3 py-3 text-xs dark:border-slate-800">{number(formats, candidate.taskCount)}</td>
+                                            <td className="whitespace-nowrap border-t border-slate-100 px-3 py-3 text-xs font-bold dark:border-slate-800">{money(formats, candidate.totalAmount)}</td>
+                                            <td className="whitespace-nowrap border-t border-slate-100 px-3 py-3 text-xs text-emerald-700 dark:border-slate-800">{money(formats, candidate.paidAmount)}</td>
+                                            <td className="whitespace-nowrap border-t border-slate-100 px-3 py-3 text-xs font-bold text-red-700 dark:border-slate-800">{money(formats, candidate.debtAmount)}</td>
                                             <td className="border-t border-slate-100 px-3 py-3 text-xs dark:border-slate-800">
                                                 <span className={`rounded-full px-2.5 py-1 text-[10px] font-black ${included ? 'bg-slate-200 text-slate-600' : selected ? 'bg-violet-600 text-white' : 'bg-emerald-50 text-emerald-700'}`}>
-                                                    {included ? `В акте ${candidate.actNumber ?? candidate.actStatus}` : selected ? 'Выбран' : 'Не сформирован'}
+                                                    {included ? t('statuses.included', {number: candidate.actNumber ?? candidate.actStatus}) : selected ? t('statuses.selected') : t('statuses.notCreated')}
                                                 </span>
                                             </td>
                                         </tr>
@@ -450,10 +460,10 @@ export default function CompletedWorkActsPage() {
                     )}
                 </section>
             ) : isCandidatesFetching ? (
-                <div className="print-hidden rounded-2xl border border-slate-200 bg-white p-14 text-center text-sm font-bold text-slate-500">Загружаем закрытые ордера…</div>
+                <div className="print-hidden rounded-2xl border border-slate-200 bg-white p-14 text-center text-sm font-bold text-slate-500">{t('loadingClosed')}</div>
             ) : (
                 <div className="print-hidden rounded-2xl border border-dashed border-slate-300 bg-white/60 p-14 text-center text-sm font-semibold text-slate-400">
-                    Выберите период и нажмите «Показать ордера».
+                    {t('initialHint')}
                 </div>
             )}
 
@@ -461,9 +471,9 @@ export default function CompletedWorkActsPage() {
                 <>
                     <div className="print-hidden"><Summary act={act} /></div>
                     <div className="print-hidden flex flex-wrap justify-end gap-2">
-                        <button type="button" onClick={() => printAct(act)} className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-black text-slate-700">Печать</button>
-                        <button type="button" onClick={() => exportExcel(act)} className="rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-black text-white">Экспорт Excel</button>
-                        <button type="button" onClick={() => printAct(act)} className="rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-black text-white">Экспорт PDF</button>
+                        <button type="button" onClick={() => printAct(act, t('title'))} className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-black text-slate-700">{t('print')}</button>
+                        <button type="button" onClick={() => exportExcel(act, t, formats)} className="rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-black text-white">{t('exportExcel')}</button>
+                        <button type="button" onClick={() => printAct(act, t('title'))} className="rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-black text-white">{t('exportPdf')}</button>
                     </div>
                     <ActPreview act={act} />
                 </>

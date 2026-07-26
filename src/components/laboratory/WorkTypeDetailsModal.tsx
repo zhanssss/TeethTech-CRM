@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo } from 'react';
+import {useTranslations} from 'next-intl';
 
 import ErrorState from '@/src/components/ui/ErrorState';
 import Modal from '@/src/components/ui/Modal';
@@ -18,6 +19,8 @@ export default function WorkTypeDetailsModal({
     onClose,
     onDelete,
 }: WorkTypeDetailsModalProps) {
+    const t = useTranslations('laboratory.workTypeDetails');
+    const commonT = useTranslations('common.actions');
     const {
         data: steps = [],
         isLoading,
@@ -36,7 +39,7 @@ export default function WorkTypeDetailsModal({
             <header className="flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-4 sm:px-6">
                 <div className="min-w-0">
                     <p className="text-[10px] font-black uppercase tracking-[0.18em] text-violet-600">
-                        Тип работы
+                        {t('badge')}
                     </p>
                     <div className="mt-1 flex flex-wrap items-center gap-2">
                         <h2 className="text-xl font-black text-slate-950 sm:text-2xl">
@@ -58,7 +61,7 @@ export default function WorkTypeDetailsModal({
                 <button
                     type="button"
                     onClick={onClose}
-                    aria-label="Закрыть подробности"
+                    aria-label={t('closeDetails')}
                     className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-xl text-slate-500 transition hover:bg-slate-200 hover:text-slate-800"
                 >
                     ×
@@ -69,15 +72,15 @@ export default function WorkTypeDetailsModal({
                 <div className="flex items-center justify-between gap-3">
                     <div>
                         <h3 className="text-sm font-black text-slate-900">
-                            Этапы производства
+                            {t('stages')}
                         </h3>
                         <p className="mt-1 text-xs text-slate-500">
-                            Маршрут показан только для просмотра.
+                            {t('readOnly')}
                         </p>
                     </div>
                     {!isLoading && !isError && (
                         <span className="rounded-full bg-violet-50 px-3 py-1 text-xs font-bold text-violet-700">
-                            {orderedSteps.length} переходов
+                            {t('transitions', {count: orderedSteps.length})}
                         </span>
                     )}
                 </div>
@@ -97,11 +100,11 @@ export default function WorkTypeDetailsModal({
                     <div className="mt-5">
                         <ErrorState
                             compact
-                            title="Не удалось загрузить этапы"
+                            title={t('loadError')}
                             onRetry={() => void refetch()}
                             isRetrying={isFetching}
                         >
-                            Повторите запрос, чтобы увидеть маршрут этого типа работы.
+                            {t('loadErrorHint')}
                         </ErrorState>
                     </div>
                 )}
@@ -109,10 +112,10 @@ export default function WorkTypeDetailsModal({
                 {!isLoading && !isError && orderedSteps.length === 0 && (
                     <div className="mt-5 rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-5 py-10 text-center">
                         <p className="text-sm font-bold text-slate-700">
-                            Этапы не найдены
+                            {t('empty')}
                         </p>
                         <p className="mt-1 text-xs text-slate-500">
-                            Для этого типа работы сервер не вернул производственный маршрут.
+                            {t('emptyHint')}
                         </p>
                     </div>
                 )}
@@ -138,16 +141,16 @@ export default function WorkTypeDetailsModal({
                                         </div>
                                         <div className="mt-2 flex flex-wrap gap-2 text-[11px] font-semibold text-slate-500">
                                             <span className="rounded-lg bg-white px-2.5 py-1">
-                                                Роль: {step.requiredRole || 'не указана'}
+                                                {t('role', {role: step.requiredRole || t('roleMissing')})}
                                             </span>
                                             {step.materialReportRequired && (
                                                 <span className="rounded-lg bg-amber-50 px-2.5 py-1 text-amber-700">
-                                                    Нужен отчёт по материалам
+                                                    {t('materialReport')}
                                                 </span>
                                             )}
                                             {step.allowUnplannedMaterials && (
                                                 <span className="rounded-lg bg-blue-50 px-2.5 py-1 text-blue-700">
-                                                    Внеплановые материалы разрешены
+                                                    {t('unplannedMaterials')}
                                                 </span>
                                             )}
                                         </div>
@@ -165,14 +168,14 @@ export default function WorkTypeDetailsModal({
                     onClick={() => onDelete(workType)}
                     className="rounded-xl px-4 py-2.5 text-sm font-bold text-red-600 transition hover:bg-red-50"
                 >
-                    Удалить тип работы
+                    {t('delete')}
                 </button>
                 <button
                     type="button"
                     onClick={onClose}
                     className="rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-sm font-bold text-slate-700 transition hover:bg-slate-100"
                 >
-                    Закрыть
+                    {commonT('close')}
                 </button>
             </footer>
         </Modal>

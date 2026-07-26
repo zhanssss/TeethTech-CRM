@@ -26,6 +26,8 @@ import { useNotifications } from '@/src/features/notifications/useNotifications'
 import { getApiErrorMessage } from '@/src/services/apiNotifications';
 import QueryErrorNotice from '@/src/components/ui/QueryErrorNotice';
 import ConfirmDialog from '@/src/components/ui/ConfirmDialog';
+import {useTranslations} from 'next-intl';
+import {useAppFormatters} from '@/src/i18n/provider';
 
 const DEFAULT_ORDER_SORT = 'deadline,ASC';
 const DEFAULT_PAGE_SIZE = 10;
@@ -48,7 +50,7 @@ function mapApiOrderToListItem(order: OrderApiListItem): OrderListItem {
         doctor: '',
         work: order.summaryWorkType,
         workType: order.summaryWorkType,
-        status: order.isActive ? 'Активен' : 'Закрыт',
+        status: order.isActive ? 'ACTIVE' : 'CLOSED',
         units: order.quantity,
         unitPrice: order.pricePerUnit,
         discount: order.discount,
@@ -56,16 +58,12 @@ function mapApiOrderToListItem(order: OrderApiListItem): OrderListItem {
         total: order.totalPrice,
         paid: 0,
         unpaid: order.totalPrice,
-        date: new Date().toLocaleDateString('ru-RU'),
+        date: new Date().toISOString(),
     };
 }
 
-function formatMoney(value?: number) {
-    return `${(value ?? 0).toLocaleString('ru-RU')} ₸`;
-}
-
 function getStatusBadgeClass(status: string) {
-    if (status === 'Активен') {
+    if (status === 'ACTIVE') {
         return 'bg-emerald-100 text-emerald-700';
     }
 
@@ -236,6 +234,13 @@ async function uploadOrderTaskFile({
 }
 
 export default function OrdersPage() {
+    const t = useTranslations('orders');
+    const tCommon = useTranslations('common');
+    const format = useAppFormatters();
+    const formatMoney = (value?: number) => format.currency(value ?? 0);
+    const getStatusLabel = (status: string) => (
+        status === 'ACTIVE' ? t('statuses.ACTIVE') : t('statuses.CLOSED')
+    );
     const { notifyError, notifySuccess } = useNotifications();
     const [createOrder, { isLoading: isCreatingOrder }] = useCreateOrderMutation();
     const [deleteOrder, { isLoading: isDeletingOrder }] = useDeleteOrderMutation();
@@ -279,7 +284,7 @@ export default function OrdersPage() {
             (order.orderNumber ?? '').toLowerCase().includes(searchValue) ||
             order.patient.toLowerCase().includes(searchValue) ||
             (order.work ?? order.workType ?? '').toLowerCase().includes(searchValue) ||
-            order.status.toLowerCase().includes(searchValue);
+            getStatusLabel(order.status).toLowerCase().includes(searchValue);
 
         const matchesStatus =
             statusFilter === 'all' || order.status === statusFilter;
@@ -287,7 +292,7 @@ export default function OrdersPage() {
         return matchesSearch && matchesStatus;
     });
 
-    const activeOrdersCount = orders.filter((order) => order.status === 'Активен').length;
+    const activeOrdersCount = orders.filter((order) => order.status === 'ACTIVE').length;
     const pageUnitsCount = orders.reduce((sum, order) => sum + (order.units ?? 0), 0);
     const pageTotal = orders.reduce((sum, order) => sum + (order.total ?? 0), 0);
 
@@ -341,13 +346,13 @@ export default function OrdersPage() {
             });
             notifySuccess(
                 fileCount > 0
-                    ? 'Заказ создан, все файлы загружены'
-                    : 'Заказ создан'
+                    ? t('notifications.createdWithFiles')
+                    : t('notifications.created')
             );
         } catch (error) {
             console.error('Order file upload failed:', error);
             notifyError(
-                'Заказ создан, но часть файлов не загрузилась. Откройте заказ и повторите загрузку.',
+                t('notifications.partialUpload'),
                 { duration: 9000 }
             );
         } finally {
@@ -361,7 +366,7 @@ export default function OrdersPage() {
             await deleteOrder(orderToDelete.id).unwrap();
             setOrderToDelete(null);
         } catch (error) {
-            console.error('Ошибка удаления заказа:', error);
+            console.error('Order deletion failed:', error);
         }
     };
 
@@ -369,20 +374,20 @@ export default function OrdersPage() {
         <div className="relative mx-auto max-w-[1600px] space-y-5 pb-6">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                    <h1 className="text-2xl font-bold tracking-tight text-slate-950">Реестр заказов</h1>
-                    <p className="mt-1 text-sm text-slate-500">Управление производственным потоком лаборатории</p>
+                    <h1 className="text-2xl font-bold tracking-tight text-slate-950">{t('list.title')}</h1>
+                    <p className="mt-1 text-sm text-slate-500">{t('list.subtitle')}</p>
                 </div>
                 <button
                     onClick={() => setIsModalOpen(true)}
                     className="w-full rounded-xl bg-violet-600 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-violet-950/15 transition-all hover:bg-violet-700 active:scale-95 sm:w-auto"
                 >
-                    + Новый заказ
+                    + {t('list.create')}
                 </button>
             </div>
 
             {isOrdersError && (
                 <QueryErrorNotice
-                    message="Не удалось загрузить заказы с сервера."
+                    message={t('list.loadError')}
                     onRetry={() => void refetchOrders()}
                     isRetrying={isOrdersLoading}
                 />
@@ -390,12 +395,12 @@ export default function OrdersPage() {
 
             <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
                 {[
-                    { label: 'Всего заказов', value: ordersPage?.totalElements ?? orders.length, note: 'в реестре', color: 'bg-violet-500' },
-                    { label: 'Активные', value: activeOrdersCount, note: 'на этой странице', color: 'bg-emerald-500' },
-                    { label: 'Единиц работ', value: pageUnitsCount, note: 'на этой странице', color: 'bg-blue-500' },
-                    { label: 'Сумма заказов', value: formatMoney(pageTotal), note: 'на этой странице', color: 'bg-amber-500' },
+                    { label: t('list.metrics.total'), value: ordersPage?.totalElements ?? orders.length, note: t('list.metrics.registry'), color: 'bg-violet-500' },
+                    { label: t('list.metrics.active'), value: activeOrdersCount, note: t('list.metrics.page'), color: 'bg-emerald-500' },
+                    { label: t('list.metrics.units'), value: pageUnitsCount, note: t('list.metrics.page'), color: 'bg-blue-500' },
+                    { label: t('list.metrics.amount'), value: formatMoney(pageTotal), note: t('list.metrics.page'), color: 'bg-amber-500' },
                 ].map((metric) => (
-                    <article key={metric.label} className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-[0_1px_2px_rgba(15,23,42,0.03)] transition hover:-translate-y-0.5 hover:border-violet-200 hover:shadow-lg hover:shadow-violet-950/5">
+                    <article key={metric.label} className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.03)] transition hover:-translate-y-0.5 hover:border-violet-200 hover:shadow-lg hover:shadow-violet-950/5 sm:p-5">
                         <div className="flex items-center justify-between"><p className="text-xs font-semibold text-slate-500">{metric.label}</p><span className={`h-2.5 w-2.5 rounded-full ${metric.color}`} /></div>
                         <p className="mt-5 truncate text-2xl font-black tracking-tight text-slate-950" title={String(metric.value)}>{metric.value}</p>
                         <p className="mt-2 text-[11px] text-slate-400">{metric.note}</p>
@@ -409,7 +414,7 @@ export default function OrdersPage() {
                         type="text"
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
-                        placeholder="Поиск: ID, пациент, работа, статус"
+                        placeholder={t('list.filters.searchPlaceholder')}
                         className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none transition focus:border-violet-500 focus:ring-2 focus:ring-violet-100 md:col-span-2"
                     />
 
@@ -418,10 +423,10 @@ export default function OrdersPage() {
                         onChange={(e) => setStatusFilter(e.target.value)}
                         className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm outline-none transition focus:border-violet-500 focus:ring-2 focus:ring-violet-100"
                     >
-                        <option value="all">Все статусы</option>
+                        <option value="all">{t('list.filters.allStatuses')}</option>
                         {statuses.map((status) => (
                             <option key={status} value={status}>
-                                {status}
+                                {getStatusLabel(status)}
                             </option>
                         ))}
                     </select>
@@ -431,8 +436,8 @@ export default function OrdersPage() {
                         onChange={(e) => handleSortChange(e.target.value)}
                         className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm outline-none transition focus:border-violet-500 focus:ring-2 focus:ring-violet-100"
                     >
-                        <option value="deadline,ASC">Срок: по возрастанию</option>
-                        <option value="deadline,DESC">Срок: по убыванию</option>
+                        <option value="deadline,ASC">{t('list.filters.deadlineAsc')}</option>
+                        <option value="deadline,DESC">{t('list.filters.deadlineDesc')}</option>
                     </select>
 
                     <select
@@ -442,7 +447,7 @@ export default function OrdersPage() {
                     >
                         {PAGE_SIZE_OPTIONS.map((pageSize) => (
                             <option key={pageSize} value={pageSize}>
-                                {pageSize} на странице
+                                {t('list.filters.perPage', {count: pageSize})}
                             </option>
                         ))}
                     </select>
@@ -450,19 +455,19 @@ export default function OrdersPage() {
 
                 <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <p className="text-xs text-slate-500">
-                        На странице: <span className="font-bold text-slate-700">{filteredOrders.length}</span>
+                        {t('list.pageSummary', {count: filteredOrders.length})}
                         {ordersPage && (
-                            <span className="text-slate-400"> из {ordersPage.numberOfElements}</span>
+                            <span className="text-slate-400">{t('list.pageTotal', {count: ordersPage.numberOfElements})}</span>
                         )}
-                        {isOrdersLoading && <span className="ml-2 text-blue-600">Загрузка...</span>}
+                        {isOrdersLoading && <span className="ml-2 text-blue-600">{t('list.loading')}</span>}
                     </p>
 
                     <div className="flex flex-wrap items-center gap-3">
                         <button
                             onClick={resetFilters}
-                            className="text-xs font-bold text-slate-500 hover:text-blue-600 transition"
+                            className="min-h-11 rounded-lg px-2 text-xs font-bold text-slate-500 transition hover:bg-slate-50 hover:text-blue-600"
                         >
-                            Сбросить фильтры
+                            {t('list.filters.reset')}
                         </button>
 
                         <div className="flex items-center gap-2 text-xs font-bold text-slate-600">
@@ -470,21 +475,21 @@ export default function OrdersPage() {
                                 type="button"
                                 disabled={isOrdersLoading || !ordersPage || ordersPage.first}
                                 onClick={() => setPage((currentPage) => Math.max(currentPage - 1, 0))}
-                                className="rounded-lg border border-slate-200 px-3 py-1.5 transition hover:border-blue-500 hover:text-blue-600 disabled:cursor-not-allowed disabled:opacity-40"
+                                className="min-h-11 rounded-lg border border-slate-200 px-3 py-1.5 transition hover:border-blue-500 hover:text-blue-600 disabled:cursor-not-allowed disabled:opacity-40"
                             >
-                                Назад
+                                {tCommon('pagination.previous')}
                             </button>
                             <span className="min-w-20 text-center">
-                                Стр. {(ordersPage?.number ?? page) + 1}
-                                {ordersPage?.totalPages ? ` из ${ordersPage.totalPages}` : ''}
+                                {t('list.pageNumber', {page: (ordersPage?.number ?? page) + 1})}
+                                {ordersPage?.totalPages ? t('list.pageCount', {count: ordersPage.totalPages}) : ''}
                             </span>
                             <button
                                 type="button"
                                 disabled={isOrdersLoading || !ordersPage || ordersPage.last}
                                 onClick={() => setPage((currentPage) => currentPage + 1)}
-                                className="rounded-lg border border-slate-200 px-3 py-1.5 transition hover:border-blue-500 hover:text-blue-600 disabled:cursor-not-allowed disabled:opacity-40"
+                                className="min-h-11 rounded-lg border border-slate-200 px-3 py-1.5 transition hover:border-blue-500 hover:text-blue-600 disabled:cursor-not-allowed disabled:opacity-40"
                             >
-                                Вперёд
+                                {tCommon('pagination.next')}
                             </button>
                         </div>
                     </div>
@@ -492,26 +497,96 @@ export default function OrdersPage() {
             </div>
 
             <div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.03)]">
-                <div className="overflow-x-auto">
+                <div className="space-y-3 p-3 md:hidden">
+                    {isOrdersLoading && !ordersPage && (
+                        <div className="rounded-xl border border-dashed border-slate-200 p-8 text-center text-sm text-slate-400">
+                            {t('list.loading')}
+                        </div>
+                    )}
+
+                    {filteredOrders.map((order) => (
+                        <article key={order.id} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                            <div className="flex min-w-0 items-start justify-between gap-3">
+                                <div className="min-w-0">
+                                    <p className="truncate font-mono text-xs text-slate-400" title={`#${order.orderNumber ?? order.id}`}>
+                                        #{order.orderNumber ?? order.id}
+                                    </p>
+                                    <h2 className="mt-1 break-words text-base font-black text-slate-900">
+                                        {order.patient}
+                                    </h2>
+                                </div>
+                                <span className={`${getStatusBadgeClass(order.status)} max-w-[45%] shrink-0 break-words rounded-md px-2 py-1 text-center text-[10px] font-bold uppercase`}>
+                                    {getStatusLabel(order.status)}
+                                </span>
+                            </div>
+
+                            <p className="mt-3 break-words text-sm text-slate-600">{order.work}</p>
+
+                            <dl className="mt-3 grid grid-cols-2 gap-2 text-xs">
+                                <div className="rounded-xl bg-slate-50 p-2.5">
+                                    <dt className="text-[10px] font-bold uppercase tracking-wide text-slate-400">{t('list.fields.quantity')}</dt>
+                                    <dd className="mt-1 font-black text-slate-800">{order.units}</dd>
+                                </div>
+                                <div className="rounded-xl bg-slate-50 p-2.5">
+                                    <dt className="text-[10px] font-bold uppercase tracking-wide text-slate-400">{t('list.fields.total')}</dt>
+                                    <dd className="mt-1 truncate font-black text-slate-800" title={formatMoney(order.total)}>{formatMoney(order.total)}</dd>
+                                </div>
+                                <div className="rounded-xl bg-slate-50 p-2.5">
+                                    <dt className="text-[10px] font-bold uppercase tracking-wide text-slate-400">{t('list.fields.unitPrice')}</dt>
+                                    <dd className="mt-1 truncate font-semibold text-slate-700" title={formatMoney(order.unitPrice)}>{formatMoney(order.unitPrice)}</dd>
+                                </div>
+                                <div className="rounded-xl bg-slate-50 p-2.5">
+                                    <dt className="text-[10px] font-bold uppercase tracking-wide text-slate-400">{t('list.fields.discount')}</dt>
+                                    <dd className="mt-1 truncate font-semibold text-slate-700" title={formatMoney(order.discount)}>{formatMoney(order.discount)}</dd>
+                                </div>
+                            </dl>
+
+                            <div className="mt-4 grid grid-cols-2 gap-2">
+                                <Link
+                                    href={`/orders/${order.id}`}
+                                    className="inline-flex min-h-11 items-center justify-center rounded-xl bg-violet-600 px-3 text-sm font-bold text-white"
+                                >
+                                    {tCommon('actions.open')}
+                                </Link>
+                                <button
+                                    type="button"
+                                    disabled={isDeletingOrder}
+                                    onClick={() => setOrderToDelete(order)}
+                                    className="min-h-11 rounded-xl border border-red-200 px-3 text-sm font-bold text-red-600 transition hover:bg-red-600 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+                                >
+                                    {tCommon('actions.delete')}
+                                </button>
+                            </div>
+                        </article>
+                    ))}
+
+                    {!isOrdersLoading && filteredOrders.length === 0 && (
+                        <div className="rounded-xl border border-dashed border-slate-200 p-8 text-center text-sm text-slate-400">
+                            {t('list.empty')}
+                        </div>
+                    )}
+                </div>
+
+                <div className="hidden overflow-x-auto md:block">
                     <table className="w-full min-w-[860px] border-collapse text-left lg:min-w-[980px]">
                         <thead className="bg-slate-50 border-b border-slate-200 text-slate-400 text-[11px] uppercase tracking-widest">
                         <tr>
                             <th className="p-4 font-bold">ID</th>
-                            <th className="p-4 font-bold">Пациент</th>
-                            <th className="p-4 font-bold">Вид работы</th>
-                            <th className="p-4 font-bold">Статус</th>
-                            <th className="p-4 font-bold">Кол-во</th>
-                            <th className="p-4 font-bold">Цена за ед.</th>
-                            <th className="p-4 font-bold">Скидка</th>
-                            <th className="p-4 font-bold">Итого</th>
-                            <th className="p-4 font-bold text-right">Действия</th>
+                            <th className="p-4 font-bold">{t('list.fields.patient')}</th>
+                            <th className="p-4 font-bold">{t('list.fields.workType')}</th>
+                            <th className="p-4 font-bold">{t('list.fields.status')}</th>
+                            <th className="p-4 font-bold">{t('list.fields.quantityShort')}</th>
+                            <th className="p-4 font-bold">{t('list.fields.unitPrice')}</th>
+                            <th className="p-4 font-bold">{t('list.fields.discount')}</th>
+                            <th className="p-4 font-bold">{t('list.fields.total')}</th>
+                            <th className="p-4 font-bold text-right">{t('list.fields.actions')}</th>
                         </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
                         {isOrdersLoading && !ordersPage && (
                             <tr>
                                 <td colSpan={9} className="p-10 text-center text-sm text-slate-400">
-                                    Загрузка заказов...
+                                    {t('list.loading')}
                                 </td>
                             </tr>
                         )}
@@ -525,7 +600,7 @@ export default function OrdersPage() {
                                 <td className="p-4 text-sm text-slate-600">{order.work}</td>
                                 <td className="p-4">
                                     <span className={`${getStatusBadgeClass(order.status)} px-2 py-1 rounded-md text-[10px] font-bold uppercase`}>
-                                        {order.status}
+                                        {getStatusLabel(order.status)}
                                     </span>
                                 </td>
                                 <td className="p-4 text-sm">{order.units}</td>
@@ -538,7 +613,7 @@ export default function OrdersPage() {
                                             href={`/orders/${order.id}`}
                                             className="rounded-lg border border-violet-500 px-3 py-1.5 text-xs font-bold text-violet-600 transition hover:bg-violet-600 hover:text-white"
                                         >
-                                            Открыть
+                                            {tCommon('actions.open')}
                                         </Link>
                                         <button
                                             type="button"
@@ -546,7 +621,7 @@ export default function OrdersPage() {
                                             onClick={() => setOrderToDelete(order)}
                                             className="text-red-600 hover:bg-red-600 hover:text-white border border-red-600 px-3 py-1.5 rounded-lg text-xs font-bold transition disabled:cursor-not-allowed disabled:opacity-50"
                                         >
-                                            Удалить
+                                            {tCommon('actions.delete')}
                                         </button>
                                     </div>
                                 </td>
@@ -556,7 +631,7 @@ export default function OrdersPage() {
                         {!isOrdersLoading && filteredOrders.length === 0 && (
                             <tr>
                                 <td colSpan={9} className="p-10 text-center text-sm text-slate-400">
-                                    Заказы не найдены
+                                    {t('list.empty')}
                                 </td>
                             </tr>
                         )}
@@ -573,9 +648,12 @@ export default function OrdersPage() {
             />
             <ConfirmDialog
                 open={orderToDelete !== null}
-                title="Удалить заказ?"
-                description={<>Заказ <strong className="font-semibold text-slate-700 dark:text-slate-200">№{orderToDelete?.orderNumber ?? orderToDelete?.id}</strong>{orderToDelete?.patient ? ` · ${orderToDelete.patient}` : ''} и связанные с ним данные будут удалены.</>}
-                confirmLabel="Удалить заказ"
+                title={t('list.deleteTitle')}
+                description={t('list.deleteDescription', {
+                    number: orderToDelete?.orderNumber ?? orderToDelete?.id ?? '',
+                    patient: orderToDelete?.patient ? ` · ${orderToDelete.patient}` : '',
+                })}
+                confirmLabel={t('list.deleteConfirm')}
                 isLoading={isDeletingOrder}
                 onClose={() => setOrderToDelete(null)}
                 onConfirm={handleDeleteOrder}

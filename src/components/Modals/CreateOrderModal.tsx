@@ -1,6 +1,7 @@
 'use client';
 
 import { type ChangeEvent, type FormEvent, useMemo, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import type { CreateOrderDto, CreateOrderTaskDto } from '@/src/types/order.types';
 import type { TaskAttachment, TaskImage } from '@/src/types/task.types';
 import type { WorkflowStep } from '@/src/types/workflow.types';
@@ -14,6 +15,7 @@ import { normalizeMaterialIds, validateMaterialIds } from '@/src/utils/materialA
 import { useGetColorsQuery } from '@/src/services/api/laboratory/colorsApi';
 import { useGetAdminWorkflowStepsQuery } from '@/src/services/api/workflowApi';
 import type { User } from '@/src/types/user.types';
+import { useAppFormatters } from '@/src/i18n/provider';
 
 type CreateOrderModalProps = {
     isOpen: boolean;
@@ -40,12 +42,6 @@ const PATIENTS_LOOKUP_PARAMS = {
     sort: 'fullName,ASC',
 };
 const MAX_AUTOCOMPLETE_OPTIONS = 8;
-const ORDER_STEPS = [
-    { title: 'Заказчик', hint: 'Клиника и пациент' },
-    { title: 'Работы', hint: 'Технические задачи' },
-    { title: 'Проверка', hint: 'Итог и комментарий' },
-] as const;
-
 const createEmptyTask = (): CreateOrderTaskDto => ({
     workTypeId: '',
     quantity: 1,
@@ -61,6 +57,33 @@ const createEmptyTask = (): CreateOrderTaskDto => ({
     attachments: [],
     images: [],
 });
+
+const createInitialOrder = (): CreateOrderDto => ({
+    clinicId: '',
+    patientFullName: '',
+    doctorFullName: '',
+    deadline: '',
+    comment: '',
+    tasks: [createEmptyTask()],
+});
+
+function isCustomerStepComplete(order: CreateOrderDto) {
+    return Boolean(
+        order.clinicId
+        && order.doctorFullName.trim()
+        && order.patientFullName.trim()
+        && order.deadline
+    );
+}
+
+function isCreateOrderTaskComplete(task: CreateOrderTaskDto) {
+    return Boolean(
+        task.workTypeId
+        && task.colorId
+        && Number(task.quantity) > 0
+        && task.materialIds.length > 0
+    );
+}
 
 function normalizeRoleValue(value: string | undefined) {
     return (value ?? '')
@@ -299,6 +322,7 @@ function TaskAssignmentFields({
     users: User[];
     onChange: (changes: Pick<CreateOrderTaskDto, 'assignmentMode' | 'statusAssignees'>) => void;
 }) {
+    const t = useTranslations('orders.create.assignment');
     const isPreassigned = task.assignmentMode === 'PREASSIGNED';
     const {
         data: workflowSteps = [],
@@ -339,26 +363,26 @@ function TaskAssignmentFields({
     };
 
     return (
-        <div className="mt-5 rounded-2xl border border-violet-100 bg-violet-50/60 p-4">
+        <div className="mt-5 rounded-2xl border border-violet-100 bg-violet-50/60 p-4 dark:border-violet-500/30 dark:bg-violet-500/10">
             <div className="grid gap-4 md:grid-cols-[minmax(0,260px)_1fr]">
                 <label className="block">
                     <span className="mb-1 block text-[10px] font-black uppercase tracking-widest text-violet-700">
-                        Назначение по этапам
+                        {t('title')}
                     </span>
                     <select
                         value={task.assignmentMode}
                         onChange={(event) => handleModeChange(event.target.value as CreateOrderTaskDto['assignmentMode'])}
                         className="w-full rounded-xl border-2 border-violet-100 bg-white px-3 py-2 text-sm outline-none transition focus:border-violet-500"
                     >
-                        <option value="AUTO">Автоматическое</option>
-                        <option value="PREASSIGNED">Назначить заранее</option>
+                        <option value="AUTO">{t('automatic')}</option>
+                        <option value="PREASSIGNED">{t('preassigned')}</option>
                     </select>
                 </label>
 
                 <div className="rounded-xl border border-violet-100 bg-white/80 px-3 py-2 text-xs text-slate-500">
                     {isPreassigned
-                        ? 'Выберите ответственного для каждого производственного этапа workflow.'
-                        : 'Система сама назначит исполнителей. Ручной план ответственных не отправляется.'}
+                        ? t('preassignedHint')
+                        : t('automaticHint')}
                 </div>
             </div>
 
@@ -366,17 +390,17 @@ function TaskAssignmentFields({
                 <div className="mt-4">
                     {!task.workTypeId ? (
                         <p className="rounded-xl border border-dashed border-violet-200 bg-white px-3 py-3 text-xs font-semibold text-slate-500">
-                            Сначала выберите вид работы.
+                            {t('selectWorkType')}
                         </p>
                     ) : isFetching ? (
-                        <p className="text-xs font-semibold text-violet-700">Загрузка этапов workflow...</p>
+                        <p className="text-xs font-semibold text-violet-700">{t('loading')}</p>
                     ) : isError ? (
                         <p className="rounded-xl bg-red-50 px-3 py-3 text-xs font-semibold text-red-600">
-                            Не удалось загрузить этапы workflow.
+                            {t('loadError')}
                         </p>
                     ) : stages.length === 0 ? (
                         <p className="rounded-xl border border-dashed border-violet-200 bg-white px-3 py-3 text-xs font-semibold text-slate-500">
-                            У этого вида работы нет промежуточных этапов для назначения.
+                            {t('noStages')}
                         </p>
                     ) : (
                         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
@@ -386,7 +410,7 @@ function TaskAssignmentFields({
                                 const roleLabel = normalizedRequiredRole.includes('admin')
                                     || normalizedRequiredRole.includes('dispatcher')
                                     ? 'ROLE_ADMIN / ROLE_DISPATCHER'
-                                    : stage.requiredRole || 'Любая роль';
+                                    : stage.requiredRole || t('anyRole');
 
                                 return (
                                     <label key={stage.statusId} className="block rounded-xl border border-violet-100 bg-white p-3">
@@ -402,7 +426,7 @@ function TaskAssignmentFields({
                                             onChange={(event) => handleAssigneeChange(stage.statusId, event.target.value)}
                                             className="mt-2 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs font-semibold text-slate-700 outline-none transition focus:border-violet-500"
                                         >
-                                            <option value="">Выберите сотрудника</option>
+                                            <option value="">{t('employeePlaceholder')}</option>
                                             {eligibleUsers.map((user) => (
                                                 <option key={user.id} value={user.id}>
                                                     {getUserLabel(user)}
@@ -411,7 +435,7 @@ function TaskAssignmentFields({
                                         </select>
                                         {eligibleUsers.length === 0 && (
                                             <span className="mt-1 block text-[10px] font-semibold text-red-500">
-                                                Нет активных сотрудников с подходящей ролью
+                                                {t('noEmployees')}
                                             </span>
                                         )}
                                     </label>
@@ -431,6 +455,14 @@ export default function CreateOrderModal({
     onClose,
     onSubmit,
 }: CreateOrderModalProps) {
+    const t = useTranslations('orders.create');
+    const commonT = useTranslations('common');
+    const formats = useAppFormatters();
+    const orderSteps = [
+        { title: t('steps.customer'), hint: t('steps.customerHint') },
+        { title: t('steps.works'), hint: t('steps.worksHint') },
+        { title: t('steps.review'), hint: t('steps.reviewHint') },
+    ];
     const {
         data: clinicsPage,
         isLoading: isClinicsLoading,
@@ -468,14 +500,7 @@ export default function CreateOrderModal({
         refetch: refetchColors,
     } = useGetColorsQuery(true, { skip: !isOpen });
 
-    const [formData, setFormData] = useState<CreateOrderDto>({
-        clinicId: '',
-        patientFullName: '',
-        doctorFullName: '',
-        deadline: '',
-        comment: '',
-        tasks: [createEmptyTask()],
-    });
+    const [formData, setFormData] = useState<CreateOrderDto>(createInitialOrder);
     const [currentStep, setCurrentStep] = useState(0);
     const [activeTaskIndex, setActiveTaskIndex] = useState(0);
     const {
@@ -534,6 +559,21 @@ export default function CreateOrderModal({
     const handleSubmit = async (e: FormEvent) => {
         e.preventDefault();
 
+        if (currentStep === 0) {
+            if (isCustomerStepComplete(formData)) setCurrentStep(1);
+            return;
+        }
+
+        if (currentStep === 1) {
+            const isTasksStepComplete = formData.tasks.length > 0
+                && formData.tasks.every(isCreateOrderTaskComplete);
+
+            if (isTasksStepComplete) setCurrentStep(2);
+            return;
+        }
+
+        if (isSubmitting) return;
+
         const invalidTask = formData.tasks.find((task) => validateMaterialIds(task.materialIds));
         if (invalidTask) return;
 
@@ -550,9 +590,12 @@ export default function CreateOrderModal({
                     materialIds: normalizeMaterialIds(task.materialIds),
                 })),
             });
+            setFormData(createInitialOrder());
+            setCurrentStep(0);
+            setActiveTaskIndex(0);
             onClose();
         } catch (error) {
-            console.error('Ошибка создания заказа:', error);
+            console.error('Order creation failed:', error);
         }
     };
 
@@ -730,13 +773,13 @@ export default function CreateOrderModal({
         isMaterialsLoading ||
         isColorsLoading;
     const failedDictionaries = [
-        isClinicsError ? 'клиники' : '',
-        isDoctorsError ? 'врачи' : '',
-        isPatientsError ? 'пациенты' : '',
-        isUsersError ? 'сотрудники' : '',
-        isWorkTypesError ? 'виды работ' : '',
-        isMaterialsError ? 'материалы' : '',
-        isColorsError ? 'цвета' : '',
+        isClinicsError ? t('dictionaries.clinics') : '',
+        isDoctorsError ? t('dictionaries.doctors') : '',
+        isPatientsError ? t('dictionaries.patients') : '',
+        isUsersError ? t('dictionaries.employees') : '',
+        isWorkTypesError ? t('dictionaries.workTypes') : '',
+        isMaterialsError ? t('dictionaries.materials') : '',
+        isColorsError ? t('dictionaries.colors') : '',
     ].filter(Boolean);
     const isRetryingDictionaries = isClinicsFetching
         || isDoctorsFetching
@@ -745,20 +788,9 @@ export default function CreateOrderModal({
         || isWorkTypesFetching
         || isMaterialsFetching
         || isColorsFetching;
-    const customerStepComplete = Boolean(
-        formData.clinicId
-        && formData.doctorFullName.trim()
-        && formData.patientFullName.trim()
-        && formData.deadline
-    );
-    const isTaskComplete = (task: CreateOrderTaskDto) => Boolean(
-        task.workTypeId
-        && task.colorId
-        && Number(task.quantity) > 0
-        && task.materialIds.length > 0
-    );
-    const tasksStepComplete = formData.tasks.length > 0 && formData.tasks.every(isTaskComplete);
-    const completedTasksCount = formData.tasks.filter(isTaskComplete).length;
+    const customerStepComplete = isCustomerStepComplete(formData);
+    const tasksStepComplete = formData.tasks.length > 0 && formData.tasks.every(isCreateOrderTaskComplete);
+    const completedTasksCount = formData.tasks.filter(isCreateOrderTaskComplete).length;
     const canContinue = currentStep === 0 ? customerStepComplete : tasksStepComplete;
 
     const handleRetryDictionaries = () => {
@@ -772,18 +804,18 @@ export default function CreateOrderModal({
     };
 
     return (
-        <Modal contentClassName="max-w-6xl overflow-hidden p-0">
+        <Modal contentClassName="h-[94dvh] max-w-6xl overflow-hidden p-0 sm:h-[calc(100dvh-2rem)]">
             <div className="flex items-start justify-between gap-4 border-b border-slate-200 bg-gradient-to-r from-violet-50 to-white px-5 py-5 dark:border-slate-700 dark:from-violet-950/30 dark:to-slate-900 sm:px-6">
                 <div className="min-w-0">
-                    <p className="text-[10px] font-black uppercase tracking-[.18em] text-violet-600">Новый заказ</p><h2 className="mt-1 text-2xl font-black text-slate-950 dark:text-white">Регистрация наряда</h2>
-                    <p className="text-xs text-slate-500">Заказ, команда и технические задачи лаборатории</p>
+                    <p className="text-[10px] font-black uppercase tracking-[.18em] text-violet-600">{t('badge')}</p><h2 className="mt-1 text-2xl font-black text-slate-950 dark:text-white">{t('title')}</h2>
+                    <p className="text-xs text-slate-500">{t('subtitle')}</p>
                 </div>
                 <button onClick={onClose} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-xl text-slate-400 shadow-sm hover:bg-slate-100 dark:bg-slate-800">&times;</button>
             </div>
 
-            <nav aria-label="Этапы создания заказа" className="border-b border-slate-200 bg-white px-4 py-3 sm:px-6">
+            <nav aria-label={t('stepsAria')} className="border-b border-slate-200 bg-white px-4 py-3 sm:px-6">
                 <ol className="grid grid-cols-3 gap-2">
-                    {ORDER_STEPS.map((step, index) => {
+                    {orderSteps.map((step, index) => {
                         const isActive = currentStep === index;
                         const isDone = currentStep > index;
                         return (
@@ -819,13 +851,13 @@ export default function CreateOrderModal({
                 <div className="flex-1 space-y-6 overflow-y-auto p-4 sm:space-y-7 sm:p-6">
                 {isLoadingDictionaries && (
                     <div className="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm font-semibold text-blue-700">
-                        Загрузка справочников...
+                        {t('loadingDictionaries')}
                     </div>
                 )}
 
                 {failedDictionaries.length > 0 && (
                     <QueryErrorNotice
-                        message={`Не удалось загрузить справочники: ${failedDictionaries.join(', ')}.`}
+                        message={t('dictionariesError', {items: failedDictionaries.join(', ')})}
                         onRetry={handleRetryDictionaries}
                         isRetrying={isRetryingDictionaries}
                     />
@@ -833,18 +865,18 @@ export default function CreateOrderModal({
 
                 {currentStep === 0 && <section>
                     <h3 className="text-xs font-black text-violet-600 uppercase tracking-widest mb-4 flex items-center gap-2">
-                        <span className="w-2 h-2 bg-violet-600 rounded-full" /> Заказчик и пациент
+                        <span className="w-2 h-2 bg-violet-600 rounded-full" /> {t('customerSection')}
                     </h3>
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                         <div className="md:col-span-2">
-                            <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Клиника</label>
+                            <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">{t('clinic')}</label>
                             <select
                                 required
                                 className="w-full border-2 border-slate-100 rounded-xl px-3 py-2 text-sm focus:border-blue-500 outline-none transition bg-white"
                                 value={formData.clinicId}
                                 onChange={(e) => handleClinicChange(e.target.value)}
                             >
-                                <option value="">Выберите клинику</option>
+                                <option value="">{t('clinicPlaceholder')}</option>
                                 {clinics.map((clinic) => (
                                     <option key={clinic.id} value={clinic.id}>
                                         {clinic.name}
@@ -855,25 +887,25 @@ export default function CreateOrderModal({
 
                         <div>
                             <PersonAutocompleteInput
-                                label="Врач"
-                                placeholder="ФИО врача"
+                                label={t('doctor')}
+                                placeholder={t('doctorPlaceholder')}
                                 value={formData.doctorFullName}
                                 options={doctorOptions}
                                 isLoading={isDoctorsLoading}
-                                disabledMessage={!formData.clinicId ? 'Выберите клинику, чтобы увидеть врачей' : undefined}
-                                emptyMessage="Нет сохраненных врачей у выбранной клиники"
-                                noMatchMessage="Совпадений нет. Можно оставить введенное ФИО"
-                                loadingMessage="Загрузка врачей..."
+                                disabledMessage={!formData.clinicId ? t('selectClinicDoctors') : undefined}
+                                emptyMessage={t('doctorsEmpty')}
+                                noMatchMessage={t('personNoMatch')}
+                                loadingMessage={t('doctorsLoading')}
                                 onChange={(doctorFullName) => setFormData((prev) => ({ ...prev, doctorFullName }))}
                             />
                         </div>
 
                         <div>
-                            <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Срок</label>
+                            <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">{t('deadline')}</label>
                             <input
                                 required
                                 type="date"
-                                className="w-full border-2 border-slate-100 rounded-xl px-3 py-2 text-sm focus:border-blue-500 outline-none transition"
+                                className="w-full border-2 border-slate-100 rounded-xl px-3 py-2 text-sm focus:border-blue-500 outline-none transition dark:[&::-webkit-calendar-picker-indicator]:opacity-70"
                                 value={formData.deadline}
                                 onChange={(e) => setFormData({ ...formData, deadline: e.target.value })}
                             />
@@ -881,15 +913,15 @@ export default function CreateOrderModal({
 
                         <div className="md:col-span-2">
                             <PersonAutocompleteInput
-                                label="ФИО пациента"
-                                placeholder="ФИО пациента"
+                                label={t('patient')}
+                                placeholder={t('patientPlaceholder')}
                                 value={formData.patientFullName}
                                 options={patientOptions}
                                 isLoading={isPatientsLoading}
-                                disabledMessage={!formData.clinicId ? 'Выберите клинику, чтобы увидеть пациентов' : undefined}
-                                emptyMessage="Нет сохраненных пациентов у выбранной клиники"
-                                noMatchMessage="Совпадений нет. Можно оставить введенное ФИО"
-                                loadingMessage="Загрузка пациентов..."
+                                disabledMessage={!formData.clinicId ? t('selectClinicPatients') : undefined}
+                                emptyMessage={t('patientsEmpty')}
+                                noMatchMessage={t('personNoMatch')}
+                                loadingMessage={t('patientsLoading')}
                                 onChange={(patientFullName) => setFormData((prev) => ({ ...prev, patientFullName }))}
                             />
                         </div>
@@ -900,17 +932,17 @@ export default function CreateOrderModal({
                 {currentStep === 1 && <section className="flex flex-col">
                     <div className="mb-4 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
                         <h3 className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-violet-600">
-                            <span className="h-2 w-2 rounded-full bg-violet-600" /> Техническое задание
+                            <span className="h-2 w-2 rounded-full bg-violet-600" /> {t('technicalTask')}
                         </h3>
                         <p className="text-xs text-slate-400">
-                            Заполните параметры изготовления для каждой отдельной работы
+                            {t('technicalTaskHint')}
                         </p>
                     </div>
 
                     <div className="mb-4 flex gap-2 overflow-x-auto pb-1">
                         {formData.tasks.map((task, index) => {
                             const selectedWorkType = workTypes.find((workType) => workType.id === task.workTypeId);
-                            const complete = isTaskComplete(task);
+                            const complete = isCreateOrderTaskComplete(task);
                             return (
                                 <button
                                     key={index}
@@ -923,11 +955,11 @@ export default function CreateOrderModal({
                                     }`}
                                 >
                                     <span className="flex items-center justify-between gap-2">
-                                        <span className="text-[10px] font-black uppercase text-slate-400">Работа {index + 1}</span>
+                                        <span className="text-[10px] font-black uppercase text-slate-400">{t('workNumber', {number: index + 1})}</span>
                                         <span className={`h-2 w-2 rounded-full ${complete ? 'bg-emerald-500' : 'bg-amber-400'}`} />
                                     </span>
                                     <span className="mt-1 block truncate text-xs font-black text-slate-800">
-                                        {selectedWorkType?.name || 'Не заполнена'}
+                                        {selectedWorkType?.name || t('incomplete')}
                                     </span>
                                 </button>
                             );
@@ -949,33 +981,33 @@ export default function CreateOrderModal({
                                             </span>
                                             <div className="min-w-0">
                                                 <p className="text-[10px] font-black uppercase tracking-[.16em] text-violet-600">
-                                                    Техническая задача
+                                                    {t('task')}
                                                 </p>
                                                 <h4 className="truncate text-base font-black text-slate-900">
-                                                    {selectedWorkType?.name || 'Новая работа'}
+                                                    {selectedWorkType?.name || t('newWork')}
                                                 </h4>
                                             </div>
                                         </div>
 
                                         <div className="flex flex-wrap items-center gap-2 sm:justify-end">
                                             <span className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[10px] font-bold text-slate-500">
-                                                Количество: {task.quantity || 0}
+                                                {t('taskSummary', {quantity: task.quantity || 0})}
                                             </span>
                                             <span className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[10px] font-bold text-slate-500">
-                                                Материалы: {task.materialIds.length}
+                                                {t('materialSummary', {count: task.materialIds.length})}
                                             </span>
                                             <span className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[10px] font-bold text-slate-500">
-                                                Зубы: {task.toothNumbers.length}
+                                                {t('teethSummary', {count: task.toothNumbers.length})}
                                             </span>
 
                                             {formData.tasks.length > 1 && (
                                                 <button
                                                     type="button"
                                                     onClick={() => handleRemoveTask(index)}
-                                                    aria-label={`Удалить техническую задачу ${index + 1}`}
+                                                    aria-label={t('deleteTaskAria', {number: index + 1})}
                                                     className="rounded-lg px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-red-500 transition hover:bg-red-50 hover:text-red-700"
                                                 >
-                                                    Удалить
+                                                    {commonT('actions.delete')}
                                                 </button>
                                             )}
                                         </div>
@@ -986,14 +1018,14 @@ export default function CreateOrderModal({
                                             <div className="mb-3 flex items-center gap-2">
                                                 <span className="flex h-5 w-5 items-center justify-center rounded-full bg-violet-100 text-[10px] font-black text-violet-700">1</span>
                                                 <h5 id={`task-${index}-parameters`} className="text-xs font-black uppercase tracking-wide text-slate-700">
-                                                    Основные параметры
+                                                    {t('mainParameters')}
                                                 </h5>
                                             </div>
 
                                             <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
                                                 <label className="block md:col-span-2">
                                                     <span className="mb-1.5 block text-[10px] font-bold uppercase text-slate-400">
-                                                        Вид работы
+                                                        {t('workType')}
                                                     </span>
                                                     <select
                                                         required
@@ -1001,7 +1033,7 @@ export default function CreateOrderModal({
                                                         value={task.workTypeId}
                                                         onChange={(e) => handleTaskChange(index, 'workTypeId', e.target.value)}
                                                     >
-                                                        <option value="">Выбрать работу</option>
+                                                        <option value="">{t('workTypePlaceholder')}</option>
                                                         {workTypes.map((workType) => (
                                                             <option key={workType.id} value={workType.id}>
                                                                 {workType.name}
@@ -1012,7 +1044,7 @@ export default function CreateOrderModal({
 
                                                 <label className="block">
                                                     <span className="mb-1.5 block text-[10px] font-bold uppercase text-slate-400">
-                                                        Количество
+                                                        {t('quantity')}
                                                     </span>
                                                     <input
                                                         type="number"
@@ -1025,7 +1057,7 @@ export default function CreateOrderModal({
 
                                                 <label className="block">
                                                     <span className="mb-1.5 block text-[10px] font-bold uppercase text-slate-400">
-                                                        Цвет
+                                                        {t('color')}
                                                     </span>
                                                     <select
                                                         required
@@ -1033,7 +1065,7 @@ export default function CreateOrderModal({
                                                         value={task.colorId}
                                                         onChange={(e) => handleTaskChange(index, 'colorId', e.target.value)}
                                                     >
-                                                        <option value="">Выбрать цвет</option>
+                                                        <option value="">{t('colorPlaceholder')}</option>
                                                         {colors.map((color) => (
                                                             <option key={color.id} value={color.id}>
                                                                 {color.code} — {color.name}
@@ -1048,15 +1080,15 @@ export default function CreateOrderModal({
                                             <div className="mb-3 flex items-center gap-2">
                                                 <span className="flex h-5 w-5 items-center justify-center rounded-full bg-violet-100 text-[10px] font-black text-violet-700">2</span>
                                                 <h5 id={`task-${index}-production`} className="text-xs font-black uppercase tracking-wide text-slate-700">
-                                                    Материалы и зубы
+                                                    {t('materialsAndTeeth')}
                                                 </h5>
                                             </div>
 
                                             <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(330px,.65fr)]">
-                                                <div className="min-w-0 rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
+                                                <div className="min-w-0 rounded-2xl border border-slate-200 bg-slate-50/70 p-4 dark:border-slate-700 dark:bg-slate-800/60">
                                                     <div className="mb-3 flex items-center justify-between gap-3">
                                                         <h6 className="text-xs font-black text-slate-700">
-                                                            Материалы
+                                                            {t('materials')}
                                                         </h6>
                                                         <span className={`rounded-full px-2.5 py-1 text-[10px] font-black ${
                                                             task.materialIds.length
@@ -1064,8 +1096,8 @@ export default function CreateOrderModal({
                                                                 : 'bg-red-50 text-red-600'
                                                         }`}>
                                                             {task.materialIds.length
-                                                                ? `Выбрано: ${task.materialIds.length}`
-                                                                : 'Обязательное поле'}
+                                                                ? t('selected', {count: task.materialIds.length})
+                                                                : t('required')}
                                                         </span>
                                                     </div>
 
@@ -1107,14 +1139,14 @@ export default function CreateOrderModal({
                                                         })}
                                                         {materials.length === 0 ? (
                                                             <p className="col-span-full rounded-xl border border-dashed border-slate-200 bg-white px-3 py-6 text-center text-xs text-slate-400">
-                                                                Нет активных материалов
+                                                                {t('noMaterials')}
                                                             </p>
                                                         ) : null}
                                                     </div>
 
                                                     {task.materialIds.length === 0 ? (
                                                         <p className="mt-2 text-[10px] font-semibold text-red-500">
-                                                            Выберите хотя бы один материал для изготовления
+                                                            {t('selectMaterial')}
                                                         </p>
                                                     ) : null}
                                                 </div>
@@ -1122,12 +1154,12 @@ export default function CreateOrderModal({
                                                 <div className="rounded-2xl border border-blue-100 bg-blue-50/60 p-4">
                                                     <div className="mb-3 flex items-center justify-between gap-3">
                                                         <h6 className="text-xs font-black text-blue-800">
-                                                            Зубная формула
+                                                            {t('dentalFormula')}
                                                         </h6>
                                                         <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-black text-blue-700 shadow-sm">
                                                             {task.toothNumbers.length
-                                                                ? `Выбрано: ${task.toothNumbers.length}`
-                                                                : 'Не выбраны'}
+                                                                ? t('selected', {count: task.toothNumbers.length})
+                                                                : t('notSelected')}
                                                         </span>
                                                     </div>
 
@@ -1138,7 +1170,7 @@ export default function CreateOrderModal({
                                                                 className={rowIndex === 0 ? 'border-b border-dashed border-blue-100 pb-3' : 'pt-3'}
                                                             >
                                                                 <p className="mb-2 text-[9px] font-black uppercase tracking-wide text-slate-400">
-                                                                    {rowIndex === 0 ? 'Верхняя челюсть' : 'Нижняя челюсть'}
+                                                                    {rowIndex === 0 ? t('upperJaw') : t('lowerJaw')}
                                                                 </p>
                                                                 <div className="grid grid-cols-8 gap-1.5">
                                                                     {row.map((toothNumber) => {
@@ -1150,11 +1182,11 @@ export default function CreateOrderModal({
                                                                                 type="button"
                                                                                 onClick={() => handleToothToggle(index, toothNumber)}
                                                                                 aria-pressed={isSelected}
-                                                                                aria-label={`Зуб ${toothNumber}`}
+                                                                                aria-label={t('toothAria', {number: toothNumber})}
                                                                                 className={`aspect-square rounded-lg border text-[11px] font-black transition ${
                                                                                     isSelected
                                                                                         ? 'border-blue-600 bg-blue-600 text-white shadow-sm'
-                                                                                        : 'border-blue-100 bg-blue-50/50 text-blue-700 hover:border-blue-400 hover:bg-blue-50'
+                                                                                        : 'border-blue-100 bg-blue-50/50 text-blue-700 hover:border-blue-400 hover:bg-blue-50 dark:border-slate-600 dark:bg-slate-800 dark:text-blue-300 dark:hover:border-blue-400 dark:hover:bg-slate-700'
                                                                                 }`}
                                                                             >
                                                                                 {toothNumber}
@@ -1168,11 +1200,11 @@ export default function CreateOrderModal({
 
                                                     {task.toothNumbers.length > 0 ? (
                                                         <p className="mt-2 truncate text-[10px] font-semibold text-blue-700">
-                                                            Номера: {task.toothNumbers.join(', ')}
+                                                            {t('numbers', {numbers: task.toothNumbers.join(', ')})}
                                                         </p>
                                                     ) : (
                                                         <p className="mt-2 text-[10px] font-semibold text-slate-400">
-                                                            Можно выбрать несколько зубов
+                                                            {t('multipleTeeth')}
                                                         </p>
                                                     )}
                                                 </div>
@@ -1183,14 +1215,14 @@ export default function CreateOrderModal({
                                             <div className="mb-3 flex items-center gap-2">
                                                 <span className="flex h-5 w-5 items-center justify-center rounded-full bg-violet-100 text-[10px] font-black text-violet-700">3</span>
                                                 <h5 id={`task-${index}-price`} className="text-xs font-black uppercase tracking-wide text-slate-700">
-                                                    Стоимость
+                                                    {t('cost')}
                                                 </h5>
                                             </div>
 
-                                            <div className="grid grid-cols-1 gap-3 rounded-2xl border border-slate-200 bg-slate-50/70 p-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(190px,.75fr)]">
+                                            <div className="grid grid-cols-1 gap-3 rounded-2xl border border-slate-200 bg-slate-50/70 p-4 dark:border-slate-700 dark:bg-slate-800/60 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(190px,.75fr)]">
                                                 <label className="block">
                                                     <span className="mb-1.5 block text-[10px] font-bold uppercase text-slate-400">
-                                                        Цена за единицу, ₸
+                                                        {t('unitPrice')}
                                                     </span>
                                                     <input
                                                         type="number"
@@ -1204,7 +1236,7 @@ export default function CreateOrderModal({
 
                                                 <label className="block">
                                                     <span className="mb-1.5 block text-[10px] font-bold uppercase text-slate-400">
-                                                        Скидка, ₸
+                                                        {t('discount')}
                                                     </span>
                                                     <input
                                                         type="number"
@@ -1218,10 +1250,10 @@ export default function CreateOrderModal({
 
                                                 <div className="flex items-center justify-between gap-4 rounded-xl bg-slate-900 px-4 py-3 text-white sm:flex-col sm:items-start sm:justify-center sm:gap-0">
                                                     <span className="text-[10px] font-bold uppercase tracking-wide text-slate-400">
-                                                        Итого задачи
+                                                        {t('taskTotal')}
                                                     </span>
                                                     <span className="text-xl font-black">
-                                                        {taskTotal.toLocaleString('ru-RU')} ₸
+                                                        {formats.currency(taskTotal)}
                                                     </span>
                                                 </div>
                                             </div>
@@ -1231,10 +1263,10 @@ export default function CreateOrderModal({
                                             <div className="mb-3 flex items-center gap-2">
                                                 <span className="flex h-5 w-5 items-center justify-center rounded-full bg-violet-100 text-[10px] font-black text-violet-700">4</span>
                                                 <h5 id={`task-${index}-files`} className="text-xs font-black uppercase tracking-wide text-slate-700">
-                                                    Вложения
+                                                    {t('attachments')}
                                                 </h5>
                                                 <span className="text-[10px] font-semibold text-slate-400">
-                                                    необязательно
+                                                    {t('optional')}
                                                 </span>
                                             </div>
 
@@ -1242,13 +1274,13 @@ export default function CreateOrderModal({
                                                 <div className="rounded-2xl border border-blue-100 bg-blue-50/60 p-4">
                                                     <div className="flex items-center justify-between gap-3">
                                                         <div>
-                                                            <h6 className="text-xs font-black text-blue-800">Фотографии и скрины</h6>
+                                                            <h6 className="text-xs font-black text-blue-800">{t('images')}</h6>
                                                             <p className="mt-0.5 text-[10px] text-slate-500">
-                                                                Фото модели, референсы и отметки врача
+                                                                {t('imagesHint')}
                                                             </p>
                                                         </div>
                                                         <label className="shrink-0 cursor-pointer rounded-lg bg-blue-600 px-3 py-2 text-[10px] font-black uppercase text-white transition hover:bg-blue-700">
-                                                            Добавить
+                                                            {t('add')}
                                                             <input
                                                                 type="file"
                                                                 accept="image/*"
@@ -1274,7 +1306,7 @@ export default function CreateOrderModal({
                                                                         type="button"
                                                                         onClick={() => handleRemoveTaskImage(index, image.id)}
                                                                         className="text-sm font-black text-slate-300 hover:text-red-500"
-                                                                        aria-label={`Удалить ${image.name}`}
+                                                                        aria-label={t('deleteFileAria', {name: image.name})}
                                                                     >
                                                                         &times;
                                                                     </button>
@@ -1283,7 +1315,7 @@ export default function CreateOrderModal({
                                                         </div>
                                                     ) : (
                                                         <p className="mt-3 rounded-xl border border-dashed border-blue-200 bg-white/70 px-3 py-3 text-center text-xs font-semibold text-slate-400">
-                                                            Изображения не добавлены
+                                                            {t('imagesEmpty')}
                                                         </p>
                                                     )}
                                                 </div>
@@ -1291,13 +1323,13 @@ export default function CreateOrderModal({
                                                 <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                                                     <div className="flex items-center justify-between gap-3">
                                                         <div>
-                                                            <h6 className="text-xs font-black text-slate-700">Документы и файлы</h6>
+                                                            <h6 className="text-xs font-black text-slate-700">{t('files')}</h6>
                                                             <p className="mt-0.5 text-[10px] text-slate-500">
-                                                                STL, PDF и другие материалы к работе
+                                                                {t('filesHint')}
                                                             </p>
                                                         </div>
                                                         <label className="shrink-0 cursor-pointer rounded-lg bg-slate-900 px-3 py-2 text-[10px] font-black uppercase text-white transition hover:bg-slate-800">
-                                                            Прикрепить
+                                                            {t('attach')}
                                                             <input
                                                                 type="file"
                                                                 multiple
@@ -1322,7 +1354,7 @@ export default function CreateOrderModal({
                                                                         type="button"
                                                                         onClick={() => handleRemoveTaskAttachment(index, file.id)}
                                                                         className="text-sm font-black text-slate-300 hover:text-red-500"
-                                                                        aria-label={`Удалить ${file.name}`}
+                                                                        aria-label={t('deleteFileAria', {name: file.name})}
                                                                     >
                                                                         &times;
                                                                     </button>
@@ -1331,7 +1363,7 @@ export default function CreateOrderModal({
                                                         </div>
                                                     ) : (
                                                         <p className="mt-3 rounded-xl border border-dashed border-slate-200 bg-white px-3 py-3 text-center text-xs font-semibold text-slate-400">
-                                                            Файлы не добавлены
+                                                            {t('filesEmpty')}
                                                         </p>
                                                     )}
                                                 </div>
@@ -1355,24 +1387,24 @@ export default function CreateOrderModal({
                         className="mt-4 flex w-full cursor-pointer items-center justify-center gap-2 rounded-2xl border border-dashed border-violet-300 bg-violet-50/50 px-4 py-3 text-xs font-black text-violet-700 transition hover:border-violet-500 hover:bg-violet-50 active:scale-[.995]"
                     >
                         <span className="text-base leading-none">+</span>
-                        Добавить ещё техническую задачу
+                        {t('addTask')}
                     </button>
                 </section>}
 
                 {currentStep === 2 && <>
                 <section className="grid gap-4 lg:grid-cols-[1fr_320px]">
                     <div className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
-                        <h3 className="text-sm font-black text-slate-900">Проверьте заказ перед созданием</h3>
+                        <h3 className="text-sm font-black text-slate-900">{t('reviewTitle')}</h3>
                         <div className="mt-4 grid gap-3 sm:grid-cols-2">
                             <div className="rounded-xl bg-slate-50 p-3">
-                                <p className="text-[10px] font-bold uppercase text-slate-400">Клиника и врач</p>
+                                <p className="text-[10px] font-bold uppercase text-slate-400">{t('clinicDoctor')}</p>
                                 <p className="mt-1 text-sm font-black text-slate-800">{clinics.find((clinic) => clinic.id === formData.clinicId)?.name}</p>
                                 <p className="text-xs text-slate-500">{formData.doctorFullName}</p>
                             </div>
                             <div className="rounded-xl bg-slate-50 p-3">
-                                <p className="text-[10px] font-bold uppercase text-slate-400">Пациент и срок</p>
+                                <p className="text-[10px] font-bold uppercase text-slate-400">{t('patientDeadline')}</p>
                                 <p className="mt-1 text-sm font-black text-slate-800">{formData.patientFullName}</p>
-                                <p className="text-xs text-slate-500">Срок: {formData.deadline}</p>
+                                <p className="text-xs text-slate-500">{t('deadlineValue', {date: formData.deadline})}</p>
                             </div>
                         </div>
                         <div className="mt-4 space-y-2">
@@ -1388,32 +1420,32 @@ export default function CreateOrderModal({
                                             {index + 1}. {workTypes.find((item) => item.id === task.workTypeId)?.name}
                                         </span>
                                         <span className="text-[10px] text-slate-400">
-                                            {task.quantity} шт. · {task.materialIds.length} мат. · {task.toothNumbers.length} зуб.
+                                            {t('compactTaskSummary', {quantity: task.quantity, materials: task.materialIds.length, teeth: task.toothNumbers.length})}
                                         </span>
                                     </span>
-                                    <span className="shrink-0 text-sm font-black text-slate-800">{calculateTaskTotal(task).toLocaleString('ru-RU')} ₸</span>
+                                    <span className="shrink-0 text-sm font-black text-slate-800">{formats.currency(calculateTaskTotal(task))}</span>
                                 </button>
                             ))}
                         </div>
                     </div>
                     <div className="rounded-2xl bg-slate-900 p-5 text-white">
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Состав заказа</p>
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{t('composition')}</p>
                         <p className="mt-2 text-3xl font-black">{formData.tasks.length}</p>
-                        <p className="text-xs text-slate-400">технических работ</p>
+                        <p className="text-xs text-slate-400">{t('workCount')}</p>
                         <div className="my-5 border-t border-slate-700" />
-                        <p className="text-[10px] font-bold uppercase text-slate-400">Общая сумма</p>
-                        <p className="mt-1 text-2xl font-black">{total.toLocaleString('ru-RU')} ₸</p>
+                        <p className="text-[10px] font-bold uppercase text-slate-400">{t('total')}</p>
+                        <p className="mt-1 text-2xl font-black">{formats.currency(total)}</p>
                     </div>
                 </section>
 
                 <section>
                     <h3 className="text-xs font-black text-blue-600 uppercase tracking-widest mb-4 flex items-center gap-2">
-                        <span className="w-2 h-2 bg-blue-600 rounded-full" /> Комментарий к заказу
+                        <span className="w-2 h-2 bg-blue-600 rounded-full" /> {t('comment')}
                     </h3>
 
                     <textarea
                         rows={4}
-                        placeholder="Например: срочный заказ, особенности посадки, пожелания врача..."
+                        placeholder={t('commentPlaceholder')}
                         className="w-full border-2 border-slate-100 rounded-xl px-3 py-2 text-sm focus:border-blue-500 outline-none transition resize-none"
                         value={formData.comment}
                         onChange={(e) => setFormData({ ...formData, comment: e.target.value })}
@@ -1428,30 +1460,35 @@ export default function CreateOrderModal({
                         onClick={() => currentStep === 0 ? onClose() : setCurrentStep((step) => step - 1)}
                         className="w-full px-5 py-2.5 text-sm font-bold text-slate-500 transition hover:text-slate-800 sm:w-auto"
                     >
-                        {currentStep === 0 ? 'Отмена' : 'Назад'}
+                        {currentStep === 0 ? commonT('actions.cancel') : commonT('actions.back')}
                     </button>
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                         {currentStep === 1 && (
                             <span className="text-center text-[11px] font-semibold text-slate-400 sm:text-right">
-                                Заполнено {completedTasksCount} из {formData.tasks.length}
+                                {t('filled', {completed: completedTasksCount, total: formData.tasks.length})}
                             </span>
                         )}
                         {currentStep < 2 ? (
                             <button
+                                key="continue-order"
                                 type="button"
                                 disabled={!canContinue}
-                                onClick={() => setCurrentStep((step) => step + 1)}
+                                onClick={(event) => {
+                                    event.preventDefault();
+                                    setCurrentStep((step) => step + 1);
+                                }}
                                 className="w-full rounded-xl bg-violet-600 px-8 py-3 text-sm font-black text-white shadow-lg shadow-violet-100 transition hover:bg-violet-700 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none sm:w-auto"
                             >
-                                Продолжить
+                                {t('continue')}
                             </button>
                         ) : (
                             <button
+                                key="create-order"
                                 type="submit"
                                 disabled={isSubmitting}
                                 className="w-full rounded-xl bg-blue-600 px-10 py-3 text-sm font-black text-white shadow-lg shadow-blue-100 transition-all hover:bg-blue-700 active:scale-95 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none sm:w-auto"
                             >
-                                {isSubmitting ? 'Создание...' : `Создать заказ · ${total.toLocaleString('ru-RU')} ₸`}
+                                {isSubmitting ? t('creating') : t('createOrder', {total: formats.currency(total)})}
                             </button>
                         )}
                     </div>

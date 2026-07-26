@@ -49,7 +49,14 @@ export function isSamePersonalNote(
     );
 }
 
-export function getPersonalNoteError(error: unknown) {
+export type PersonalNoteErrorKey =
+    | 'expired'
+    | 'sessionExpired'
+    | 'invalidLength'
+    | 'networkError'
+    | 'genericSaveError';
+
+export function getPersonalNoteError(error: unknown): PersonalNoteErrorKey {
     if (
         typeof error === 'object' &&
         error !== null &&
@@ -58,18 +65,18 @@ export function getPersonalNoteError(error: unknown) {
         const status = (error as { status?: unknown }).status;
 
         if (status === 404) {
-            return 'Заметка уже истекла и больше недоступна.';
+            return 'expired';
         }
         if (status === 401) {
-            return 'Сессия истекла. Войдите в систему повторно.';
+            return 'sessionExpired';
         }
         if (status === 400 || status === 422) {
-            return 'Проверьте длину заголовка и текста.';
+            return 'invalidLength';
         }
         if (status === 'FETCH_ERROR' || status === 'TIMEOUT_ERROR') {
-            return 'Нет соединения с сервером. Изменения пока не сохранены.';
+            return 'networkError';
         }
     }
 
-    return 'Не удалось сохранить заметку. Изменения пока не сохранены.';
+    return 'genericSaveError';
 }

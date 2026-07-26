@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useSelector } from 'react-redux';
+import {useTranslations} from 'next-intl';
 
 import type { RootState } from '@/src/lib/store';
 
@@ -21,6 +22,7 @@ function ActionIcon({ name }: { name: 'launcher' | 'close' | 'chat' | 'note' }) 
 }
 
 export default function QuickActionsMenu() {
+    const t = useTranslations('header');
     const [isOpen, setIsOpen] = useState(false);
     const containerRef = useRef<HTMLDivElement | null>(null);
     const totalUnreadCount = useSelector(
@@ -77,8 +79,8 @@ export default function QuickActionsMenu() {
                             type="button"
                             onClick={openChat}
                             tabIndex={isOpen ? 0 : -1}
-                            title="Быстрый чат"
-                            aria-label={totalUnreadCount > 0 ? `Открыть чат, непрочитанных: ${totalUnreadCount}` : 'Открыть быстрый чат'}
+                            title={t('quickChat')}
+                            aria-label={totalUnreadCount > 0 ? t('openQuickChatUnread', {count: totalUnreadCount}) : t('openQuickChat')}
                             className={`${actionClass} border-slate-200 hover:border-violet-200 hover:text-violet-600 dark:border-slate-700 dark:text-slate-400 dark:hover:text-violet-300`}
                         >
                             <ActionIcon name="chat" />
@@ -87,19 +89,19 @@ export default function QuickActionsMenu() {
                                     {totalUnreadCount > 99 ? '99+' : totalUnreadCount}
                                 </span>
                             )}
-                            <span className="pointer-events-none absolute right-[calc(100%+10px)] top-1/2 hidden -translate-y-1/2 whitespace-nowrap rounded-lg bg-slate-950 px-2.5 py-1.5 text-[10px] font-bold text-white shadow-xl group-hover:block group-focus-visible:block">Быстрый чат</span>
+                            <span className="pointer-events-none absolute right-[calc(100%+10px)] top-1/2 hidden -translate-y-1/2 whitespace-nowrap rounded-lg bg-slate-950 px-2.5 py-1.5 text-[10px] font-bold text-white shadow-xl group-hover:block group-focus-visible:block">{t('quickChat')}</span>
                         </button>
 
                         <button
                             type="button"
                             onClick={openNotes}
                             tabIndex={isOpen ? 0 : -1}
-                            title="Личные заметки"
-                            aria-label="Открыть личные заметки"
+                            title={t('notes')}
+                            aria-label={t('openNotes')}
                             className={`${actionClass} border-slate-200 hover:border-amber-200 hover:text-amber-600 dark:border-slate-700 dark:text-slate-400 dark:hover:text-amber-300`}
                         >
                             <ActionIcon name="note" />
-                            <span className="pointer-events-none absolute right-[calc(100%+10px)] top-1/2 hidden -translate-y-1/2 whitespace-nowrap rounded-lg bg-slate-950 px-2.5 py-1.5 text-[10px] font-bold text-white shadow-xl group-hover:block group-focus-visible:block">Личные заметки</span>
+                            <span className="pointer-events-none absolute right-[calc(100%+10px)] top-1/2 hidden -translate-y-1/2 whitespace-nowrap rounded-lg bg-slate-950 px-2.5 py-1.5 text-[10px] font-bold text-white shadow-xl group-hover:block group-focus-visible:block">{t('notes')}</span>
                         </button>
                     </div>
                 </div>
@@ -108,9 +110,9 @@ export default function QuickActionsMenu() {
             <button
                 type="button"
                 onClick={() => setIsOpen((current) => !current)}
-                aria-label={isOpen ? 'Закрыть быстрые инструменты' : 'Открыть чат и заметки'}
+                aria-label={isOpen ? t('closeQuickTools') : t('openQuickTools')}
                 aria-expanded={isOpen}
-                title={isOpen ? 'Закрыть' : 'Чат и заметки'}
+                title={isOpen ? t('closeQuickTools') : t('quickTools')}
                 className={`group relative flex h-11 w-11 items-center justify-center rounded-2xl border shadow-[0_8px_24px_-14px_rgba(15,23,42,.45)] backdrop-blur transition duration-200 hover:border-violet-200 hover:text-violet-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:ring-offset-2 ${
                     isOpen
                         ? 'border-slate-300 bg-slate-100 text-slate-700 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200'
@@ -125,7 +127,7 @@ export default function QuickActionsMenu() {
                         {totalUnreadCount > 99 ? '99+' : totalUnreadCount}
                     </span>
                 )}
-                {!isOpen && <span className="pointer-events-none absolute right-[calc(100%+10px)] top-1/2 hidden -translate-y-1/2 whitespace-nowrap rounded-lg bg-slate-950 px-2.5 py-1.5 text-[10px] font-bold text-white shadow-xl group-hover:block group-focus-visible:block">Чат и заметки</span>}
+                {!isOpen && <span className="pointer-events-none absolute right-[calc(100%+10px)] top-1/2 hidden -translate-y-1/2 whitespace-nowrap rounded-lg bg-slate-950 px-2.5 py-1.5 text-[10px] font-bold text-white shadow-xl group-hover:block group-focus-visible:block">{t('quickTools')}</span>}
             </button>
         </div>
     );

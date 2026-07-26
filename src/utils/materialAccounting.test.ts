@@ -28,8 +28,8 @@ describe('несколько материалов задачи', () => {
     });
 
     it('запрещает пустой набор и обнаруживает дубликаты', () => {
-        expect(validateMaterialIds([])).toContain('хотя бы один');
-        expect(validateMaterialIds(['zirconia', 'zirconia'])).toContain('повторяться');
+        expect(validateMaterialIds([])).toBe('required');
+        expect(validateMaterialIds(['zirconia', 'zirconia'])).toBe('duplicate');
         expect(normalizeMaterialIds(['zirconia', 'zirconia', ' ceramic '])).toEqual(['zirconia', 'ceramic']);
     });
 
@@ -48,10 +48,10 @@ describe('несколько материалов задачи', () => {
 describe('поэтапный материальный отчёт', () => {
     it('проверяет несколько номенклатур и баланс каждой строки', () => {
         expect(validateMaterialUsages([balancedUsage, { ...balancedUsage, nomenclatureId: 'glaze', issuedQuantity: 3, consumedQuantity: 2.5, wasteQuantity: 0.2, returnedQuantity: 0.3 }])).toBe('');
-        expect(validateMaterialUsages([{ ...balancedUsage, returnedQuantity: 1 }])).toContain('равняться');
-        expect(validateMaterialUsages([{ ...balancedUsage, issuedQuantity: -1 }])).toContain('неотрицательными');
-        expect(validateMaterialUsages([balancedUsage, balancedUsage])).toContain('дважды');
-        expect(validateMaterialUsages([{ ...balancedUsage, note: '' }])).toContain('причину потерь');
+        expect(validateMaterialUsages([{ ...balancedUsage, returnedQuantity: 1 }])).toBe('totalsMismatch');
+        expect(validateMaterialUsages([{ ...balancedUsage, issuedQuantity: -1 }])).toBe('negative');
+        expect(validateMaterialUsages([balancedUsage, balancedUsage])).toBe('duplicate');
+        expect(validateMaterialUsages([{ ...balancedUsage, note: '' }])).toBe('wasteReason');
     });
 
     it('требует ненулевой отчёт и запрещает ввод после финализации', () => {
@@ -89,8 +89,8 @@ describe('история и план/факт', () => {
     });
 
     it('показывает перерасход красным смыслом, а экономию зелёным', () => {
-        expect(getVariancePresentation(2)).toEqual({ label: 'перерасход', tone: 'danger' });
-        expect(getVariancePresentation(-2)).toEqual({ label: 'экономия', tone: 'success' });
+        expect(getVariancePresentation(2)).toEqual({ label: 'overrun', tone: 'danger' });
+        expect(getVariancePresentation(-2)).toEqual({ label: 'saving', tone: 'success' });
     });
 });
 import { describe, expect, it } from 'vitest';

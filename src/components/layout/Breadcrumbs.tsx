@@ -2,72 +2,73 @@
 
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
-
-const segmentLabels: Record<string, string> = {
-    orders: 'Заказы',
-    analytics: 'Аналитика',
-    warehouse: 'Склад',
-    clinics: 'Клиники',
-    patients: 'Пациенты',
-    laboratory: 'Лаборатория',
-    employees: 'Сотрудники',
-    employee: 'Рабочая зона',
-    calendar: 'Календарь',
-    accounting: 'Финансы',
-    payroll: 'Зарплатные планы',
-    invoices: 'Счета',
-    documents: 'Документы',
-    'completed-work-acts': 'Акты выполненных работ',
-    settings: 'Личный кабинет',
-    integrations: 'Интеграции',
-    chats: 'Сообщения',
-    tasks: 'Задачи',
-    notes: 'Заметки',
-    'work-types': 'Типы работ',
-    roles: 'Роли',
-    colors: 'Цвета',
-    'knowledge-base': 'База знаний',
-    'tv-dashboard': 'ТВ-экран',
-};
-
-const warehouseTabLabels: Record<string, string> = {
-    overview: 'Обзор',
-    procurement: 'Закупки',
-    nomenclature: 'Номенклатура',
-    inventory: 'Инвентаризация',
-};
-
-function humanizeSegment(segment: string, previousSegment?: string) {
-    if (segmentLabels[segment]) return segmentLabels[segment];
-    if (previousSegment === 'orders') return 'Карточка заказа';
-    if (previousSegment === 'employees') return 'Карточка сотрудника';
-    if (previousSegment === 'chats') return 'Диалог';
-
-    const decoded = decodeURIComponent(segment);
-    if (/^[0-9a-f-]{16,}$/iu.test(decoded)) return 'Подробнее';
-
-    return decoded
-        .replace(/[-_]+/gu, ' ')
-        .replace(/^./u, (letter) => letter.toLocaleUpperCase('ru-RU'));
-}
+import {useTranslations} from 'next-intl';
 
 export default function Breadcrumbs() {
+    const t = useTranslations('navigation');
     const pathname = usePathname();
     const searchParams = useSearchParams();
     const segments = pathname.split('/').filter(Boolean);
+    const segmentLabel = (segment: string, previousSegment?: string) => {
+        switch (segment) {
+            case 'orders': return t('orders');
+            case 'analytics': return t('analytics');
+            case 'warehouse': return t('warehouse');
+            case 'clinics': return t('clinics');
+            case 'patients': return t('patients');
+            case 'laboratory': return t('laboratory');
+            case 'employees': return t('employees');
+            case 'employee': return t('workspace');
+            case 'calendar': return t('calendar');
+            case 'accounting': return t('financeReport');
+            case 'payroll': return t('payroll');
+            case 'invoices': return t('invoices');
+            case 'documents': return t('documents');
+            case 'completed-work-acts': return t('completedWorkActs');
+            case 'settings': return t('settings');
+            case 'integrations': return t('integrations');
+            case 'chats': return t('chats');
+            case 'tasks': return t('tasks');
+            case 'notes': return t('notes');
+            case 'work-types': return t('workTypes');
+            case 'roles': return t('roles');
+            case 'colors': return t('colors');
+            case 'knowledge-base': return t('knowledgeBase');
+            case 'tv-dashboard': return t('tvDashboard');
+        }
+
+        if (previousSegment === 'orders') return t('orderDetails');
+        if (previousSegment === 'employees') return t('employeeDetails');
+        if (previousSegment === 'chats') return t('conversation');
+
+        const decoded = decodeURIComponent(segment);
+        if (/^[0-9a-f-]{16,}$/iu.test(decoded)) return t('details');
+
+        return decoded
+            .replace(/[-_]+/gu, ' ')
+            .replace(/^./u, (letter) => letter.toLocaleUpperCase());
+    };
+    const warehouseTabLabel = (tab: string) => {
+        switch (tab) {
+            case 'procurement': return t('procurement');
+            case 'nomenclature': return t('nomenclature');
+            case 'inventory': return t('inventory');
+            default: return t('overview');
+        }
+    };
     const crumbs = [
-        { label: 'Главная', href: '/' },
+        { label: t('home'), href: '/' },
         ...segments.map((segment, index) => ({
-            label: humanizeSegment(segment, segments[index - 1]),
+            label: segmentLabel(segment, segments[index - 1]),
             href: `/${segments.slice(0, index + 1).join('/')}`,
         })),
     ];
 
     if (pathname === '/warehouse') {
         const tab = searchParams.get('tab') || 'overview';
-        if (tab !== 'overview' && warehouseTabLabels[tab]) {
+        if (tab !== 'overview' && ['procurement', 'nomenclature', 'inventory'].includes(tab)) {
             crumbs.push({
-                label: warehouseTabLabels[tab],
+                label: warehouseTabLabel(tab),
                 href: `/warehouse?tab=${tab}`,
             });
         }
@@ -75,7 +76,7 @@ export default function Breadcrumbs() {
 
     return (
         <nav
-            aria-label="Навигационный путь"
+            aria-label={t('breadcrumb')}
             className="relative z-30 flex h-10 shrink-0 items-center border-b border-slate-200/80 bg-[var(--app-background)] px-4 dark:border-slate-800 sm:px-6 lg:px-8"
         >
             <ol className="flex w-full min-w-0 items-center gap-1.5 overflow-x-auto whitespace-nowrap [scrollbar-width:none]">

@@ -5,6 +5,8 @@ import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import Link from 'next/link';
 import type { WorkBoardTask } from '@/src/types/task.types';
+import {useTranslations} from 'next-intl';
+import {useAppFormatters} from '@/src/i18n/provider';
 
 // Цвета для материалов
 const materialColors: { [key: string]: string } = {
@@ -20,6 +22,8 @@ interface TaskCardProps {
 }
 
 export const TaskCard = ({ task, role }: TaskCardProps) => {
+    const t = useTranslations('orders.board');
+    const format = useAppFormatters();
     const {
         attributes,
         listeners,
@@ -75,9 +79,9 @@ export const TaskCard = ({ task, role }: TaskCardProps) => {
 
                 <div>
                     <h3 className="text-slate-900 font-semibold text-sm leading-tight">
-                        {task.type} ({task.units} ед.)
+                        {task.type} ({task.units})
                     </h3>
-                    <p className="text-xs text-slate-600 mt-1">Пациент: {task.patient}</p>
+                    <p className="text-xs text-slate-600 mt-1">{t('patient', {name: task.patient})}</p>
                 </div>
 
                 <div className="flex flex-wrap gap-1.5 mt-2">
@@ -91,9 +95,9 @@ export const TaskCard = ({ task, role }: TaskCardProps) => {
                         {task.patient[0]}
                     </div>
                     <div className={`text-right text-xs p-1.5 rounded ${isOverdue ? 'bg-red-100 text-red-800' : isToday ? 'bg-orange-100 text-orange-800' : 'text-slate-500'}`}>
-                        <p className="text-[10px] uppercase tracking-wider leading-none">Срок</p>
+                        <p className="text-[10px] uppercase tracking-wider leading-none">{t('deadline')}</p>
                         <p className="mt-0.5 leading-none">
-                            {new Date(task.deadline).toLocaleDateString('ru-RU', {
+                            {format.date(task.deadline, {
                                 day: 'numeric',
                                 month: 'short'
                             })}

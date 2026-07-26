@@ -1,6 +1,7 @@
 'use client';
 
 import { type FormEvent, useMemo, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import Modal from '@/src/components/ui/Modal';
 import QueryErrorNotice from '@/src/components/ui/QueryErrorNotice';
 import {
@@ -139,9 +140,9 @@ function getUniqueTasks(tasks: OrderKanbanTask[]) {
     return Array.from(new Map(tasks.map((task) => [task.id, task])).values());
 }
 
-function getTaskLabel(task: OrderKanbanTask) {
+function getTaskLabel(task: OrderKanbanTask, fallback: string) {
     const number = task.taskNumber || task.id.slice(0, 8);
-    return `${number} · ${task.workTypeName || task.workTypeCode || 'Техническая задача'}`;
+    return `${number} · ${task.workTypeName || task.workTypeCode || fallback}`;
 }
 
 function TaskAssignmentEditor({
@@ -155,6 +156,8 @@ function TaskAssignmentEditor({
     isUsersLoading: boolean;
     canEdit: boolean;
 }) {
+    const t = useTranslations('tasks.assignment');
+    const commonT = useTranslations('common');
     const {
         data: assignment,
         isFetching: isAssignmentFetching,
@@ -251,8 +254,6 @@ function TaskAssignmentEditor({
                 : changedStatusAssignees,
         };
 
-        console.log({body})
-
         try {
             const savedAssignment = await updateTaskAssignment({
                 taskId: task.id,
@@ -270,19 +271,19 @@ function TaskAssignmentEditor({
     };
 
     if (isAssignmentFetching && !assignment) {
-        return <p className="py-10 text-center text-sm font-semibold text-slate-500">Загрузка назначений...</p>;
+        return <p className="py-10 text-center text-sm font-semibold text-slate-500">{t('loading')}</p>;
     }
 
     if (isAssignmentError) {
         return (
             <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-600">
-                <p>Не удалось загрузить план ответственных.</p>
+                <p>{t('loadError')}</p>
                 <button
                     type="button"
                     onClick={() => void refetch()}
                     className="mt-3 rounded-lg bg-red-600 px-3 py-2 text-xs font-bold text-white"
                 >
-                    Повторить
+                    {commonT('actions.retry')}
                 </button>
             </div>
         );
@@ -293,7 +294,7 @@ function TaskAssignmentEditor({
             <div className="grid gap-4 md:grid-cols-[260px_1fr]">
                 <label className="block">
                     <span className="mb-1.5 block text-xs font-black uppercase tracking-wider text-slate-500">
-                        Режим назначения
+                        {t('mode')}
                     </span>
                     <select
                         value={assignmentMode}
@@ -301,15 +302,15 @@ function TaskAssignmentEditor({
                         onChange={(event) => handleModeChange(event.target.value as TaskAssignmentMode)}
                         className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-700 outline-none focus:border-blue-500 disabled:bg-slate-100"
                     >
-                        <option value="AUTO">Автоматическое</option>
-                        <option value="PREASSIGNED">Назначить заранее</option>
+                        <option value="AUTO">{t('automatic')}</option>
+                        <option value="PREASSIGNED">{t('preassigned')}</option>
                     </select>
                 </label>
 
                 <div className="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-xs font-semibold text-blue-700">
                     {assignmentMode === 'AUTO'
-                        ? 'При сохранении ручной план будет очищен, исполнителей назначит система.'
-                        : 'Для PREASSIGNED необходимо выбрать сотрудника для каждого этапа workflow.'}
+                        ? t('autoHint')
+                        : t('preassignedHint')}
                 </div>
             </div>
 
@@ -317,16 +318,16 @@ function TaskAssignmentEditor({
                 <div>
                     <div className="mb-3 flex items-center justify-between gap-3">
                         <h3 className="text-xs font-black uppercase tracking-wider text-slate-700">
-                            Ответственные по этапам
+                            {t('assignees')}
                         </h3>
                         {(isWorkflowFetching || isWorkTypesFetching) && (
-                            <span className="text-xs font-semibold text-blue-600">Загрузка workflow...</span>
+                            <span className="text-xs font-semibold text-blue-600">{t('loadingWorkflow')}</span>
                         )}
                     </div>
 
                     {isWorkTypesError && !task.workTypeId && (
                         <QueryErrorNotice
-                            message="Не удалось определить вид работы для загрузки workflow."
+                            message={t('missingWorkType')}
                             onRetry={() => void refetchWorkTypes()}
                             isRetrying={isWorkTypesFetching}
                         />
@@ -334,13 +335,13 @@ function TaskAssignmentEditor({
 
                     {!isWorkTypesFetching && !isWorkTypesError && !workTypeId && stages.length === 0 && (
                         <p className="rounded-xl border border-yellow-200 bg-yellow-50 px-4 py-3 text-xs font-semibold text-yellow-700">
-                            Backend не вернул workTypeId задачи, поэтому список этапов получить невозможно.
+                            {t('missingWorkTypeHint')}
                         </p>
                     )}
 
                     {isWorkflowError && stages.length === 0 && (
                         <QueryErrorNotice
-                            message="Не удалось загрузить этапы workflow."
+                            message={t('workflowError')}
                             onRetry={() => void refetchWorkflow()}
                             isRetrying={isWorkflowFetching}
                         />
@@ -348,7 +349,7 @@ function TaskAssignmentEditor({
 
                     {!isWorkflowFetching && !isWorkTypesFetching && stages.length === 0 && workTypeId && !isWorkflowError && (
                         <p className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-center text-sm text-slate-500">
-                            Для этого вида работы нет промежуточных этапов.
+                            {t('emptyWorkflow')}
                         </p>
                     )}
 
@@ -360,7 +361,7 @@ function TaskAssignmentEditor({
                                 const roleLabel = normalizedRequiredRole.includes('admin')
                                     || normalizedRequiredRole.includes('dispatcher')
                                     ? 'ROLE_ADMIN / ROLE_DISPATCHER'
-                                    : stage.requiredRole || 'Роль не указана';
+                                    : stage.requiredRole || commonT('states.roleMissing');
 
                                 return (
                                     <label key={stage.statusId} className="rounded-xl border border-slate-200 bg-slate-50 p-3">
@@ -377,7 +378,7 @@ function TaskAssignmentEditor({
                                             onChange={(event) => handleAssigneeChange(stage.statusId, event.target.value)}
                                             className="mt-2 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs font-semibold text-slate-700 outline-none focus:border-blue-500 disabled:bg-slate-100"
                                         >
-                                            <option value="">Выберите сотрудника</option>
+                                            <option value="">{t('employeePlaceholder')}</option>
                                             {eligibleUsers.map((user) => (
                                                 <option key={user.id} value={user.id}>
                                                     {getUserLabel(user)}
@@ -386,7 +387,7 @@ function TaskAssignmentEditor({
                                         </select>
                                         {eligibleUsers.length === 0 && (
                                             <span className="mt-1 block text-[10px] font-semibold text-red-500">
-                                                Нет активных сотрудников с ролью {stage.requiredRole}
+                                                {t('noEmployees', {role: stage.requiredRole})}
                                             </span>
                                         )}
                                     </label>
@@ -399,7 +400,7 @@ function TaskAssignmentEditor({
 
             {!canEdit && (
                 <p className="rounded-xl bg-slate-100 px-4 py-3 text-xs font-semibold text-slate-600">
-                    Изменять ответственных могут только администратор и диспетчер.
+                    {t('permissionHint')}
                 </p>
             )}
 
@@ -411,10 +412,10 @@ function TaskAssignmentEditor({
                         className="w-full rounded-xl bg-blue-600 px-6 py-3 text-sm font-black text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300 sm:w-auto"
                     >
                         {isSaving
-                            ? 'Сохраняем...'
+                            ? t('saving')
                             : hasChanges
-                                ? 'Сохранить ответственных'
-                                : 'Нет изменений'}
+                                ? t('save')
+                                : t('noChanges')}
                     </button>
                 </div>
             )}
@@ -431,6 +432,8 @@ export default function TaskAssignmentModal({
     canEdit,
     onClose,
 }: TaskAssignmentModalProps) {
+    const t = useTranslations('tasks.assignment');
+    const commonT = useTranslations('common');
     const uniqueTasks = useMemo(() => getUniqueTasks(tasks), [tasks]);
     const [selectedTaskId, setSelectedTaskId] = useState(initialTaskId);
     const selectedTask = uniqueTasks.find((task) => task.id === selectedTaskId) ?? uniqueTasks[0];
@@ -441,16 +444,16 @@ export default function TaskAssignmentModal({
         <Modal contentClassName="max-w-5xl overflow-hidden p-0">
             <div className="flex items-start justify-between gap-4 border-b border-slate-200 bg-gradient-to-r from-violet-50 to-white px-5 py-5 dark:border-slate-700 dark:from-violet-950/30 dark:to-slate-900 sm:px-6">
                 <div>
-                    <p className="text-[10px] font-black uppercase tracking-[.18em] text-violet-600">Команда производства</p><h2 className="mt-1 text-xl font-black text-slate-950 dark:text-white">Ответственные по этапам</h2>
+                    <p className="text-[10px] font-black uppercase tracking-[.18em] text-violet-600">{t('badge')}</p><h2 className="mt-1 text-xl font-black text-slate-950 dark:text-white">{t('title')}</h2>
                     <p className="mt-1 text-xs text-slate-500">
-                        Режим назначения и полный план исполнителей для технической задачи
+                        {t('subtitle')}
                     </p>
                 </div>
                 <button
                     type="button"
                     onClick={onClose}
                     className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-xl text-slate-400 shadow-sm transition hover:bg-slate-100 dark:bg-slate-800"
-                    aria-label="Закрыть"
+                    aria-label={commonT('actions.close')}
                 >
                     &times;
                 </button>
@@ -460,7 +463,7 @@ export default function TaskAssignmentModal({
                 {uniqueTasks.length > 1 && (
                     <label className="block">
                         <span className="mb-1.5 block text-xs font-black uppercase tracking-wider text-slate-500">
-                            Техническая задача
+                            {t('technicalTask')}
                         </span>
                         <select
                             value={selectedTask?.id ?? ''}
@@ -469,7 +472,7 @@ export default function TaskAssignmentModal({
                         >
                             {uniqueTasks.map((task) => (
                                 <option key={task.id} value={task.id}>
-                                    {getTaskLabel(task)}
+                                    {getTaskLabel(task, t('technicalTask'))}
                                 </option>
                             ))}
                         </select>
@@ -486,7 +489,7 @@ export default function TaskAssignmentModal({
                     />
                 ) : (
                     <p className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-10 text-center text-sm text-slate-500">
-                        В заказе нет технических задач.
+                        {t('emptyOrder')}
                     </p>
                 )}
             </div>

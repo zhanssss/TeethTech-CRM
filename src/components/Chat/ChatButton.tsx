@@ -1,6 +1,7 @@
 'use client'
 
 import { usePathname, useRouter } from 'next/navigation'
+import { useTranslations } from 'next-intl'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 
@@ -12,6 +13,7 @@ import {
 	useSendTextMessageMutation
 } from '@/src/services/api/chatApi'
 import { formatChatTime, getInitials, normalizeMessages, sortByLastMessageAt } from '@/src/utils/chatUtils'
+import { useAppLocale } from '@/src/i18n/provider'
 
 function Icon({ name, className = 'h-5 w-5' }: { name: 'chat' | 'close' | 'back' | 'minimize' | 'send' | 'expand'; className?: string }) {
 	const paths = {
@@ -26,6 +28,9 @@ function Icon({ name, className = 'h-5 w-5' }: { name: 'chat' | 'close' | 'back'
 }
 
 export default function ChatButton() {
+	const t = useTranslations('chat.mini')
+	const chatT = useTranslations('chat')
+	const { locale } = useAppLocale()
 	const pathname = usePathname()
 	const router = useRouter()
 	const dispatch = useDispatch<AppDispatch>()
@@ -98,28 +103,28 @@ export default function ChatButton() {
 			{isOpen ? (
 				<section className="mb-3 flex h-[min(610px,calc(100dvh-7rem))] w-[min(390px,calc(100vw-2rem))] flex-col overflow-hidden rounded-[28px] border border-slate-200/80 bg-white shadow-[0_28px_80px_-22px_rgba(15,23,42,.55)] dark:border-slate-700 dark:bg-slate-900">
 					<header className="flex min-h-[72px] items-center gap-3 bg-gradient-to-r from-violet-600 to-indigo-600 px-4 text-white">
-						{selectedChat ? <button type="button" onClick={() => setSelectedId(null)} className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/10 hover:bg-white/20" aria-label="Назад"><Icon name="back" /></button> : <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white/15"><Icon name="chat" /></span>}
-						<div className="min-w-0 flex-1"><p className="truncate text-sm font-black">{selectedChat?.title ?? 'Быстрый чат'}</p><p className="mt-0.5 text-[11px] text-violet-100">{selectedChat ? 'В сети · сообщения в реальном времени' : `${totalUnreadCount} непрочитанных`}</p></div>
-						{selectedChat ? <button type="button" onClick={() => router.push(`/chats/${selectedChat.id}`)} className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/10 hover:bg-white/20" aria-label="Открыть полный чат"><Icon name="expand" className="h-4 w-4" /></button> : null}
-						<button type="button" onClick={() => setIsOpen(false)} className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/10 hover:bg-white/20" aria-label="Свернуть"><Icon name="minimize" /></button>
-						<button type="button" onClick={() => setIsOpen(false)} className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/10 hover:bg-white/20" aria-label="Закрыть мини-чат"><Icon name="close" /></button>
+						{selectedChat ? <button type="button" onClick={() => setSelectedId(null)} className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/10 hover:bg-white/20" aria-label={t('back')}><Icon name="back" /></button> : <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white/15"><Icon name="chat" /></span>}
+						<div className="min-w-0 flex-1"><p className="truncate text-sm font-black">{selectedChat?.title ?? t('title')}</p><p className="mt-0.5 text-[11px] text-violet-100">{selectedChat ? t('online') : t('unread', {count: totalUnreadCount})}</p></div>
+						{selectedChat ? <button type="button" onClick={() => router.push(`/chats/${selectedChat.id}`)} className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/10 hover:bg-white/20" aria-label={t('openFull')}><Icon name="expand" className="h-4 w-4" /></button> : null}
+						<button type="button" onClick={() => setIsOpen(false)} className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/10 hover:bg-white/20" aria-label={t('minimize')}><Icon name="minimize" /></button>
+						<button type="button" onClick={() => setIsOpen(false)} className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/10 hover:bg-white/20" aria-label={t('close')}><Icon name="close" /></button>
 					</header>
 
 					{selectedChat ? (
 						<>
 							<div ref={listRef} className="flex-1 space-y-3 overflow-y-auto bg-slate-50 p-4 dark:bg-slate-950">
-								{isFetching && messages.length === 0 ? <p className="py-8 text-center text-xs text-slate-400">Загрузка сообщений…</p> : null}
+								{isFetching && messages.length === 0 ? <p className="py-8 text-center text-xs text-slate-400">{t('loading')}</p> : null}
 								{messages.map(message => {
 									const mine = message.senderId === currentUserId
-									return <div key={message.id} className={`flex ${mine ? 'justify-end' : 'justify-start'}`}><div className={`max-w-[82%] rounded-2xl px-3.5 py-2.5 text-sm shadow-sm ${mine ? 'rounded-br-md bg-gradient-to-br from-violet-600 to-indigo-600 text-white' : 'rounded-bl-md border border-slate-200 bg-white text-slate-800 dark:border-slate-700 dark:bg-slate-800 dark:text-white'}`}><p className="whitespace-pre-wrap leading-5">{message.deleted ? 'Сообщение удалено' : message.text}</p><p className={`mt-1 text-right text-[9px] ${mine ? 'text-violet-100' : 'text-slate-400'}`}>{formatChatTime(message.createdAt)}{mine ? ' · ✓✓' : ''}</p></div></div>
+									return <div key={message.id} className={`flex ${mine ? 'justify-end' : 'justify-start'}`}><div className={`max-w-[82%] rounded-2xl px-3.5 py-2.5 text-sm shadow-sm ${mine ? 'rounded-br-md bg-gradient-to-br from-violet-600 to-indigo-600 text-white' : 'rounded-bl-md border border-slate-200 bg-white text-slate-800 dark:border-slate-700 dark:bg-slate-800 dark:text-white'}`}><p className="whitespace-pre-wrap leading-5">{message.deleted ? chatT('deletedMessage') : message.text}</p><p className={`mt-1 text-right text-[9px] ${mine ? 'text-violet-100' : 'text-slate-400'}`}>{formatChatTime(message.createdAt, locale)}{mine ? ' · ✓✓' : ''}</p></div></div>
 								})}
 							</div>
-							<div className="border-t border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-900"><div className="flex items-end gap-2 rounded-2xl bg-slate-100 p-2 dark:bg-slate-800"><textarea value={composer} onChange={event => setComposer(event.target.value)} onKeyDown={event => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); void handleSend() } }} rows={1} placeholder="Сообщение…" className="max-h-24 min-h-10 flex-1 resize-none bg-transparent px-2 py-2.5 text-sm text-slate-900 outline-none dark:text-white" /><button type="button" onClick={() => void handleSend()} disabled={!composer.trim() || isSending} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-violet-600 text-white shadow-md disabled:opacity-40" aria-label="Отправить"><Icon name="send" className="h-4 w-4" /></button></div></div>
+							<div className="border-t border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-900"><div className="flex items-end gap-2 rounded-2xl bg-slate-100 p-2 dark:bg-slate-800"><textarea value={composer} onChange={event => setComposer(event.target.value)} onKeyDown={event => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); void handleSend() } }} rows={1} placeholder={t('placeholder')} className="max-h-24 min-h-10 flex-1 resize-none bg-transparent px-2 py-2.5 text-sm text-slate-900 outline-none dark:text-white" /><button type="button" onClick={() => void handleSend()} disabled={!composer.trim() || isSending} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-violet-600 text-white shadow-md disabled:opacity-40" aria-label={t('send')}><Icon name="send" className="h-4 w-4" /></button></div></div>
 						</>
 					) : (
 						<div className="flex-1 overflow-y-auto p-2.5">
-							<div className="px-2 pb-2 pt-1"><p className="text-xs font-bold uppercase tracking-[.12em] text-slate-400">Недавние диалоги</p></div>
-							{sortedChats.length ? sortedChats.map(chat => <button key={chat.id} type="button" onClick={() => openConversation(chat.id)} className="mb-1 flex w-full items-center gap-3 rounded-2xl p-3 text-left transition hover:bg-violet-50 dark:hover:bg-violet-500/10"><span className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-500 to-indigo-600 text-xs font-black text-white">{getInitials(chat.title)}<i className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-white bg-emerald-500 dark:border-slate-900" /></span><span className="min-w-0 flex-1"><span className="flex items-center justify-between gap-2"><b className="truncate text-sm text-slate-900 dark:text-white">{chat.title}</b><small className="text-[9px] text-slate-400">{formatChatTime(chat.lastMessageAt)}</small></span><span className="mt-1 flex items-center justify-between gap-2"><span className="truncate text-xs text-slate-500">{chat.lastMessage ?? 'Начните диалог'}</span>{chat.unreadCount > 0 ? <b className="flex h-5 min-w-5 items-center justify-center rounded-full bg-violet-600 px-1 text-[9px] text-white">{chat.unreadCount}</b> : null}</span></span></button>) : <p className="py-12 text-center text-sm text-slate-500">Диалогов пока нет</p>}
+							<div className="px-2 pb-2 pt-1"><p className="text-xs font-bold uppercase tracking-[.12em] text-slate-400">{t('recent')}</p></div>
+							{sortedChats.length ? sortedChats.map(chat => <button key={chat.id} type="button" onClick={() => openConversation(chat.id)} className="mb-1 flex w-full items-center gap-3 rounded-2xl p-3 text-left transition hover:bg-violet-50 dark:hover:bg-violet-500/10"><span className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-500 to-indigo-600 text-xs font-black text-white">{getInitials(chat.title)}<i className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-white bg-emerald-500 dark:border-slate-900" /></span><span className="min-w-0 flex-1"><span className="flex items-center justify-between gap-2"><b className="truncate text-sm text-slate-900 dark:text-white">{chat.title}</b><small className="text-[9px] text-slate-400">{formatChatTime(chat.lastMessageAt, locale)}</small></span><span className="mt-1 flex items-center justify-between gap-2"><span className="truncate text-xs text-slate-500">{chat.lastMessage ?? chatT('startDialogue')}</span>{chat.unreadCount > 0 ? <b className="flex h-5 min-w-5 items-center justify-center rounded-full bg-violet-600 px-1 text-[9px] text-white">{chat.unreadCount}</b> : null}</span></span></button>) : <p className="py-12 text-center text-sm text-slate-500">{t('noDialogs')}</p>}
 						</div>
 					)}
 				</section>

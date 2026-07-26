@@ -20,22 +20,10 @@ import type {
     InvoiceStatus,
     Payment,
 } from '@/src/types/invoice.types';
+import {useTranslations} from 'next-intl';
+import {useAppFormatters} from '@/src/i18n/provider';
 
 const PAGE_SIZE = 30;
-
-const moneyFormatter = new Intl.NumberFormat('ru-KZ', {
-    style: 'currency',
-    currency: 'KZT',
-    minimumFractionDigits: 2,
-});
-
-const invoiceStatusLabels: Record<string, string> = {
-    DRAFT: 'Черновик',
-    ISSUED: 'Выставлен',
-    PARTIALLY_PAID: 'Частично оплачен',
-    PAID: 'Оплачен',
-    CANCELLED: 'Отменён',
-};
 
 const invoiceStatusClasses: Record<string, string> = {
     DRAFT: 'border-slate-200 bg-slate-100 text-slate-700',
@@ -43,12 +31,6 @@ const invoiceStatusClasses: Record<string, string> = {
     PARTIALLY_PAID: 'border-amber-200 bg-amber-50 text-amber-700',
     PAID: 'border-emerald-200 bg-emerald-50 text-emerald-700',
     CANCELLED: 'border-red-200 bg-red-50 text-red-700',
-};
-
-const paymentMethodLabels: Record<string, string> = {
-    CASH: 'Наличные',
-    BANK_TRANSFER: 'Банковский перевод',
-    CARD: 'Карта',
 };
 
 type ApiErrorShape = {
@@ -59,29 +41,6 @@ type ApiErrorShape = {
     } | string;
     message?: string;
 };
-
-function formatMoney(value?: number | null) {
-    return moneyFormatter.format(value ?? 0);
-}
-
-function formatDate(value?: string | null, includeTime = false) {
-    if (!value) return 'Не указано';
-
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return value;
-
-    return new Intl.DateTimeFormat('ru-KZ', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-        ...(includeTime
-            ? {
-                hour: '2-digit',
-                minute: '2-digit',
-            }
-            : {}),
-    }).format(date);
-}
 
 function padDatePart(value: number) {
     return String(value).padStart(2, '0');
@@ -107,25 +66,33 @@ function parseAmount(value: string) {
     return Number(value.replace(/\s/gu, '').replace(',', '.'));
 }
 
-function validateAmount(value: string, availableAmount: number, noun: string) {
+function validateAmount(
+    value: string,
+    availableAmount: number,
+    messages: {required: string; positive: string; maximum: string}
+) {
     const amount = parseAmount(value);
 
     if (!value.trim() || !Number.isFinite(amount)) {
-        return `Введите сумму ${noun}`;
+        return messages.required;
     }
 
     if (amount <= 0) {
-        return 'Сумма должна быть больше нуля';
+        return messages.positive;
     }
 
     if (amount > availableAmount) {
-        return `Можно указать не больше ${formatMoney(availableAmount)}`;
+        return messages.maximum;
     }
 
     return null;
 }
 
-function getApiErrorMessage(error: unknown, fallback: string) {
+function getApiErrorMessage(
+    error: unknown,
+    fallback: string,
+    statusMessages: Record<'403' | '404' | '500', string>
+) {
     if (!error || typeof error !== 'object') return fallback;
 
     const apiError = error as ApiErrorShape;
@@ -137,9 +104,9 @@ function getApiErrorMessage(error: unknown, fallback: string) {
         return apiError.data;
     }
 
-    if (apiError.status === 403) return 'Недостаточно прав для финансовой операции';
-    if (apiError.status === 404) return 'Запись не найдена. Данные будут обновлены';
-    if (apiError.status === 500) return 'Сервис счетов временно недоступен';
+    if (apiError.status === 403) return statusMessages['403'];
+    if (apiError.status === 404) return statusMessages['404'];
+    if (apiError.status === 500) return statusMessages['500'];
 
     return apiError.message ?? fallback;
 }
@@ -149,13 +116,17 @@ function getInvoiceBalance(invoice: Invoice) {
 }
 
 function StatusBadge({ status }: { status: InvoiceStatus }) {
+    const t = useTranslations('accounting.invoices.statuses');
+    const label = ['DRAFT', 'ISSUED', 'PARTIALLY_PAID', 'PAID', 'CANCELLED'].includes(status)
+        ? t(status as 'DRAFT' | 'ISSUED' | 'PARTIALLY_PAID' | 'PAID' | 'CANCELLED')
+        : status;
     return (
         <span
             className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-bold ${
                 invoiceStatusClasses[status] ?? 'border-violet-200 bg-violet-50 text-violet-700'
             }`}
         >
-            {invoiceStatusLabels[status] ?? status}
+            {label}
         </span>
     );
 }
@@ -169,6 +140,8 @@ function Pagination({
     totalPages: number;
     onChange: (page: number) => void;
 }) {
+    const t = useTranslations('accounting.invoices');
+    const commonT = useTranslations('common.pagination');
     if (totalPages <= 1) return null;
 
     return (
@@ -179,10 +152,10 @@ function Pagination({
                 disabled={page === 0}
                 className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
             >
-                Назад
+                {commonT('previous')}
             </button>
             <span className="text-sm text-slate-500">
-                Страница <strong className="text-slate-800">{page + 1}</strong> из {totalPages}
+                {t('pagination', {page: page + 1, total: totalPages})}
             </span>
             <button
                 type="button"
@@ -190,7 +163,7 @@ function Pagination({
                 disabled={page >= totalPages - 1}
                 className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
             >
-                Далее
+                {commonT('next')}
             </button>
         </div>
     );
@@ -217,6 +190,15 @@ function Notice({
 }
 
 export default function InvoicesPage() {
+    const t = useTranslations('accounting.invoices');
+    const commonT = useTranslations('common.actions');
+    const {currency: formatMoney, date, dateTime} = useAppFormatters();
+    const formatDate = (value?: string | null, includeTime = false) => {
+        if (!value) return t('unspecified');
+        return includeTime
+            ? dateTime(value, {day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit'})
+            : date(value, {day: '2-digit', month: '2-digit', year: 'numeric'});
+    };
     const { notifyError } = useNotifications();
     const [pendingPage, setPendingPage] = useState(0);
     const [invoicesPage, setInvoicesPage] = useState(0);
@@ -359,7 +341,11 @@ export default function InvoicesPage() {
         const validationError = validateAmount(
             invoiceAmount,
             selectedSummary.remainingToInvoice,
-            'счёта'
+            {
+                required: t('validation.amount', {subject: t('validation.invoice')}),
+                positive: t('validation.positive'),
+                maximum: t('validation.maximum', {amount: formatMoney(selectedSummary.remainingToInvoice)}),
+            }
         );
         if (validationError) {
             notifyError(validationError);
@@ -421,7 +407,11 @@ export default function InvoicesPage() {
         const validationError = validateAmount(
             paymentAmount,
             selectedInvoiceBalance,
-            'оплаты'
+            {
+                required: t('validation.amount', {subject: t('validation.payment')}),
+                positive: t('validation.positive'),
+                maximum: t('validation.maximum', {amount: formatMoney(selectedInvoiceBalance)}),
+            }
         );
         if (validationError) {
             notifyError(validationError);
@@ -457,7 +447,7 @@ export default function InvoicesPage() {
 
         const reason = reversalReason.trim();
         if (!reason) {
-            notifyError('Укажите причину сторнирования');
+            notifyError(t('validation.reversal'));
             return;
         }
 
@@ -485,14 +475,14 @@ export default function InvoicesPage() {
 
     return (
         <div className="mx-auto w-full max-w-[1500px] space-y-6 pb-8">
-            <header className="relative overflow-hidden rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900 lg:flex lg:items-end lg:justify-between">
+            <header className="relative overflow-hidden rounded-[28px] border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-6 lg:flex lg:items-end lg:justify-between">
                 <div>
                     <p className="text-xs font-black uppercase tracking-[0.18em] text-violet-600">
-                        Финансы
+                        {t('eyebrow')}
                     </p>
-                    <h1 className="mt-1 text-3xl font-black text-slate-950 dark:text-white">Счета и оплаты</h1>
+                    <h1 className="mt-1 text-2xl font-black text-slate-950 dark:text-white sm:text-3xl">{t('title')}</h1>
                     <p className="mt-1 text-sm text-slate-500">
-                        Выставление счетов клиникам, контроль оплат и история операций
+                        {t('subtitle')}
                     </p>
                 </div>
                 <button
@@ -502,76 +492,76 @@ export default function InvoicesPage() {
                         invoicesQuery.refetch();
                     }}
                     disabled={pendingQuery.isFetching || invoicesQuery.isFetching}
-                    className="inline-flex min-h-11 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 shadow-sm transition hover:border-blue-300 hover:text-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="mt-4 inline-flex min-h-11 w-full items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 shadow-sm transition hover:border-blue-300 hover:text-blue-700 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto lg:mt-0"
                 >
-                    Обновить данные
+                    {t('refresh')}
                 </button>
             </header>
 
             <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
                 <article className="rounded-[22px] border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-                    <p className="text-xs font-bold uppercase tracking-wide text-slate-400">К выставлению</p>
+                    <p className="text-xs font-bold uppercase tracking-wide text-slate-400">{t('metrics.pending')}</p>
                     <p className="mt-2 text-2xl font-black text-slate-900">
                         {pendingQuery.data?.totalElements ?? 0}
                     </p>
-                    <p className="mt-1 text-xs text-slate-500">заказов ожидают счёт</p>
+                    <p className="mt-1 text-xs text-slate-500">{t('metrics.pendingNote')}</p>
                 </article>
                 <article className="rounded-[22px] border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-                    <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Остаток к выставлению</p>
+                    <p className="text-xs font-bold uppercase tracking-wide text-slate-400">{t('metrics.remaining')}</p>
                     <p className="mt-2 text-xl font-black text-blue-700">
                         {formatMoney(pageTotals.remainingToInvoice)}
                     </p>
-                    <p className="mt-1 text-xs text-slate-500">на текущей странице</p>
+                    <p className="mt-1 text-xs text-slate-500">{t('metrics.pageNote')}</p>
                 </article>
                 <article className="rounded-[22px] border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-                    <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Текущий долг</p>
+                    <p className="text-xs font-bold uppercase tracking-wide text-slate-400">{t('metrics.debt')}</p>
                     <p className="mt-2 text-xl font-black text-amber-700">
                         {formatMoney(pageTotals.outstanding)}
                     </p>
-                    <p className="mt-1 text-xs text-slate-500">по показанным заказам</p>
+                    <p className="mt-1 text-xs text-slate-500">{t('metrics.ordersNote')}</p>
                 </article>
                 <article className="rounded-[22px] border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-                    <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Всего счетов</p>
+                    <p className="text-xs font-bold uppercase tracking-wide text-slate-400">{t('metrics.total')}</p>
                     <p className="mt-2 text-2xl font-black text-slate-900">
                         {invoicesQuery.data?.totalElements ?? 0}
                     </p>
-                    <p className="mt-1 text-xs text-slate-500">во всех статусах</p>
+                    <p className="mt-1 text-xs text-slate-500">{t('metrics.statusesNote')}</p>
                 </article>
             </section>
 
             <section className="overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
                 <div className="border-b border-slate-200 bg-slate-50 px-4 py-4 sm:px-5">
-                    <h2 className="font-bold text-slate-900">Заказы к выставлению</h2>
+                    <h2 className="font-bold text-slate-900">{t('pending.title')}</h2>
                     <p className="mt-1 text-sm text-slate-500">
-                        Заказы, по которым ещё можно создать счёт
+                        {t('pending.subtitle')}
                     </p>
                 </div>
 
                         {pendingQuery.isLoading ? (
-                            <div className="p-10 text-center text-sm text-slate-500">Загрузка заказов...</div>
+                            <div className="p-10 text-center text-sm text-slate-500">{t('pending.loading')}</div>
                         ) : pendingQuery.isError ? (
                             <div className="p-5">
                                 <Notice tone="error">
-                                    {getApiErrorMessage(pendingQuery.error, 'Не удалось загрузить заказы к выставлению')}
+                                    {getApiErrorMessage(pendingQuery.error, t('pending.error'), {'403': t('errors.forbidden'), '404': t('errors.notFound'), '500': t('errors.unavailable')})}
                                 </Notice>
                             </div>
                         ) : pendingSummaries.length === 0 ? (
                             <div className="p-10 text-center">
-                                <p className="font-bold text-slate-800">Нет заказов, ожидающих счёт</p>
-                                <p className="mt-1 text-sm text-slate-500">Все доступные суммы уже выставлены</p>
+                                <p className="font-bold text-slate-800">{t('pending.empty')}</p>
+                                <p className="mt-1 text-sm text-slate-500">{t('pending.emptyHint')}</p>
                             </div>
                         ) : (
                             <div className="overflow-x-auto">
                                 <table className="min-w-[980px] w-full text-left">
                                     <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
                                         <tr>
-                                            <th className="px-4 py-3 font-bold">Заказ</th>
-                                            <th className="px-4 py-3 font-bold">Клиника / пациент</th>
-                                            <th className="px-4 py-3 text-right font-bold">Стоимость</th>
-                                            <th className="px-4 py-3 text-right font-bold">Выставлено</th>
-                                            <th className="px-4 py-3 text-right font-bold">Оплачено</th>
-                                            <th className="px-4 py-3 text-right font-bold">Осталось</th>
-                                            <th className="px-4 py-3 text-right font-bold">Действие</th>
+                                            <th className="px-4 py-3 font-bold">{t('columns.order')}</th>
+                                            <th className="px-4 py-3 font-bold">{t('columns.clinicPatient')}</th>
+                                            <th className="px-4 py-3 text-right font-bold">{t('columns.cost')}</th>
+                                            <th className="px-4 py-3 text-right font-bold">{t('columns.invoiced')}</th>
+                                            <th className="px-4 py-3 text-right font-bold">{t('columns.paid')}</th>
+                                            <th className="px-4 py-3 text-right font-bold">{t('columns.remaining')}</th>
+                                            <th className="px-4 py-3 text-right font-bold">{t('columns.action')}</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-100">
@@ -603,7 +593,7 @@ export default function InvoicesPage() {
                                                         disabled={summary.remainingToInvoice <= 0 || billingSummaryState.isFetching}
                                                         className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-bold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300"
                                                     >
-                                                        Выставить счёт
+                                                        {t('pending.create')}
                                                     </button>
                                                 </td>
                                             </tr>
@@ -621,37 +611,37 @@ export default function InvoicesPage() {
 
             <section className="overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
                 <div className="border-b border-slate-200 bg-slate-50 px-4 py-4 sm:px-5">
-                    <h2 className="font-bold text-slate-900">Все счета</h2>
+                    <h2 className="font-bold text-slate-900">{t('all.title')}</h2>
                     <p className="mt-1 text-sm text-slate-500">
-                        Черновики, выставленные и оплаченные счета
+                        {t('all.subtitle')}
                     </p>
                 </div>
 
                         {invoicesQuery.isLoading ? (
-                            <div className="p-10 text-center text-sm text-slate-500">Загрузка счетов...</div>
+                            <div className="p-10 text-center text-sm text-slate-500">{t('all.loading')}</div>
                         ) : invoicesQuery.isError ? (
                             <div className="p-5">
                                 <Notice tone="error">
-                                    {getApiErrorMessage(invoicesQuery.error, 'Не удалось загрузить счета')}
+                                    {getApiErrorMessage(invoicesQuery.error, t('all.error'), {'403': t('errors.forbidden'), '404': t('errors.notFound'), '500': t('errors.unavailable')})}
                                 </Notice>
                             </div>
                         ) : invoices.length === 0 ? (
                             <div className="p-10 text-center">
-                                <p className="font-bold text-slate-800">Счета ещё не созданы</p>
-                                <p className="mt-1 text-sm text-slate-500">Первый счёт появится здесь после создания черновика</p>
+                                <p className="font-bold text-slate-800">{t('all.empty')}</p>
+                                <p className="mt-1 text-sm text-slate-500">{t('all.emptyHint')}</p>
                             </div>
                         ) : (
                             <div className="overflow-x-auto">
                                 <table className="min-w-[900px] w-full text-left">
                                     <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
                                         <tr>
-                                            <th className="px-4 py-3 font-bold">Счёт</th>
-                                            <th className="px-4 py-3 font-bold">Статус</th>
-                                            <th className="px-4 py-3 text-right font-bold">Сумма</th>
-                                            <th className="px-4 py-3 text-right font-bold">Оплачено</th>
-                                            <th className="px-4 py-3 text-right font-bold">Остаток</th>
-                                            <th className="px-4 py-3 font-bold">Оплатить до</th>
-                                            <th className="px-4 py-3 text-right font-bold">Действие</th>
+                                            <th className="px-4 py-3 font-bold">{t('columns.invoice')}</th>
+                                            <th className="px-4 py-3 font-bold">{t('columns.status')}</th>
+                                            <th className="px-4 py-3 text-right font-bold">{t('columns.amount')}</th>
+                                            <th className="px-4 py-3 text-right font-bold">{t('columns.paid')}</th>
+                                            <th className="px-4 py-3 text-right font-bold">{t('columns.remaining')}</th>
+                                            <th className="px-4 py-3 font-bold">{t('columns.dueAt')}</th>
+                                            <th className="px-4 py-3 text-right font-bold">{t('columns.action')}</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-100">
@@ -669,7 +659,7 @@ export default function InvoicesPage() {
                                                         onClick={() => openInvoice(invoice)}
                                                         className="rounded-lg border border-blue-600 px-3 py-2 text-xs font-bold text-blue-700 transition hover:bg-blue-600 hover:text-white"
                                                     >
-                                                        Открыть
+                                                        {t('all.open')}
                                                     </button>
                                                 </td>
                                             </tr>
@@ -690,7 +680,7 @@ export default function InvoicesPage() {
                     <div role="dialog" aria-modal="true" aria-labelledby="invoice-create-title">
                         <div className="sticky top-0 z-10 flex items-start justify-between border-b border-slate-200 bg-white px-4 py-4 sm:px-6">
                             <div>
-                                <p className="text-xs font-bold uppercase tracking-wide text-blue-600">Новый счёт</p>
+                                <p className="text-xs font-bold uppercase tracking-wide text-blue-600">{t('create.eyebrow')}</p>
                                 <h2 id="invoice-create-title" className="mt-1 text-xl font-black text-slate-900">
                                     {selectedSummary.orderNumber}
                                 </h2>
@@ -701,7 +691,7 @@ export default function InvoicesPage() {
                             <button
                                 type="button"
                                 onClick={closeSummary}
-                                aria-label="Закрыть форму счёта"
+                                aria-label={t('create.close')}
                                 className="text-3xl leading-none text-slate-400 transition hover:text-slate-700"
                             >
                                 &times;
@@ -711,11 +701,11 @@ export default function InvoicesPage() {
                         <div className="space-y-6 p-4 sm:p-6">
                             <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
                                 {[
-                                    ['Стоимость заказа', selectedSummary.orderTotalAmount],
-                                    ['Уже выставлено', selectedSummary.invoicedAmount],
-                                    ['Оплачено', selectedSummary.paidAmount],
-                                    ['Осталось выставить', selectedSummary.remainingToInvoice],
-                                    ['Текущий долг', selectedSummary.outstandingAmount],
+                                    [t('create.orderCost'), selectedSummary.orderTotalAmount],
+                                    [t('create.invoiced'), selectedSummary.invoicedAmount],
+                                    [t('create.paid'), selectedSummary.paidAmount],
+                                    [t('create.remaining'), selectedSummary.remainingToInvoice],
+                                    [t('create.debt'), selectedSummary.outstandingAmount],
                                 ].map(([label, value]) => (
                                     <div key={String(label)} className="rounded-xl border border-slate-200 bg-slate-50 p-3">
                                         <p className="text-xs font-medium text-slate-500">{label}</p>
@@ -735,10 +725,10 @@ export default function InvoicesPage() {
                                                 <StatusBadge status={createdDraft.status} />
                                             </div>
                                             <p className="mt-1 text-sm text-slate-600">
-                                                Сумма {formatMoney(createdDraft.amount)}.{' '}
+                                                {t('create.amountCreated', {amount: formatMoney(createdDraft.amount)})}{' '}
                                                 {createdDraft.status === 'DRAFT'
-                                                    ? 'Черновик ещё не отправлен клинике.'
-                                                    : `Счёт выставлен ${formatDate(createdDraft.issuedAt, true)}.`}
+                                                    ? t('create.draftHint')
+                                                    : t('create.issuedHint', {date: formatDate(createdDraft.issuedAt, true)})}
                                             </p>
                                         </div>
                                         {createdDraft.status === 'DRAFT' && (
@@ -748,17 +738,17 @@ export default function InvoicesPage() {
                                                 disabled={issueInvoiceState.isLoading}
                                                 className="min-h-11 rounded-xl bg-emerald-600 px-5 text-sm font-bold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-300"
                                             >
-                                                {issueInvoiceState.isLoading ? 'Выставление...' : 'Выставить клинике'}
+                                                {issueInvoiceState.isLoading ? t('create.issuing') : t('create.issueClinic')}
                                             </button>
                                         )}
                                     </div>
                                 </div>
                             ) : selectedSummary.remainingToInvoice > 0 ? (
                                 <form onSubmit={handleCreateInvoice} className="rounded-xl border border-slate-200 p-4 sm:p-5">
-                                    <h3 className="font-bold text-slate-900">Параметры счёта</h3>
+                                    <h3 className="font-bold text-slate-900">{t('create.parameters')}</h3>
                                     <div className="mt-4 grid gap-4 md:grid-cols-2">
                                         <label className="block">
-                                            <span className="mb-1.5 block text-xs font-bold text-slate-600">Сумма нового счёта</span>
+                                            <span className="mb-1.5 block text-xs font-bold text-slate-600">{t('create.amount')}</span>
                                             <input
                                                 type="text"
                                                 inputMode="decimal"
@@ -767,11 +757,11 @@ export default function InvoicesPage() {
                                                 className="min-h-11 w-full rounded-xl border border-slate-200 px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                                             />
                                             <span className="mt-1 block text-xs text-slate-400">
-                                                Максимум {formatMoney(selectedSummary.remainingToInvoice)}
+                                                {t('create.maximum', {amount: formatMoney(selectedSummary.remainingToInvoice)})}
                                             </span>
                                         </label>
                                         <label className="block">
-                                            <span className="mb-1.5 block text-xs font-bold text-slate-600">Оплатить до</span>
+                                            <span className="mb-1.5 block text-xs font-bold text-slate-600">{t('create.dueAt')}</span>
                                             <input
                                                 type="datetime-local"
                                                 value={invoiceDueAt}
@@ -781,34 +771,34 @@ export default function InvoicesPage() {
                                         </label>
                                     </div>
                                     <label className="mt-4 block">
-                                        <span className="mb-1.5 block text-xs font-bold text-slate-600">Комментарий</span>
+                                        <span className="mb-1.5 block text-xs font-bold text-slate-600">{t('create.comment')}</span>
                                         <textarea
                                             value={invoiceComment}
                                             onChange={(event) => setInvoiceComment(event.target.value)}
                                             rows={3}
-                                            placeholder={`Например: окончательный расчёт по заказу ${selectedSummary.orderNumber}`}
+                                            placeholder={t('create.commentPlaceholder', {order: selectedSummary.orderNumber})}
                                             className="w-full resize-y rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                                         />
                                     </label>
-                                    <div className="mt-5 flex justify-end">
+                                    <div className="mt-5 flex">
                                         <button
                                             type="submit"
                                             disabled={createInvoiceState.isLoading}
-                                            className="min-h-11 rounded-xl bg-blue-600 px-5 text-sm font-bold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+                                            className="min-h-11 w-full rounded-xl bg-blue-600 px-5 text-sm font-bold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300 sm:ml-auto sm:w-auto"
                                         >
-                                            {createInvoiceState.isLoading ? 'Создание...' : 'Создать черновик'}
+                                            {createInvoiceState.isLoading ? t('create.creating') : t('create.createDraft')}
                                         </button>
                                     </div>
                                 </form>
                             ) : (
-                                <Notice tone="info">По этому заказу вся сумма уже выставлена.</Notice>
+                                <Notice tone="info">{t('create.fullyInvoiced')}</Notice>
                             )}
 
                             <div>
-                                <h3 className="font-bold text-slate-900">Счета заказа</h3>
+                                <h3 className="font-bold text-slate-900">{t('create.orderInvoices')}</h3>
                                 {selectedSummary.invoices.length === 0 ? (
                                     <p className="mt-3 rounded-xl bg-slate-50 p-4 text-sm text-slate-500">
-                                        По заказу ещё нет счетов.
+                                        {t('create.noInvoices')}
                                     </p>
                                 ) : (
                                     <div className="mt-3 space-y-2">
@@ -820,7 +810,7 @@ export default function InvoicesPage() {
                                                         <StatusBadge status={invoice.status} />
                                                     </div>
                                                     <p className="mt-1 text-xs text-slate-500">
-                                                        {formatMoney(invoice.amount)} · оплачено {formatMoney(invoice.paidAmount)}
+                                                        {t('create.paidAmount', {amount: formatMoney(invoice.amount), paid: formatMoney(invoice.paidAmount)})}
                                                     </p>
                                                 </div>
                                                 <button
@@ -828,7 +818,7 @@ export default function InvoicesPage() {
                                                     onClick={() => openInvoice(invoice, selectedSummary)}
                                                     className="rounded-lg border border-slate-300 px-3 py-2 text-xs font-bold text-slate-700 transition hover:border-blue-500 hover:text-blue-700"
                                                 >
-                                                    Открыть счёт
+                                                    {t('create.openInvoice')}
                                                 </button>
                                             </div>
                                         ))}
@@ -854,13 +844,13 @@ export default function InvoicesPage() {
                                 <p className="mt-1 text-sm text-slate-500">
                                     {invoiceContext
                                         ? `${invoiceContext.clinicName} · ${invoiceContext.orderNumber}`
-                                        : `Клиника ${selectedInvoice.clinicId}`}
+                                        : t('detail.clinic', {id: selectedInvoice.clinicId})}
                                 </p>
                             </div>
                             <button
                                 type="button"
                                 onClick={closeInvoice}
-                                aria-label="Закрыть счёт"
+                                aria-label={t('detail.close')}
                                 className="text-3xl leading-none text-slate-400 transition hover:text-slate-700"
                             >
                                 &times;
@@ -870,33 +860,33 @@ export default function InvoicesPage() {
                         <div className="space-y-6 p-4 sm:p-6">
                             <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
                                 <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-                                    <p className="text-xs text-slate-500">Сумма</p>
+                                    <p className="text-xs text-slate-500">{t('detail.amount')}</p>
                                     <p className="mt-1 font-black text-slate-900">{formatMoney(selectedInvoice.amount)}</p>
                                 </div>
                                 <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-                                    <p className="text-xs text-slate-500">Оплачено</p>
+                                    <p className="text-xs text-slate-500">{t('detail.paid')}</p>
                                     <p className="mt-1 font-black text-emerald-700">{formatMoney(selectedInvoice.paidAmount)}</p>
                                 </div>
                                 <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-                                    <p className="text-xs text-slate-500">Остаток</p>
+                                    <p className="text-xs text-slate-500">{t('detail.remaining')}</p>
                                     <p className="mt-1 font-black text-amber-700">{formatMoney(selectedInvoiceBalance)}</p>
                                 </div>
                                 <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-                                    <p className="text-xs text-slate-500">Оплатить до</p>
+                                    <p className="text-xs text-slate-500">{t('detail.dueAt')}</p>
                                     <p className="mt-1 font-bold text-slate-900">{formatDate(selectedInvoice.dueAt)}</p>
                                 </div>
                             </div>
 
                             <div className="grid gap-3 rounded-xl border border-slate-200 p-4 text-sm sm:grid-cols-2 lg:grid-cols-3">
-                                <div><span className="text-slate-500">Пациент:</span> <strong>{invoiceContext?.patientName ?? 'Не указан'}</strong></div>
-                                <div><span className="text-slate-500">Выставлен:</span> <strong>{formatDate(selectedInvoice.issuedAt, true)}</strong></div>
-                                <div><span className="text-slate-500">Комментарий:</span> <strong>{selectedInvoice.comment || 'Нет'}</strong></div>
+                                <div><span className="text-slate-500">{t('detail.patient')}</span> <strong>{invoiceContext?.patientName ?? t('unspecified')}</strong></div>
+                                <div><span className="text-slate-500">{t('detail.issued')}</span> <strong>{formatDate(selectedInvoice.issuedAt, true)}</strong></div>
+                                <div><span className="text-slate-500">{t('detail.comment')}</span> <strong>{selectedInvoice.comment || t('none')}</strong></div>
                             </div>
 
                             {selectedInvoice.status === 'DRAFT' && (
                                 <div className="flex flex-col gap-3 rounded-xl border border-blue-200 bg-blue-50 p-4 sm:flex-row sm:items-center sm:justify-between">
                                     <p className="text-sm text-blue-800">
-                                        Черновик ещё не считается выставленным клинике.
+                                        {t('detail.draftHint')}
                                     </p>
                                     <button
                                         type="button"
@@ -904,7 +894,7 @@ export default function InvoicesPage() {
                                         disabled={issueInvoiceState.isLoading}
                                         className="min-h-11 rounded-xl bg-emerald-600 px-5 text-sm font-bold text-white transition hover:bg-emerald-700 disabled:bg-slate-300"
                                     >
-                                        {issueInvoiceState.isLoading ? 'Выставление...' : 'Выставить'}
+                                        {issueInvoiceState.isLoading ? t('detail.issuing') : t('detail.issue')}
                                     </button>
                                 </div>
                             )}
@@ -912,14 +902,14 @@ export default function InvoicesPage() {
                             {canRegisterPayment && (
                                 <form onSubmit={handleRegisterPayment} className="rounded-xl border border-slate-200 p-4 sm:p-5">
                                     <div>
-                                        <h3 className="font-bold text-slate-900">Зарегистрировать оплату</h3>
+                                        <h3 className="font-bold text-slate-900">{t('detail.register')}</h3>
                                         <p className="mt-1 text-sm text-slate-500">
-                                            Осталось оплатить {formatMoney(selectedInvoiceBalance)}
+                                            {t('detail.remainingPayment', {amount: formatMoney(selectedInvoiceBalance)})}
                                         </p>
                                     </div>
                                     <div className="mt-4 grid gap-4 md:grid-cols-2">
                                         <label className="block">
-                                            <span className="mb-1.5 block text-xs font-bold text-slate-600">Сумма оплаты</span>
+                                            <span className="mb-1.5 block text-xs font-bold text-slate-600">{t('detail.paymentAmount')}</span>
                                             <input
                                                 type="text"
                                                 inputMode="decimal"
@@ -929,19 +919,19 @@ export default function InvoicesPage() {
                                             />
                                         </label>
                                         <label className="block">
-                                            <span className="mb-1.5 block text-xs font-bold text-slate-600">Способ оплаты</span>
+                                            <span className="mb-1.5 block text-xs font-bold text-slate-600">{t('detail.method')}</span>
                                             <select
                                                 value={paymentMethod}
                                                 onChange={(event) => setPaymentMethod(event.target.value)}
                                                 className="min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                                             >
-                                                {Object.entries(paymentMethodLabels).map(([code, label]) => (
-                                                    <option key={code} value={code}>{label}</option>
+                                                {(['CASH', 'BANK_TRANSFER', 'CARD'] as const).map((code) => (
+                                                    <option key={code} value={code}>{t(`methods.${code}`)}</option>
                                                 ))}
                                             </select>
                                         </label>
                                         <label className="block">
-                                            <span className="mb-1.5 block text-xs font-bold text-slate-600">Дата оплаты</span>
+                                            <span className="mb-1.5 block text-xs font-bold text-slate-600">{t('detail.paidAt')}</span>
                                             <input
                                                 type="datetime-local"
                                                 value={paymentPaidAt}
@@ -950,7 +940,7 @@ export default function InvoicesPage() {
                                             />
                                         </label>
                                         <label className="block">
-                                            <span className="mb-1.5 block text-xs font-bold text-slate-600">Номер операции</span>
+                                            <span className="mb-1.5 block text-xs font-bold text-slate-600">{t('detail.reference')}</span>
                                             <input
                                                 type="text"
                                                 value={paymentReference}
@@ -960,13 +950,13 @@ export default function InvoicesPage() {
                                             />
                                         </label>
                                     </div>
-                                    <div className="mt-5 flex justify-end">
+                                    <div className="mt-5 flex">
                                         <button
                                             type="submit"
                                             disabled={registerPaymentState.isLoading}
-                                            className="min-h-11 rounded-xl bg-blue-600 px-5 text-sm font-bold text-white transition hover:bg-blue-700 disabled:bg-slate-300"
+                                            className="min-h-11 w-full rounded-xl bg-blue-600 px-5 text-sm font-bold text-white transition hover:bg-blue-700 disabled:bg-slate-300 sm:ml-auto sm:w-auto"
                                         >
-                                            {registerPaymentState.isLoading ? 'Сохранение...' : 'Зарегистрировать оплату'}
+                                            {registerPaymentState.isLoading ? t('detail.saving') : t('detail.savePayment')}
                                         </button>
                                     </div>
                                 </form>
@@ -974,18 +964,18 @@ export default function InvoicesPage() {
 
                             <div>
                                 <div className="flex items-center justify-between">
-                                    <h3 className="font-bold text-slate-900">История оплат</h3>
-                                    {paymentsQuery.isFetching && <span className="text-xs text-slate-400">Обновление...</span>}
+                                    <h3 className="font-bold text-slate-900">{t('detail.history')}</h3>
+                                    {paymentsQuery.isFetching && <span className="text-xs text-slate-400">{t('detail.refreshing')}</span>}
                                 </div>
 
                                 {paymentsQuery.isError ? (
                                     <div className="mt-3">
                                         <Notice tone="error">
-                                            {getApiErrorMessage(paymentsQuery.error, 'Не удалось загрузить оплаты')}
+                                            {getApiErrorMessage(paymentsQuery.error, t('detail.paymentsError'), {'403': t('errors.forbidden'), '404': t('errors.notFound'), '500': t('errors.unavailable')})}
                                         </Notice>
                                     </div>
                                 ) : payments.length === 0 ? (
-                                    <p className="mt-3 rounded-xl bg-slate-50 p-4 text-sm text-slate-500">Оплат пока нет.</p>
+                                    <p className="mt-3 rounded-xl bg-slate-50 p-4 text-sm text-slate-500">{t('detail.noPayments')}</p>
                                 ) : (
                                     <div className="mt-3 space-y-3">
                                         {payments.map((payment: Payment) => (
@@ -995,15 +985,15 @@ export default function InvoicesPage() {
                                                         <div className="flex flex-wrap items-center gap-2">
                                                             <span className="font-black text-slate-900">{formatMoney(payment.amount)}</span>
                                                             {payment.reversedAt && (
-                                                                <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-bold text-red-700">Сторнировано</span>
+                                                                <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-bold text-red-700">{t('detail.reversed')}</span>
                                                             )}
                                                         </div>
                                                         <p className="mt-1 text-xs text-slate-500">
-                                                            {paymentMethodLabels[payment.paymentMethod] ?? payment.paymentMethod} · {formatDate(payment.paidAt, true)}
+                                                            {(['CASH', 'BANK_TRANSFER', 'CARD'] as string[]).includes(payment.paymentMethod) ? t(`methods.${payment.paymentMethod as 'CASH' | 'BANK_TRANSFER' | 'CARD'}`) : payment.paymentMethod} · {formatDate(payment.paidAt, true)}
                                                             {payment.externalReference ? ` · ${payment.externalReference}` : ''}
                                                         </p>
                                                         {payment.reversalReason && (
-                                                            <p className="mt-2 text-sm font-medium text-red-700">Причина: {payment.reversalReason}</p>
+                                                            <p className="mt-2 text-sm font-medium text-red-700">{t('detail.reversalReason', {reason: payment.reversalReason})}</p>
                                                         )}
                                                     </div>
                                                     {!payment.reversedAt && (
@@ -1015,7 +1005,7 @@ export default function InvoicesPage() {
                                                             }}
                                                             className="rounded-lg border border-red-200 px-3 py-2 text-xs font-bold text-red-700 transition hover:bg-red-50"
                                                         >
-                                                            Сторнировать
+                                                            {t('detail.reverse')}
                                                         </button>
                                                     )}
                                                 </div>
@@ -1023,7 +1013,7 @@ export default function InvoicesPage() {
                                                 {reversingPaymentId === payment.id && (
                                                     <form onSubmit={handleReversePayment} className="mt-4 border-t border-red-200 pt-4">
                                                         <label className="block">
-                                                            <span className="mb-1.5 block text-xs font-bold text-red-700">Причина сторнирования</span>
+                                                            <span className="mb-1.5 block text-xs font-bold text-red-700">{t('detail.reason')}</span>
                                                             <textarea
                                                                 value={reversalReason}
                                                                 onChange={(event) => setReversalReason(event.target.value)}
@@ -1037,14 +1027,14 @@ export default function InvoicesPage() {
                                                                 onClick={() => setReversingPaymentId(null)}
                                                                 className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-600"
                                                             >
-                                                                Отмена
+                                                                {commonT('cancel')}
                                                             </button>
                                                             <button
                                                                 type="submit"
                                                                 disabled={reversePaymentState.isLoading}
                                                                 className="rounded-lg bg-red-600 px-3 py-2 text-xs font-bold text-white disabled:bg-slate-300"
                                                             >
-                                                                {reversePaymentState.isLoading ? 'Сторнирование...' : 'Подтвердить'}
+                                                                {reversePaymentState.isLoading ? t('detail.reversing') : commonT('confirm')}
                                                             </button>
                                                         </div>
                                                     </form>
