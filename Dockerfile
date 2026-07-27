@@ -1,45 +1,45 @@
-# syntax=docker/dockerfile:1
-
-FROM node:22-alpine AS dependencies
+# =========================
+# 1. Dependencies
+# =========================
+FROM node:22-alpine AS deps
 
 WORKDIR /app
 
 COPY package.json package-lock.json ./
-RUN --mount=type=cache,target=/root/.npm \
-    npm ci --prefer-offline --no-audit --no-fund
+
+RUN npm ci
 
 
+# =========================
+# 2. Build
+# =========================
 FROM node:22-alpine AS builder
 
 WORKDIR /app
 
-ENV NEXT_TELEMETRY_DISABLED=1
-ARG NEXT_PUBLIC_BACKEND_WS_URL
-ENV NEXT_PUBLIC_BACKEND_WS_URL=$NEXT_PUBLIC_BACKEND_WS_URL
-
-COPY --from=dependencies /app/node_modules ./node_modules
+COPY --from=deps /app/node_modules ./node_modules
 COPY . .
+
+ENV NEXT_TELEMETRY_DISABLED=1
 
 RUN npm run build
 
 
+# =========================
+# 3. Production
+# =========================
 FROM node:22-alpine AS runner
 
 WORKDIR /app
 
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
-ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
-
-RUN addgroup --system --gid 1001 nodejs \
-    && adduser --system --uid 1001 nextjs
+ENV PORT=3000
 
 COPY --from=builder /app/public ./public
-COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
-COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
-
-USER nextjs
+COPY --from=builder /app/.next/standalone ./
+COPY --from=builder /app/.next/static ./.next/static
 
 EXPOSE 3000
 
