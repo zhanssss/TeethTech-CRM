@@ -6,6 +6,7 @@ import {
 	clearAuthCookies,
 	createAuthSession,
 	getJwtMaxAgeSeconds,
+	isSecureRequest,
 	setAuthCookies
 } from '@/src/lib/serverAuthCookies'
 import enMessages from '@/src/messages/en/apiNotifications'
@@ -256,7 +257,12 @@ async function proxyRequest(request: NextRequest, context: RouteContext) {
 				status: backendResponse.status
 			})
 
-			setAuthCookies(response, loginResponse.token, session)
+			setAuthCookies(
+				response,
+				loginResponse.token,
+				session,
+				isSecureRequest(request)
+			)
 
 			return response
 		}

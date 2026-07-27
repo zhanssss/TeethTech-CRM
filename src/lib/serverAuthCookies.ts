@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 
 import type { AuthSession, LoginResponse } from '@/src/types/auth.types';
 
@@ -7,6 +7,18 @@ export const AUTH_USER_COOKIE = 'teethTechUser';
 
 const DEFAULT_SESSION_MAX_AGE_SECONDS = 60 * 60 * 8;
 const MAX_SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 7;
+
+export function isSecureRequest(request: NextRequest) {
+    const forwardedProto = request.headers
+        .get('x-forwarded-proto')
+        ?.split(',', 1)[0]
+        .trim()
+        .toLowerCase();
+
+    return forwardedProto
+        ? forwardedProto === 'https'
+        : request.nextUrl.protocol === 'https:';
+}
 
 function base64UrlEncode(value: string) {
     return Buffer.from(value, 'utf8')
@@ -92,14 +104,15 @@ export function decodeAuthSession(value: string): AuthSession | null {
 export function setAuthCookies(
     response: NextResponse,
     token: string,
-    session: AuthSession
+    session: AuthSession,
+    secure: boolean,
 ) {
     const maxAge = getJwtMaxAgeSeconds(token);
 
     response.cookies.set(AUTH_TOKEN_COOKIE, token, {
         httpOnly: true,
         sameSite: 'lax',
-        secure: process.env.NODE_ENV === 'production',
+        secure,
         path: '/',
         maxAge,
     });
@@ -107,7 +120,7 @@ export function setAuthCookies(
     response.cookies.set(AUTH_USER_COOKIE, encodeAuthSession(session), {
         httpOnly: true,
         sameSite: 'lax',
-        secure: process.env.NODE_ENV === 'production',
+        secure,
         path: '/',
         maxAge,
     });
