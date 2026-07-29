@@ -58,10 +58,7 @@ type CreateWorkTypeStagesProps = {
 type WorkflowStage =
     CreateWorkflowWorkTypesDTO['stages'][number];
 
-type IntermediateStage = Omit<
-    WorkflowStage,
-    'initial' | 'terminal' | 'review'
-> & {
+type EditableStage = WorkflowStage & {
     clientId: string;
     existingStatusId?: string;
 };
@@ -71,15 +68,7 @@ type WorkTypeForm = Omit<
     'stages'
 >;
 
-type SystemStageType =
-    | 'TODO'
-    | 'REVIEW'
-    | 'DONE';
-
-type SystemRoles = Record<SystemStageType, string>;
-type RoleCreationTarget =
-    | { kind: 'system'; type: SystemStageType }
-    | { kind: 'intermediate'; id: string };
+type StageMarker = 'initial' | 'review' | 'terminal';
 
 const initialFormData: WorkTypeForm = {
     workTypeCode: '',
@@ -87,46 +76,7 @@ const initialFormData: WorkTypeForm = {
     description: '',
 };
 
-const initialSystemRoles: SystemRoles = {
-    TODO: '',
-    REVIEW: '',
-    DONE: '',
-};
-
-/*
- * Проверь коды TODO, REVIEW и DONE.
- * Они должны совпадать с кодами, которые ожидает backend.
- */
-const SYSTEM_STAGES: Record<
-    SystemStageType,
-    Omit<WorkflowStage, 'requiredRole' | 'name' | 'description'>
-> = {
-    TODO: {
-        code: 'TODO',
-        colorHex: '#64748B',
-        initial: true,
-        terminal: false,
-        review: false,
-    },
-
-    REVIEW: {
-        code: 'WAITING_FOR_APPROVAL',
-        colorHex: '#8B5CF6',
-        initial: false,
-        terminal: false,
-        review: true,
-    },
-
-    DONE: {
-        code: 'ORDER_CLOSED',
-        colorHex: '#10B981',
-        initial: false,
-        terminal: true,
-        review: false,
-    },
-};
-
-function createIntermediateStage(): IntermediateStage {
+function createEditableStage(): EditableStage {
     return {
         clientId: crypto.randomUUID(),
         code: '',
@@ -134,10 +84,13 @@ function createIntermediateStage(): IntermediateStage {
         description: '',
         colorHex: '#3B82F6',
         requiredRole: '',
+        initial: false,
+        terminal: false,
+        review: false,
     };
 }
 
-function hasDuplicateIntermediateStages(stages: IntermediateStage[]) {
+function hasDuplicateStages(stages: EditableStage[]) {
     return stages.some((stage, index) =>
         stages.slice(index + 1).some((candidate) => {
             const code = normalizeWorkflowStageValue(stage.code);
@@ -186,75 +139,8 @@ function RoleSelect({
     );
 }
 
-type SystemStageRowProps = {
-    type: SystemStageType;
-    requiredRole: string;
-    roles: Role[];
-    rolesLoading: boolean;
-    onRoleChange: (role: string) => void;
-    canCreate: boolean;
-    onCreateRequest: () => void;
-};
-
-function SystemStageRow({
-                            type,
-                            requiredRole,
-                            roles,
-                            rolesLoading,
-                            onRoleChange,
-                            canCreate,
-                            onCreateRequest,
-                        }: SystemStageRowProps) {
-    const t = useTranslations('laboratory.workflow');
-    const stage = SYSTEM_STAGES[type];
-
-    return (
-        <div className="grid items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3 md:grid-cols-[32px_minmax(150px,1fr)_180px_90px]">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white text-xs font-black text-slate-400 shadow-sm">
-                —
-            </div>
-
-            <div className="min-w-0">
-                <div className="flex flex-wrap items-center gap-2">
-                    <span
-                        className="h-2.5 w-2.5 shrink-0 rounded-full"
-                        style={{
-                            backgroundColor: stage.colorHex,
-                        }}
-                    />
-
-                    <p className="truncate text-sm font-bold text-slate-900">
-                        {t(`systemNames.${type}`)}
-                    </p>
-
-                    <span className="rounded-md bg-white px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-slate-500">
-                        {t(`systemTypes.${type}`)}
-                    </span>
-                </div>
-
-                <p className="mt-0.5 font-mono text-[10px] text-slate-400">
-                    {stage.code}
-                </p>
-            </div>
-
-            <RoleSelect
-                value={requiredRole}
-                roles={roles}
-                isLoading={rolesLoading}
-                onChange={onRoleChange}
-                canCreate={canCreate}
-                onCreateRequest={onCreateRequest}
-            />
-
-            <span className="hidden text-right text-[10px] font-bold uppercase text-slate-400 md:block">
-                {t('fixed')}
-            </span>
-        </div>
-    );
-}
-
 type SortableStageRowProps = {
-    stage: IntermediateStage;
+    stage: EditableStage;
     index: number;
     existingStatuses: WorkflowStatus[];
     statusesLoading: boolean;
@@ -263,8 +149,9 @@ type SortableStageRowProps = {
     rolesLoading: boolean;
     onChange: (
         id: string,
-        patch: Partial<IntermediateStage>,
+        patch: Partial<EditableStage>,
     ) => void;
+    onMarkerChange: (id: string, marker: StageMarker) => void;
     onDelete: (id: string) => void;
     onUseExisting: (id: string, status: WorkflowStatus) => void;
     canCreate: boolean;
@@ -272,14 +159,14 @@ type SortableStageRowProps = {
 };
 
 type StageIdentityFieldsProps = {
-    stage: IntermediateStage;
+    stage: EditableStage;
     index: number;
     existingStatuses: WorkflowStatus[];
     statusesLoading: boolean;
     statusesError: boolean;
     onChange: (
         id: string,
-        patch: Partial<IntermediateStage>,
+        patch: Partial<EditableStage>,
     ) => void;
     onUseExisting: (id: string, status: WorkflowStatus) => void;
 };
@@ -316,7 +203,7 @@ function StageIdentityFields({
         similarStatus ? isProtectedWorkflowStatus(similarStatus) : false;
 
     const changeIdentity = (
-        patch: Pick<Partial<IntermediateStage>, 'code' | 'name'>,
+        patch: Pick<Partial<EditableStage>, 'code' | 'name'>,
     ) => {
         onChange(stage.clientId, {
             ...patch,
@@ -492,6 +379,7 @@ function SortableStageRow({
                               roles,
                               rolesLoading,
                               onChange,
+                              onMarkerChange,
                               onDelete,
                               onUseExisting,
                               canCreate,
@@ -587,6 +475,38 @@ function SortableStageRow({
                 </button>
             </div>
 
+            <fieldset className="mt-3 flex flex-wrap gap-2 border-t border-slate-100 pt-3">
+                <legend className="sr-only">
+                    {t('stageMarkers')}
+                </legend>
+
+                {([
+                    ['initial', t('initialStage')],
+                    ['review', t('reviewStage')],
+                    ['terminal', t('terminalStage')],
+                ] as const).map(([marker, label]) => (
+                    <label
+                        key={marker}
+                        className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-[11px] font-bold transition ${
+                            stage[marker]
+                                ? 'border-violet-300 bg-violet-50 text-violet-700'
+                                : 'border-slate-200 bg-slate-50 text-slate-500 hover:border-violet-200 hover:bg-white'
+                        }`}
+                    >
+                        <input
+                            type="radio"
+                            name={`workflow-${marker}`}
+                            checked={stage[marker]}
+                            onChange={() =>
+                                onMarkerChange(stage.clientId, marker)
+                            }
+                            className="h-3.5 w-3.5 accent-violet-600"
+                        />
+                        {label}
+                    </label>
+                ))}
+            </fieldset>
+
             <details className="mt-2">
                 <summary className="cursor-pointer select-none text-[11px] font-bold text-slate-400 transition hover:text-violet-600">
                     {t('stageDescription')}
@@ -616,20 +536,13 @@ export default function CreateWorkTypeStages({
     const [formData, setFormData] =
         useState<WorkTypeForm>(initialFormData);
 
-    const [
-        intermediateStages,
-        setIntermediateStages,
-    ] = useState<IntermediateStage[]>([]);
-
-    const [
-        systemRoles,
-        setSystemRoles,
-    ] = useState<SystemRoles>(initialSystemRoles);
+    const [stages, setStages] =
+        useState<EditableStage[]>([]);
 
     const [formError, setFormError] =
         useState('');
     const [roleCreationTarget, setRoleCreationTarget] =
-        useState<RoleCreationTarget | null>(null);
+        useState<string | null>(null);
     const jwtRoles = useSelector((state: RootState) => state.auth.roles);
     const isAdmin = jwtRoles.some(
         (role) => role.toUpperCase().replace(/^ROLE_/u, '') === 'ADMIN'
@@ -674,20 +587,20 @@ export default function CreateWorkTypeStages({
 
     if (!isOpen) return null;
 
-    const addIntermediateStage = () => {
-        setIntermediateStages((current) => [
+    const addStage = () => {
+        setStages((current) => [
             ...current,
-            createIntermediateStage(),
+            createEditableStage(),
         ]);
 
         setFormError('');
     };
 
-    const updateIntermediateStage = (
+    const updateStage = (
         id: string,
-        patch: Partial<IntermediateStage>,
+        patch: Partial<EditableStage>,
     ) => {
-        setIntermediateStages((current) =>
+        setStages((current) =>
             current.map((stage) =>
                 stage.clientId === id
                     ? {
@@ -699,10 +612,23 @@ export default function CreateWorkTypeStages({
         );
     };
 
-    const deleteIntermediateStage = (
+    const setStageMarker = (
+        id: string,
+        marker: StageMarker,
+    ) => {
+        setStages((current) =>
+            current.map((stage) => ({
+                ...stage,
+                [marker]: stage.clientId === id,
+            })),
+        );
+        setFormError('');
+    };
+
+    const deleteStage = (
         id: string,
     ) => {
-        setIntermediateStages((current) =>
+        setStages((current) =>
             current.filter(
                 (stage) => stage.clientId !== id,
             ),
@@ -713,7 +639,7 @@ export default function CreateWorkTypeStages({
         id: string,
         status: WorkflowStatus,
     ) => {
-        updateIntermediateStage(id, {
+        updateStage(id, {
             existingStatusId: status.id,
             code: status.code,
             name: status.name,
@@ -732,7 +658,7 @@ export default function CreateWorkTypeStages({
             return;
         }
 
-        setIntermediateStages((current) => {
+        setStages((current) => {
             const oldIndex = current.findIndex(
                 (stage) =>
                     stage.clientId === active.id,
@@ -758,32 +684,22 @@ export default function CreateWorkTypeStages({
         });
     };
 
-    const buildSystemStage = (
-        type: SystemStageType,
-    ): WorkflowStage => ({
-        ...SYSTEM_STAGES[type],
-        name: t(`systemNames.${type}`),
-        description: t(`systemDescriptions.${type}`),
-        requiredRole: systemRoles[type],
-    });
-
-    const buildIntermediatePayload = (
-        stage: IntermediateStage,
+    const buildStagePayload = (
+        stage: EditableStage,
     ): WorkflowStage => ({
         code: stage.code.trim(),
         name: stage.name.trim(),
         description: stage.description.trim(),
         colorHex: stage.colorHex,
         requiredRole: stage.requiredRole,
-        initial: false,
-        terminal: false,
-        review: false,
+        initial: stage.initial,
+        terminal: stage.terminal,
+        review: stage.review,
     });
 
     const resetForm = () => {
         setFormData(initialFormData);
-        setIntermediateStages([]);
-        setSystemRoles(initialSystemRoles);
+        setStages([]);
         setFormError('');
     };
 
@@ -793,6 +709,20 @@ export default function CreateWorkTypeStages({
         event.preventDefault();
         setFormError('');
 
+        if (stages.length === 0) {
+            setFormError(t('stageRequired'));
+            return;
+        }
+
+        if (
+            !stages.some((stage) => stage.initial) ||
+            !stages.some((stage) => stage.review) ||
+            !stages.some((stage) => stage.terminal)
+        ) {
+            setFormError(t('stageMarkersRequired'));
+            return;
+        }
+
         if (statusesError) {
             setFormError(
                 t('duplicateCheckError'),
@@ -800,7 +730,7 @@ export default function CreateWorkTypeStages({
             return;
         }
 
-        const unresolvedSimilarStage = intermediateStages
+        const unresolvedSimilarStage = stages
             .filter((stage) => !stage.existingStatusId)
             .map((stage) => ({
                 stage,
@@ -819,30 +749,22 @@ export default function CreateWorkTypeStages({
             return;
         }
 
-        if (hasDuplicateIntermediateStages(intermediateStages)) {
+        if (hasDuplicateStages(stages)) {
             setFormError(
                 t('duplicateStages'),
             );
             return;
         }
 
-        const normalizedIntermediateStages =
-            intermediateStages.map(
-                buildIntermediatePayload,
-            );
+        const normalizedStages = stages.map(
+            buildStagePayload,
+        );
 
         const payload:
             CreateWorkflowWorkTypesDTO = {
             ...formData,
 
-            stages: [
-                buildSystemStage('TODO'),
-
-                ...normalizedIntermediateStages,
-
-                buildSystemStage('REVIEW'),
-                buildSystemStage('DONE'),
-            ],
+            stages: normalizedStages,
         };
 
         try {
@@ -977,9 +899,7 @@ export default function CreateWorkTypeStages({
 
                             <button
                                 type="button"
-                                onClick={
-                                    addIntermediateStage
-                                }
+                                onClick={addStage}
                                 className="rounded-lg bg-violet-50 px-3 py-2 text-xs font-bold text-violet-700 transition hover:bg-violet-100"
                             >
                                 {t('addStage')}
@@ -987,36 +907,7 @@ export default function CreateWorkTypeStages({
                         </div>
 
                         <div className="space-y-2">
-                            <SystemStageRow
-                                type="TODO"
-                                requiredRole={
-                                    systemRoles.TODO
-                                }
-                                roles={roles}
-                                rolesLoading={
-                                    rolesLoading
-                                }
-                                canCreate={isAdmin}
-                                onCreateRequest={() =>
-                                    setRoleCreationTarget({
-                                        kind: 'system',
-                                        type: 'TODO',
-                                    })
-                                }
-                                onRoleChange={(
-                                    requiredRole,
-                                ) =>
-                                    setSystemRoles(
-                                        (current) => ({
-                                            ...current,
-                                            TODO: requiredRole,
-                                        }),
-                                    )
-                                }
-                            />
-
-                            {intermediateStages.length >
-                            0 ? (
+                            {stages.length > 0 ? (
                                 <DndContext
                                     sensors={sensors}
                                     collisionDetection={
@@ -1027,7 +918,7 @@ export default function CreateWorkTypeStages({
                                     }
                                 >
                                     <SortableContext
-                                        items={intermediateStages.map(
+                                        items={stages.map(
                                             (stage) =>
                                                 stage.clientId,
                                         )}
@@ -1036,7 +927,7 @@ export default function CreateWorkTypeStages({
                                         }
                                     >
                                         <div className="space-y-2">
-                                            {intermediateStages.map(
+                                            {stages.map(
                                                 (
                                                     stage,
                                                     index,
@@ -1070,16 +961,18 @@ export default function CreateWorkTypeStages({
                                                             isAdmin
                                                         }
                                                         onCreateRequest={() =>
-                                                            setRoleCreationTarget({
-                                                                kind: 'intermediate',
-                                                                id: stage.clientId,
-                                                            })
+                                                            setRoleCreationTarget(
+                                                                stage.clientId,
+                                                            )
                                                         }
                                                         onChange={
-                                                            updateIntermediateStage
+                                                            updateStage
+                                                        }
+                                                        onMarkerChange={
+                                                            setStageMarker
                                                         }
                                                         onDelete={
-                                                            deleteIntermediateStage
+                                                            deleteStage
                                                         }
                                                         onUseExisting={
                                                             useExistingStage
@@ -1093,71 +986,12 @@ export default function CreateWorkTypeStages({
                             ) : (
                                 <button
                                     type="button"
-                                    onClick={
-                                        addIntermediateStage
-                                    }
+                                    onClick={addStage}
                                     className="w-full rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-4 text-xs font-medium text-slate-400 transition hover:border-violet-300 hover:bg-violet-50 hover:text-violet-600"
                                 >
                                     {t('addIntermediate')}
                                 </button>
                             )}
-
-                            <SystemStageRow
-                                type="REVIEW"
-                                requiredRole={
-                                    systemRoles.REVIEW
-                                }
-                                roles={roles}
-                                rolesLoading={
-                                    rolesLoading
-                                }
-                                canCreate={isAdmin}
-                                onCreateRequest={() =>
-                                    setRoleCreationTarget({
-                                        kind: 'system',
-                                        type: 'REVIEW',
-                                    })
-                                }
-                                onRoleChange={(
-                                    requiredRole,
-                                ) =>
-                                    setSystemRoles(
-                                        (current) => ({
-                                            ...current,
-                                            REVIEW:
-                                            requiredRole,
-                                        }),
-                                    )
-                                }
-                            />
-
-                            <SystemStageRow
-                                type="DONE"
-                                requiredRole={
-                                    systemRoles.DONE
-                                }
-                                roles={roles}
-                                rolesLoading={
-                                    rolesLoading
-                                }
-                                canCreate={isAdmin}
-                                onCreateRequest={() =>
-                                    setRoleCreationTarget({
-                                        kind: 'system',
-                                        type: 'DONE',
-                                    })
-                                }
-                                onRoleChange={(
-                                    requiredRole,
-                                ) =>
-                                    setSystemRoles(
-                                        (current) => ({
-                                            ...current,
-                                            DONE: requiredRole,
-                                        }),
-                                    )
-                                }
-                            />
                         </div>
                     </section>
 
@@ -1226,17 +1060,9 @@ export default function CreateWorkTypeStages({
             <RoleCreateModal
                 onClose={() => setRoleCreationTarget(null)}
                 onCreated={(role) => {
-                    if (roleCreationTarget.kind === 'system') {
-                        const type = roleCreationTarget.type;
-                        setSystemRoles((current) => ({
-                            ...current,
-                            [type]: role.code,
-                        }));
-                    } else {
-                        updateIntermediateStage(roleCreationTarget.id, {
-                            requiredRole: role.code,
-                        });
-                    }
+                    updateStage(roleCreationTarget, {
+                        requiredRole: role.code,
+                    });
                     setRoleCreationTarget(null);
                 }}
             />
