@@ -15,15 +15,14 @@ export interface WorkflowTransition {
 }
 
 type StagesWorkflowWorkTypesDTO = {
-    code: string,
-    name: string,
-    description: string,
-    colorHex: string,
-    initial: boolean,
-    terminal: boolean,
-    review: boolean,
-    requiredRole: string
-}
+    code: string;
+    name: string;
+    description: string;
+    colorHex: string;
+    requiredRole: string;
+    materialReportRequired: boolean;
+    allowUnplannedMaterials: boolean;
+};
 
 export type CreateWorkflowWorkTypesDTO = {
     workTypeCode: string,
@@ -36,21 +35,21 @@ export type CreateWorkflowWorkTypesResponseDTO = {
     workTypeId: string,
     workTypeCode: string,
     workTypeName: string,
-    steps: [
-        {
-            id: string,
-            workTypeId: string,
-            workTypeName: string,
-            fromStatusId: string,
-            fromStatusCode: string,
-            fromStatusName: string,
-            toStatusId: string,
-            toStatusCode: string,
-            toStatusName: string,
-            requiredRole: string,
-            sortOrder: number
-        }
-    ]
+    steps: Array<{
+        id: string;
+        workTypeId: string;
+        workTypeName: string;
+        fromStatusId: string;
+        fromStatusCode: string;
+        fromStatusName: string;
+        toStatusId: string;
+        toStatusCode: string;
+        toStatusName: string;
+        requiredRole: string;
+        sortOrder: number;
+        materialReportRequired: boolean;
+        allowUnplannedMaterials: boolean;
+    }>;
 }
 
 export interface GetAvailableWorkflowTransitionsArgs {

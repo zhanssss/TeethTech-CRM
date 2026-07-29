@@ -50,6 +50,7 @@ import {
     searchWorkflowStatuses,
 } from '@/src/utils/workflowStageMatching';
 import {createClientId} from '@/src/utils/clientId';
+import {getApiErrorMessage} from '@/src/services/apiNotifications';
 
 type CreateWorkTypeStagesProps = {
     isOpen: boolean;
@@ -69,7 +70,11 @@ type WorkTypeForm = Omit<
     'stages'
 >;
 
-type StageMarker = 'initial' | 'review' | 'terminal';
+const SYSTEM_STAGE_CODES = new Set([
+    'TODO',
+    'WAITING_FOR_APPROVAL',
+    'ORDER_CLOSED',
+]);
 
 const initialFormData: WorkTypeForm = {
     workTypeCode: '',
@@ -85,25 +90,17 @@ function createEditableStage(): EditableStage {
         description: '',
         colorHex: '#3B82F6',
         requiredRole: '',
-        initial: false,
-        terminal: false,
-        review: false,
+        materialReportRequired: false,
+        allowUnplannedMaterials: false,
     };
 }
 
-function hasDuplicateStages(stages: EditableStage[]) {
+function hasDuplicateStageCodes(stages: EditableStage[]) {
     return stages.some((stage, index) =>
         stages.slice(index + 1).some((candidate) => {
             const code = normalizeWorkflowStageValue(stage.code);
-            const name = normalizeWorkflowStageValue(stage.name);
-
-            return (
-                Boolean(code) &&
-                code === normalizeWorkflowStageValue(candidate.code)
-            ) || (
-                Boolean(name) &&
-                name === normalizeWorkflowStageValue(candidate.name)
-            );
+            return Boolean(code) &&
+                code === normalizeWorkflowStageValue(candidate.code);
         }),
     );
 }
@@ -140,6 +137,30 @@ function RoleSelect({
     );
 }
 
+function SystemStageRow({
+                            code,
+                            label,
+                        }: {
+    code: string;
+    label: string;
+}) {
+    const t = useTranslations('laboratory.workflow');
+
+    return (
+        <div className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-100 px-4 py-3 text-slate-500">
+            <span className="min-w-0">
+                <span className="block truncate text-sm font-bold">{label}</span>
+                <span className="block truncate font-mono text-[10px] font-bold">
+                    {code}
+                </span>
+            </span>
+            <span className="shrink-0 rounded-full border border-slate-300 bg-white px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider">
+                {t('systemStage')}
+            </span>
+        </div>
+    );
+}
+
 type SortableStageRowProps = {
     stage: EditableStage;
     index: number;
@@ -152,7 +173,6 @@ type SortableStageRowProps = {
         id: string,
         patch: Partial<EditableStage>,
     ) => void;
-    onMarkerChange: (id: string, marker: StageMarker) => void;
     onDelete: (id: string) => void;
     onUseExisting: (id: string, status: WorkflowStatus) => void;
     canCreate: boolean;
@@ -384,7 +404,6 @@ function SortableStageRow({
                               roles,
                               rolesLoading,
                               onChange,
-                              onMarkerChange,
                               onDelete,
                               onUseExisting,
                               canCreate,
@@ -478,35 +497,29 @@ function SortableStageRow({
                 </button>
             </div>
             <fieldset className="mt-3 flex flex-wrap gap-2 border-t border-slate-100 pt-3">
-                <legend className="sr-only">
-                    {t('stageMarkers')}
-                </legend>
-
-                {([
-                    ['initial', t('initialStage')],
-                    ['review', t('reviewStage')],
-                    ['terminal', t('terminalStage')],
-                ] as const).map(([marker, label]) => (
-                    <label
-                        key={marker}
-                        className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-[11px] font-bold transition ${
-                            stage[marker]
-                                ? 'border-violet-300 bg-violet-50 text-violet-700'
-                                : 'border-slate-200 bg-slate-50 text-slate-500 hover:border-violet-200 hover:bg-white'
-                        }`}
-                    >
-                        <input
-                            type="radio"
-                            name={`workflow-${marker}`}
-                            checked={stage[marker]}
-                            onChange={() =>
-                                onMarkerChange(stage.clientId, marker)
-                            }
-                            className="h-3.5 w-3.5 accent-violet-600"
-                        />
-                        {label}
-                    </label>
-                ))}
+                <legend className="sr-only">{t('stageRules')}</legend>
+                <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-[11px] font-bold text-slate-600">
+                    <input
+                        type="checkbox"
+                        checked={stage.materialReportRequired}
+                        onChange={(event) => onChange(stage.clientId, {
+                            materialReportRequired: event.target.checked,
+                        })}
+                        className="h-3.5 w-3.5 accent-violet-600"
+                    />
+                    {t('materialReportRequired')}
+                </label>
+                <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-[11px] font-bold text-slate-600">
+                    <input
+                        type="checkbox"
+                        checked={stage.allowUnplannedMaterials}
+                        onChange={(event) => onChange(stage.clientId, {
+                            allowUnplannedMaterials: event.target.checked,
+                        })}
+                        className="h-3.5 w-3.5 accent-violet-600"
+                    />
+                    {t('allowUnplannedMaterials')}
+                </label>
             </fieldset>
             <details className="mt-2">
                 <summary
@@ -614,19 +627,6 @@ export default function CreateWorkTypeStages({
         );
     };
 
-    const setStageMarker = (
-        id: string,
-        marker: StageMarker,
-    ) => {
-        setStages((current) =>
-            current.map((stage) => ({
-                ...stage,
-                [marker]: stage.clientId === id,
-            })),
-        );
-        setFormError('');
-    };
-
     const deleteStage = (
         id: string,
     ) => {
@@ -693,10 +693,9 @@ export default function CreateWorkTypeStages({
         name: stage.name.trim(),
         description: stage.description.trim(),
         colorHex: stage.colorHex,
-        requiredRole: stage.requiredRole,
-        initial: stage.initial,
-        terminal: stage.terminal,
-        review: stage.review,
+        requiredRole: stage.requiredRole.trim(),
+        materialReportRequired: stage.materialReportRequired,
+        allowUnplannedMaterials: stage.allowUnplannedMaterials,
     });
 
     const resetForm = () => {
@@ -711,17 +710,34 @@ export default function CreateWorkTypeStages({
         event.preventDefault();
         setFormError('');
 
+        if (!formData.workTypeCode.trim() || !formData.workTypeName.trim()) {
+            setFormError(t('workTypeRequired'));
+            return;
+        }
+
         if (stages.length === 0) {
             setFormError(t('stageRequired'));
             return;
         }
 
-        if (
-            !stages.some((stage) => stage.initial) ||
-            !stages.some((stage) => stage.review) ||
-            !stages.some((stage) => stage.terminal)
-        ) {
-            setFormError(t('stageMarkersRequired'));
+        const incompleteStage = stages.find(
+            (stage) =>
+                !stage.code.trim() ||
+                !stage.name.trim() ||
+                !stage.requiredRole.trim(),
+        );
+        if (incompleteStage) {
+            setFormError(t('stageFieldsRequired'));
+            return;
+        }
+
+        const reservedStage = stages.find((stage) =>
+            SYSTEM_STAGE_CODES.has(stage.code.trim().toUpperCase()),
+        );
+        if (reservedStage) {
+            setFormError(t('systemCodeForbidden', {
+                code: reservedStage.code.trim(),
+            }));
             return;
         }
 
@@ -751,7 +767,7 @@ export default function CreateWorkTypeStages({
             return;
         }
 
-        if (hasDuplicateStages(stages)) {
+        if (hasDuplicateStageCodes(stages)) {
             setFormError(
                 t('duplicateStages'),
             );
@@ -764,8 +780,9 @@ export default function CreateWorkTypeStages({
 
         const payload:
             CreateWorkflowWorkTypesDTO = {
-            ...formData,
-
+            workTypeCode: formData.workTypeCode.trim(),
+            workTypeName: formData.workTypeName.trim(),
+            description: formData.description.trim(),
             stages: normalizedStages,
         };
 
@@ -775,15 +792,14 @@ export default function CreateWorkTypeStages({
                     payload,
                 ).unwrap();
 
-            console.log(
-                'Created workflow:',
-                result,
-            );
+            // Backend returns the authoritative full chain, including
+            // TODO, WAITING_FOR_APPROVAL and ORDER_CLOSED.
+            console.log('Created workflow steps:', result.steps);
 
             resetForm();
             onClose();
         } catch (error) {
-            console.error(error);
+            setFormError(getApiErrorMessage(error, 'createWorkflowWorkTypes'));
         }
     };
 
@@ -911,6 +927,11 @@ export default function CreateWorkTypeStages({
                             </div>
 
                             <div className="space-y-2">
+                                <SystemStageRow
+                                    code="TODO"
+                                    label={t('systemTodo')}
+                                />
+
                                 {stages.length > 0 ? (
                                     <DndContext
                                         sensors={sensors}
@@ -972,9 +993,6 @@ export default function CreateWorkTypeStages({
                                                             onChange={
                                                                 updateStage
                                                             }
-                                                            onMarkerChange={
-                                                                setStageMarker
-                                                            }
                                                             onDelete={
                                                                 deleteStage
                                                             }
@@ -996,6 +1014,15 @@ export default function CreateWorkTypeStages({
                                         {t('addIntermediate')}
                                     </button>
                                 )}
+
+                                <SystemStageRow
+                                    code="WAITING_FOR_APPROVAL"
+                                    label={t('systemWaitingForApproval')}
+                                />
+                                <SystemStageRow
+                                    code="ORDER_CLOSED"
+                                    label={t('systemOrderClosed')}
+                                />
                             </div>
                         </section>
 
@@ -1028,9 +1055,9 @@ export default function CreateWorkTypeStages({
                             </p>
                         )}
 
-                        {createError && (
+                        {createError && !formError && (
                             <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-medium text-red-700">
-                                {t('createError')}
+                                {getApiErrorMessage(createError, 'createWorkflowWorkTypes')}
                             </p>
                         )}
                     </div>
