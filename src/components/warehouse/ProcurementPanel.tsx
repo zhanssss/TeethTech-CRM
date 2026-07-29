@@ -24,6 +24,7 @@ import type {
 import {getApiErrorMessage, shortId} from './warehouseUtils';
 import {useAppFormatters, useAppLocale} from '@/src/i18n/provider';
 import {intlLocaleByLocale} from '@/src/i18n/config';
+import {createClientId} from '@/src/utils/clientId';
 
 type ProcurementView = 'orders' | 'suppliers';
 
@@ -471,7 +472,7 @@ function ReceiptModal({
         ]))
     );
     const [error, setError] = useState('');
-    const [receiptId] = useState(() => crypto.randomUUID());
+    const [receiptId] = useState(() => createClientId('receipt'));
     const [receiveOrder, receiveState] = useReceiveProcurementOrderMutation();
 
     const updateItem = (itemId: string, field: keyof ReceiptItemDraft, value: string) => {

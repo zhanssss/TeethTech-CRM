@@ -65,6 +65,7 @@ import {
 	getInitials,
 	getReplyPreview
 } from '@/src/utils/chatUtils'
+import { createClientId } from '@/src/utils/clientId'
 
 type MessageContextMenuState = {
 	messageId: string
@@ -514,7 +515,7 @@ export default function ChatPage() {
 		if (isSendingMessage || isSendingRest || isUploadingFile) return
 		const conversationId = activeConversationId
 		const originalReplyToId = replyToId
-		const temporaryId = `pending-${crypto.randomUUID()}`
+		const temporaryId = createClientId('pending')
 		const optimisticMessage: ChatMessageDto = {
 			id: temporaryId,
 			conversationId,

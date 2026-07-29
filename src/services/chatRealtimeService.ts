@@ -17,10 +17,19 @@ function debugRealtime(message: string, details?: unknown) {
 }
 
 function getWebSocketEndpoint() {
-	const configuredEndpoint = process.env.NEXT_PUBLIC_BACKEND_WS_URL?.trim()
-	if (configuredEndpoint) return configuredEndpoint
-	if (typeof window === 'undefined') return 'http://localhost:8081/api/v1/ws-crm'
-	return `${window.location.protocol}//${window.location.hostname}:8081/api/v1/ws-crm`
+	const configuredEndpoint = (
+		process.env.NEXT_PUBLIC_WS_URL
+		?? process.env.NEXT_PUBLIC_BACKEND_WS_URL
+	)?.trim()
+
+	if (typeof window === 'undefined') {
+		return configuredEndpoint || '/api/v1/ws-crm'
+	}
+
+	return new URL(
+		configuredEndpoint || '/api/v1/ws-crm',
+		window.location.origin
+	).toString()
 }
 
 type ChatRealtimeListener = (event: ChatRealtimeEvent) => void
