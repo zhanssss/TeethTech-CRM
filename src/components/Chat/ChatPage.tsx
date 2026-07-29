@@ -1297,71 +1297,130 @@ export default function ChatPage() {
 				</Modal>
 			) : null}
 			{isCreateGroupOpen ? (
-				<Modal contentClassName="max-w-xl overflow-hidden p-0">
-					<div className="p-5 sm:p-6">
-						<div className="flex items-center justify-between">
-							<div><div className="mb-3 flex h-11 w-11 items-center justify-center rounded-2xl bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300"><UsersIcon /></div><h3 className="text-xl font-black text-slate-950 dark:text-white">{t('createGroup')}</h3><p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{t('createGroupHint')}</p></div>
+				<Modal contentClassName="max-w-5xl overflow-hidden p-0">
+					<div className="p-5 sm:p-7">
+						<div className="flex items-start justify-between gap-4">
+							<div className="flex min-w-0 items-center gap-3.5">
+								<div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300">
+									<UsersIcon />
+								</div>
+								<div className="min-w-0">
+									<h3 className="text-xl font-black text-slate-950 dark:text-white">{t('createGroup')}</h3>
+									<p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{t('createGroupHint')}</p>
+								</div>
+							</div>
 							<button
 								type="button"
 								onClick={() => setIsCreateGroupOpen(false)}
-								className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-500 dark:bg-slate-800"
+								className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-500 transition hover:bg-slate-200 hover:text-slate-700 dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700 dark:hover:text-white"
 							>
 								<CloseIcon />
 							</button>
 						</div>
-						<label className="mt-5 block text-sm font-bold text-slate-700 dark:text-slate-300">
-							{t('name')}
-							<input
-								value={groupTitle}
-								onChange={event => setGroupTitle(event.target.value)}
-								className="mt-2 h-12 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 text-sm outline-none focus:border-violet-400 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
-							/>
-						</label>
-						<label className="mt-4 block text-sm font-bold text-slate-700 dark:text-slate-300">
-							{t('members')}
-							<input
-								value={memberSearch}
-								onChange={event => setMemberSearch(event.target.value)}
-								className="mt-2 h-12 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 text-sm outline-none focus:border-violet-400 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
-								placeholder={t('searchEmployees')}
-							/>
-						</label>
-						<div className="mt-3 flex flex-wrap gap-2">
-							{selectedMemberIds.map(id => (
-								<span
-									key={id}
-									className="rounded-full bg-violet-100 px-3 py-1.5 text-xs font-bold text-violet-700 dark:bg-violet-500/15 dark:text-violet-300"
-								>
-									{users.find(user => user.id === id)?.fullName || t('memberFallback')}
-								</span>
-							))}
-						</div>
-						<div className="mt-4 max-h-60 space-y-2 overflow-auto">
-							{filteredUsers.map(user => (
-								<button
-									key={user.id}
-									type="button"
-									onClick={() =>
-										setSelectedMemberIds(current =>
-											current.includes(user.id)
-												? current.filter(id => id !== user.id)
-												: [...current, user.id]
-										)
-									}
-									className={`flex w-full items-center gap-3 rounded-2xl border p-3 text-left text-sm transition ${selectedMemberIds.includes(user.id) ? 'border-violet-300 bg-violet-50 dark:border-violet-500/50 dark:bg-violet-500/10' : 'border-slate-200 dark:border-slate-700'}`}
-								>
-									<span className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-900 text-xs font-black text-white dark:bg-slate-700">{getInitials(user.fullName || user.name || 'U')}</span><span className="flex-1 font-bold text-slate-900 dark:text-white">{user.fullName || user.name}</span>
-									{selectedMemberIds.includes(user.id) ? (
-										<span className="flex h-7 w-7 items-center justify-center rounded-full bg-violet-600 text-white"><CheckIcon /></span>
+
+						<div className="mt-6 grid grid-cols-[minmax(0,0.82fr)_minmax(0,1.18fr)] items-stretch gap-4">
+							<div className="flex h-[25rem] min-h-0 min-w-0 flex-col rounded-3xl border border-[var(--app-border)] bg-[var(--app-surface-muted)] p-4 sm:p-5">
+								<label className="block text-sm font-bold text-slate-700 dark:text-slate-300">
+									{t('name')}
+									<input
+										value={groupTitle}
+										onChange={event => setGroupTitle(event.target.value)}
+										className="mt-2 h-12 w-full rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface)] px-4 text-sm text-slate-900 outline-none transition focus:border-violet-400 focus:ring-4 focus:ring-violet-100 dark:text-white dark:focus:ring-violet-500/10"
+									/>
+								</label>
+
+								<div className="mt-6 flex items-center justify-between">
+									<p className="text-sm font-bold text-slate-700 dark:text-slate-300">{t('members')}</p>
+									<span className="flex h-7 min-w-7 items-center justify-center rounded-full bg-violet-100 px-2 text-xs font-black text-violet-700 dark:bg-violet-500/15 dark:text-violet-300">
+										{selectedMemberIds.length}
+									</span>
+								</div>
+
+								<div className="mt-3 min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
+									{selectedMemberIds.length === 0 ? (
+										<div className="flex h-full min-h-32 items-center justify-center rounded-2xl border border-dashed border-[var(--app-border)] px-5 text-center text-sm text-slate-400 dark:text-slate-500">
+											{t('errors.groupMember')}
+										</div>
 									) : null}
-								</button>
-							))}
+									{selectedMemberIds.map(id => {
+										const selectedUser = users.find(user => user.id === id)
+										const selectedUserName = selectedUser?.fullName || selectedUser?.name || t('memberFallback')
+
+										return (
+											<div
+												key={id}
+												className="flex items-center gap-3 rounded-2xl border border-violet-300/70 bg-[var(--app-surface)] px-3 py-2.5 dark:border-violet-500/40"
+											>
+												<span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-indigo-600 text-xs font-black text-white">
+													{getInitials(selectedUserName)}
+												</span>
+												<span className="min-w-0 flex-1 truncate text-sm font-bold text-slate-900 dark:text-white">
+													{selectedUserName}
+												</span>
+												<button
+													type="button"
+													onClick={() => setSelectedMemberIds(current => current.filter(memberId => memberId !== id))}
+													aria-label={`${t('remove')}: ${selectedUserName}`}
+													className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-slate-400 transition hover:bg-rose-50 hover:text-rose-600 dark:text-slate-500 dark:hover:bg-rose-500/10 dark:hover:text-rose-300"
+												>
+													<CloseIcon />
+												</button>
+											</div>
+										)
+									})}
+								</div>
+							</div>
+
+							<div className="flex h-[25rem] min-h-0 min-w-0 flex-col rounded-3xl border border-[var(--app-border)] bg-[var(--app-surface)] p-4 sm:p-5">
+								<p className="text-sm font-bold text-slate-700 dark:text-slate-300">{t('members')}</p>
+								<label className="relative mt-2 block">
+									<span className="pointer-events-none absolute inset-y-0 left-4 flex items-center text-slate-400">
+										<SearchIcon />
+									</span>
+									<input
+										value={memberSearch}
+										onChange={event => setMemberSearch(event.target.value)}
+										aria-label={t('searchEmployees')}
+										className="h-12 w-full rounded-2xl border border-[var(--app-border)] bg-[var(--app-background)] pl-11 pr-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-violet-400 focus:ring-4 focus:ring-violet-100 dark:text-white dark:focus:ring-violet-500/10"
+										placeholder={t('searchEmployees')}
+									/>
+								</label>
+
+								<div className="mt-3 min-h-0 flex-1 space-y-2 overflow-y-auto pb-1 pr-1">
+									{filteredUsers.map(user => (
+										<button
+											key={user.id}
+											type="button"
+											onClick={() =>
+												setSelectedMemberIds(current =>
+													current.includes(user.id)
+														? current.filter(id => id !== user.id)
+														: [...current, user.id]
+												)
+											}
+											className={`flex w-full items-center gap-3 rounded-2xl border px-3 py-2.5 text-left text-sm transition ${selectedMemberIds.includes(user.id) ? 'border-violet-400/70 bg-violet-50 dark:border-violet-500/50 dark:bg-violet-500/10' : 'border-[var(--app-border)] bg-[var(--app-surface)] hover:border-violet-300 hover:bg-violet-50/60 dark:hover:border-violet-500/40 dark:hover:bg-violet-500/5'}`}
+										>
+											<span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-900 text-xs font-black text-white dark:bg-slate-700">
+												{getInitials(user.fullName || user.name || 'U')}
+											</span>
+											<span className="min-w-0 flex-1">
+												<span className="block truncate font-bold text-slate-900 dark:text-white">{user.fullName || user.name}</span>
+												{user.email ? <span className="mt-0.5 block truncate text-xs text-slate-500 dark:text-slate-400">{user.email}</span> : null}
+											</span>
+											{selectedMemberIds.includes(user.id) ? (
+												<span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-violet-600 text-white"><CheckIcon /></span>
+											) : null}
+										</button>
+									))}
+								</div>
+							</div>
 						</div>
+
 						<button
 							type="button"
 							onClick={() => void handleCreateGroup()}
 							disabled={isCreatingGroup}
-							className="mt-5 h-12 w-full rounded-2xl bg-gradient-to-r from-violet-600 to-indigo-600 px-4 text-sm font-bold text-white shadow-lg shadow-violet-500/20 disabled:opacity-50"
+							className="mt-5 h-12 w-full rounded-2xl bg-gradient-to-r from-violet-600 to-indigo-600 px-4 text-sm font-bold text-white shadow-lg shadow-violet-500/20 transition hover:brightness-110 focus:outline-none focus:ring-4 focus:ring-violet-500/20 disabled:cursor-not-allowed disabled:opacity-50"
 						>
 							{t('createGroup')}
 						</button>
