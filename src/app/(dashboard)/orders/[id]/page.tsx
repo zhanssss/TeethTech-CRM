@@ -35,6 +35,8 @@ const ORDER_LOOKUP_PARAMS = {
 };
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const COMPOSITE_NOTIFICATION = { error: false, success: false } as const;
+const REVIEW_STATUS_CODE = 'WAITING_FOR_APPROVAL';
+const CLOSED_STATUS_CODE = 'ORDER_CLOSED';
 
 function isUuid(value: string | null | undefined) {
     return Boolean(value && UUID_PATTERN.test(value));
@@ -105,67 +107,45 @@ function getColumnsTasks(columns: OrderKanbanColumn[]) {
     return columns.flatMap((column) => column.tasks);
 }
 
-function isCompletedTask(
-    task: OrderKanbanTask,
-    terminalStatusIds: Set<string>,
-) {
+function isCompletedTask(task: OrderKanbanTask, closedStatus: WorkflowStatus) {
     return task.isCompleted === true
-        || Boolean(
-            task.currentStatusId &&
-            terminalStatusIds.has(task.currentStatusId),
-        );
+        || task.currentStatusId === closedStatus.id
+        || task.currentStatusCode?.trim().toUpperCase() === closedStatus.code;
 }
 
-function isCompletedColumn(
-    column: OrderKanbanColumn,
-    terminalStatusIds: Set<string>,
-) {
-    return Boolean(
-        column.statusId &&
-        terminalStatusIds.has(column.statusId),
-    );
+function isCompletedColumn(column: OrderKanbanColumn, closedStatus: WorkflowStatus) {
+    const closedValues = [closedStatus.code, closedStatus.name].map(normalizeStageValue);
+    const columnValues = [column.statusName, column.title].map(normalizeStageValue);
+
+    return column.statusId === closedStatus.id
+        || columnValues.some((value) => closedValues.includes(value));
 }
 
 function buildOrderKanbanColumns(
     columns: OrderKanbanColumn[],
     order: ServerOrderInfo | undefined,
-    terminalStatuses: WorkflowStatus[],
+    closedStatus: WorkflowStatus | undefined
 ) {
-    if (terminalStatuses.length === 0) return columns;
+    if (!closedStatus) return columns;
 
-    const terminalStatusIds = new Set(
-        terminalStatuses.map((status) => status.id),
-    );
     const completedTasksById = new Map<string, OrderKanbanTask>();
 
     for (const task of getOrderDetailTasks(order)) {
-        if (isCompletedTask(task, terminalStatusIds)) {
+        if (isCompletedTask(task, closedStatus)) {
             completedTasksById.set(task.id, task);
         }
     }
 
-    for (const column of columns) {
-        const columnIsTerminal = isCompletedColumn(
-            column,
-            terminalStatusIds,
-        );
-
-        for (const task of column.tasks) {
-            if (
-                columnIsTerminal ||
-                isCompletedTask(task, terminalStatusIds)
-            ) {
-                completedTasksById.set(task.id, task);
-            }
+    for (const task of getColumnsTasks(columns)) {
+        if (isCompletedTask(task, closedStatus)) {
+            completedTasksById.set(task.id, task);
         }
     }
 
     const activeColumns = columns
-        .filter((column) => !isCompletedColumn(column, terminalStatusIds))
+        .filter((column) => !isCompletedColumn(column, closedStatus))
         .map((column) => {
-            const tasks = column.tasks.filter(
-                (task) => !isCompletedTask(task, terminalStatusIds),
-            );
+            const tasks = column.tasks.filter((task) => !isCompletedTask(task, closedStatus));
 
             return {
                 ...column,
@@ -174,19 +154,13 @@ function buildOrderKanbanColumns(
             };
         });
     const completedTasks = Array.from(completedTasksById.values());
-    const terminalColumn = columns.find(
-        (column) => isCompletedColumn(column, terminalStatusIds),
-    );
-    const displayTerminalStatus = terminalStatuses.find(
-        (status) => status.id === terminalColumn?.statusId,
-    ) ?? terminalStatuses[0];
 
     return [
         ...activeColumns,
         {
-            statusId: displayTerminalStatus.id,
-            statusName: displayTerminalStatus.name,
-            title: displayTerminalStatus.name,
+            statusId: closedStatus.id,
+            statusName: closedStatus.name,
+            title: closedStatus.name,
             taskCount: completedTasks.length,
             tasks: completedTasks,
         },
@@ -214,57 +188,32 @@ function normalizeStageValue(value: string | undefined | null) {
     return (value ?? '').toLowerCase().replace(/[-_/]+/g, ' ').trim();
 }
 
-function getCurrentWorkflowStatus(
-    column: OrderKanbanColumn,
-    task: OrderKanbanTask,
-    statuses: WorkflowStatus[],
-) {
-    return statuses.find(
-        (status) => status.id === task.currentStatusId,
-    ) ?? statuses.find(
-        (status) => status.id === column.statusId,
-    );
+function isNewTaskStage(column: OrderKanbanColumn, task: OrderKanbanTask) {
+    void column;
+    const statusCode = task.currentStatusCode?.trim().toUpperCase();
+    return statusCode === 'TODO' || statusCode === 'NEW_TASK';
 }
 
-function isTaskAtWorkflowMarker(
-    column: OrderKanbanColumn,
-    task: OrderKanbanTask,
-    statuses: WorkflowStatus[],
-    marker: 'initial' | 'review',
-) {
-    return getCurrentWorkflowStatus(column, task, statuses)?.[marker] === true;
-}
-
-function getAllowedTerminalStatus(
-    task: OrderKanbanTask,
-    statuses: WorkflowStatus[],
-) {
-    const allowedStatusIds = new Set(task.allowedNextStatusIds ?? []);
-
-    return statuses.find(
-        (status) =>
-            status.terminal &&
-            allowedStatusIds.has(status.id),
-    );
+function isReviewTaskStage(task: OrderKanbanTask) {
+    return task.currentStatusCode?.trim().toUpperCase() === REVIEW_STATUS_CODE;
 }
 
 function CompleteTaskButton({
     task,
-    terminalStatusId,
-    isWorkflowStatusesLoading,
+    closedStatusId,
+    isClosedStatusLoading,
 }: {
     task: OrderKanbanTask;
-    terminalStatusId?: string;
-    isWorkflowStatusesLoading: boolean;
+    closedStatusId?: string;
+    isClosedStatusLoading: boolean;
 }) {
     const t = useTranslations('orders.taskActions');
     const [isOpen, setIsOpen] = useState(false);
     const isTransitionAllowed = Boolean(
-        terminalStatusId &&
-        task.allowedNextStatusIds?.includes(terminalStatusId),
+        closedStatusId && task.allowedNextStatusIds?.includes(closedStatusId)
     );
 
-    if (isWorkflowStatusesLoading) {
+    if (isClosedStatusLoading) {
         return (
             <button
                 type="button"
@@ -276,7 +225,7 @@ function CompleteTaskButton({
         );
     }
 
-    if (!terminalStatusId || !isTransitionAllowed) {
+    if (!closedStatusId || !isTransitionAllowed) {
         return (
             <p className="rounded-lg bg-amber-50 px-3 py-2 text-center text-[10px] font-bold text-amber-700">
                 {t('completionUnavailable')}
@@ -286,7 +235,7 @@ function CompleteTaskButton({
 
     return <>
         <button type="button" onClick={() => setIsOpen(true)} className="w-full rounded-lg bg-slate-900 px-3 py-2.5 text-xs font-black text-white transition hover:bg-slate-700">{t('complete')}</button>
-        {isOpen && terminalStatusId ? <TaskMaterialTransitionModal taskId={task.id} nextStatusId={terminalStatusId} defaultComment={t('finalCheckComment')} onClose={() => setIsOpen(false)} /> : null}
+        {isOpen && closedStatusId ? <TaskMaterialTransitionModal taskId={task.id} nextStatusId={closedStatusId} defaultComment={t('finalCheckComment')} onClose={() => setIsOpen(false)} /> : null}
     </>;
 }
 
@@ -490,6 +439,9 @@ export default function OrderBoardPage() {
         isError: isWorkflowStatusesError,
         refetch: refetchWorkflowStatuses,
     } = useGetWorkflowStatusesQuery(undefined, {skip: !isUuid(id)});
+    const closedStatus = workflowStatuses.find(
+        (status) => status.code === CLOSED_STATUS_CODE
+    );
     const kanbanUserId = useMemo(
         () => isUuid(currentUserId)
             ? currentUserId ?? undefined
@@ -560,8 +512,8 @@ export default function OrderBoardPage() {
                 users={users}
                 isUsersLoading={isUsersLoading}
                 canAssignTasks={canAssignTasks}
-                workflowStatuses={workflowStatuses}
-                isWorkflowStatusesLoading={isWorkflowStatusesLoading}
+                closedStatus={closedStatus}
+                isClosedStatusLoading={isWorkflowStatusesLoading}
             />
         );
     }
@@ -588,8 +540,8 @@ function ServerKanbanBoard({
                                users,
                                isUsersLoading,
                                canAssignTasks,
-                               workflowStatuses,
-                               isWorkflowStatusesLoading,
+                               closedStatus,
+                               isClosedStatusLoading,
                            }: {
     orderId: string;
     order?: ServerOrderInfo;
@@ -597,23 +549,15 @@ function ServerKanbanBoard({
     users: User[];
     isUsersLoading: boolean;
     canAssignTasks: boolean;
-    workflowStatuses: WorkflowStatus[];
-    isWorkflowStatusesLoading: boolean;
+    closedStatus?: WorkflowStatus;
+    isClosedStatusLoading: boolean;
 }) {
     const t = useTranslations('orders.details');
     const tStatuses = useTranslations('orders.statuses');
     const format = useAppFormatters();
-    const terminalStatuses = useMemo(
-        () => workflowStatuses.filter((status) => status.terminal),
-        [workflowStatuses],
-    );
-    const terminalStatusIds = useMemo(
-        () => new Set(terminalStatuses.map((status) => status.id)),
-        [terminalStatuses],
-    );
     const boardColumns = useMemo(
-        () => buildOrderKanbanColumns(columns, order, terminalStatuses),
-        [columns, order, terminalStatuses],
+        () => buildOrderKanbanColumns(columns, order, closedStatus),
+        [closedStatus, columns, order]
     );
     const taskCount = boardColumns.reduce((sum, column) => sum + column.taskCount, 0);
     const [selectedTask, setSelectedTask] = useState<OrderKanbanTask | null>(null);
@@ -625,29 +569,14 @@ function ServerKanbanBoard({
                 .map((task) => [task.id, task] as const)
         ).values()
     );
-    const completedTaskIds = new Set(
-        boardColumns
-            .filter((column) =>
-                isCompletedColumn(column, terminalStatusIds),
-            )
-            .flatMap((column) =>
-                column.tasks.map((task) => task.id),
-            ),
-    );
-    const activeTaskCount = terminalStatuses.length > 0
+    const activeTaskCount = closedStatus
         ? new Set(
             allTasks
-                .filter(
-                    (task) =>
-                        !completedTaskIds.has(task.id) &&
-                        !isCompletedTask(task, terminalStatusIds),
-                )
+                .filter((task) => !isCompletedTask(task, closedStatus))
                 .map((task) => task.id)
         ).size
         : 0;
-    const displayActiveTaskCount = terminalStatuses.length > 0
-        ? activeTaskCount
-        : allTasks.length;
+    const displayActiveTaskCount = closedStatus ? activeTaskCount : allTasks.length;
     const completedTaskCount = Math.max(0, allTasks.length - displayActiveTaskCount);
     const completionShare = allTasks.length > 0
         ? Math.round((completedTaskCount / allTasks.length) * 100)
@@ -797,25 +726,7 @@ function ServerKanbanBoard({
                         </div>
 
                         <div className="min-h-[140px] flex-1 space-y-2.5 overflow-y-auto p-2.5">
-                            {column.tasks.map((task) => {
-                                const isInitialStage = isTaskAtWorkflowMarker(
-                                    column,
-                                    task,
-                                    workflowStatuses,
-                                    'initial',
-                                );
-                                const isReviewStage = isTaskAtWorkflowMarker(
-                                    column,
-                                    task,
-                                    workflowStatuses,
-                                    'review',
-                                );
-                                const terminalStatus = getAllowedTerminalStatus(
-                                    task,
-                                    workflowStatuses,
-                                );
-
-                                return (
+                            {column.tasks.map((task) => (
                                 <div key={task.id} className="space-y-2">
                                     <button
                                         type="button"
@@ -865,7 +776,7 @@ function ServerKanbanBoard({
                                     </div>
                                     </button>
 
-                                    {canAssignTasks && isInitialStage && (
+                                    {canAssignTasks && isNewTaskStage(column, task) && (
                                         <StartTaskButton
                                             orderId={orderId}
                                             task={task}
@@ -878,16 +789,15 @@ function ServerKanbanBoard({
                                         />
                                     )}
 
-                                    {canAssignTasks && isReviewStage && (
+                                    {canAssignTasks && isReviewTaskStage(task) && (
                                         <CompleteTaskButton
                                             task={task}
-                                            terminalStatusId={terminalStatus?.id}
-                                            isWorkflowStatusesLoading={isWorkflowStatusesLoading}
+                                            closedStatusId={closedStatus?.id}
+                                            isClosedStatusLoading={isClosedStatusLoading}
                                         />
                                     )}
                                 </div>
-                                );
-                            })}
+                            ))}
 
                             {column.tasks.length === 0 && (
                                 <div className="flex min-h-40 items-center justify-center rounded-xl border border-dashed border-slate-300 bg-white/50 px-4 text-center text-xs text-slate-400 dark:border-slate-700 dark:bg-slate-900/50 dark:text-slate-500">

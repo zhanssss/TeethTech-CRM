@@ -119,7 +119,7 @@ function getAssignmentStages(steps: WorkflowStep[], assignment?: TaskAssignment)
     )?.fromStatusId;
 
     for (const assignee of assignment?.statusAssignees ?? []) {
-        if (assignee.statusId === initialStatusId) {
+        if (assignee.statusId === initialStatusId || assignee.statusCode?.toUpperCase() === 'TODO') {
             continue;
         }
 
