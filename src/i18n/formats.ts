@@ -7,6 +7,20 @@ function asDate(value: DateInput): Date | null {
     return Number.isNaN(date.getTime()) ? null : date;
 }
 
+function withDateDefaults(
+    options: Intl.DateTimeFormatOptions,
+    defaults: Intl.DateTimeFormatOptions
+): Intl.DateTimeFormatOptions {
+    if (options.dateStyle !== undefined || options.timeStyle !== undefined) {
+        return options;
+    }
+
+    return {
+        ...defaults,
+        ...options,
+    };
+}
+
 export function formatDate(
     value: DateInput,
     locale: Locale,
@@ -15,12 +29,14 @@ export function formatDate(
     const date = asDate(value);
     if (!date) return typeof value === 'string' ? value : '';
 
-    return new Intl.DateTimeFormat(intlLocaleByLocale[locale], {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-        ...options,
-    }).format(date);
+    return new Intl.DateTimeFormat(
+        intlLocaleByLocale[locale],
+        withDateDefaults(options, {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+        })
+    ).format(date);
 }
 
 export function formatDateTime(
@@ -28,14 +44,17 @@ export function formatDateTime(
     locale: Locale,
     options: Intl.DateTimeFormatOptions = {}
 ): string {
-    return formatDate(value, locale, {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-        ...options,
-    });
+    return formatDate(
+        value,
+        locale,
+        withDateDefaults(options, {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+        })
+    );
 }
 
 export function formatNumber(
