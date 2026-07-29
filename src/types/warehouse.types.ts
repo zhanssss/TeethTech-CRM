@@ -16,7 +16,7 @@ export type StockOverviewItem = {
     unit: string;
     currentQuantity: number;
     minStockLevel: number;
-    status: StockLevelStatus;
+    statusCode: StockLevelStatus;
 };
 
 export type StockOverview = {

@@ -7,12 +7,38 @@ function asDate(value: DateInput): Date | null {
     return Number.isNaN(date.getTime()) ? null : date;
 }
 
-function withDateDefaults(
+const dateStyleOptions: Record<
+    NonNullable<Intl.DateTimeFormatOptions['dateStyle']>,
+    Intl.DateTimeFormatOptions
+> = {
+    full: {weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'},
+    long: {day: 'numeric', month: 'long', year: 'numeric'},
+    medium: {day: 'numeric', month: 'short', year: 'numeric'},
+    short: {day: '2-digit', month: '2-digit', year: 'numeric'},
+};
+
+const timeStyleOptions: Record<
+    NonNullable<Intl.DateTimeFormatOptions['timeStyle']>,
+    Intl.DateTimeFormatOptions
+> = {
+    full: {hour: '2-digit', minute: '2-digit', second: '2-digit', timeZoneName: 'long'},
+    long: {hour: '2-digit', minute: '2-digit', second: '2-digit', timeZoneName: 'short'},
+    medium: {hour: '2-digit', minute: '2-digit', second: '2-digit'},
+    short: {hour: '2-digit', minute: '2-digit'},
+};
+
+function resolveDateTimeOptions(
     options: Intl.DateTimeFormatOptions,
     defaults: Intl.DateTimeFormatOptions
 ): Intl.DateTimeFormatOptions {
-    if (options.dateStyle !== undefined || options.timeStyle !== undefined) {
-        return options;
+    const {dateStyle, timeStyle, ...rest} = options;
+
+    if (dateStyle !== undefined || timeStyle !== undefined) {
+        return {
+            ...(dateStyle ? dateStyleOptions[dateStyle] : {}),
+            ...(timeStyle ? timeStyleOptions[timeStyle] : {}),
+            ...rest,
+        };
     }
 
     return {
@@ -21,22 +47,31 @@ function withDateDefaults(
     };
 }
 
-export function formatDate(
+function formatDateValue(
     value: DateInput,
     locale: Locale,
-    options: Intl.DateTimeFormatOptions = {}
+    options: Intl.DateTimeFormatOptions,
+    defaults: Intl.DateTimeFormatOptions
 ): string {
     const date = asDate(value);
     if (!date) return typeof value === 'string' ? value : '';
 
     return new Intl.DateTimeFormat(
         intlLocaleByLocale[locale],
-        withDateDefaults(options, {
-            day: '2-digit',
-            month: '2-digit',
-            year: 'numeric',
-        })
+        resolveDateTimeOptions(options, defaults)
     ).format(date);
+}
+
+export function formatDate(
+    value: DateInput,
+    locale: Locale,
+    options: Intl.DateTimeFormatOptions = {}
+): string {
+    return formatDateValue(value, locale, options, {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+    });
 }
 
 export function formatDateTime(
@@ -44,17 +79,13 @@ export function formatDateTime(
     locale: Locale,
     options: Intl.DateTimeFormatOptions = {}
 ): string {
-    return formatDate(
-        value,
-        locale,
-        withDateDefaults(options, {
-            day: '2-digit',
-            month: '2-digit',
-            year: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit',
-        })
-    );
+    return formatDateValue(value, locale, options, {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+    });
 }
 
 export function formatNumber(

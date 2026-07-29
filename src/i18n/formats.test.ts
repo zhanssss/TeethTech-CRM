@@ -1,8 +1,12 @@
-import {describe, expect, it} from 'vitest';
+import {afterEach, describe, expect, it, vi} from 'vitest';
 
 import {formatCurrency, formatDate, formatDateTime, formatNumber} from './formats';
 
 describe('localized formatters', () => {
+    afterEach(() => {
+        vi.restoreAllMocks();
+    });
+
     it('formats dates for every supported locale', () => {
         const date = new Date(2026, 0, 5, 12);
 
@@ -13,6 +17,18 @@ describe('localized formatters', () => {
 
     it('supports dateStyle and timeStyle without mixing component options', () => {
         const date = new Date(2026, 0, 5, 12, 30);
+        const NativeDateTimeFormat = Intl.DateTimeFormat;
+
+        vi.spyOn(Intl, 'DateTimeFormat').mockImplementation(function (
+            locales,
+            options,
+        ) {
+            if (options?.dateStyle !== undefined || options?.timeStyle !== undefined) {
+                throw new TypeError('Style shortcuts are not supported');
+            }
+
+            return new NativeDateTimeFormat(locales, options);
+        } as typeof Intl.DateTimeFormat);
 
         expect(() => formatDate(date, 'ru', {
             dateStyle: 'long',

@@ -40,7 +40,7 @@ export default function WarehouseOverview({
         0,
         (overview?.totalPositionsCount ?? 0) - (overview?.lowStockCount ?? 0)
     );
-    const criticalCount = overview?.items.filter((item) => item.status === 'CRITICAL').length ?? 0;
+    const criticalCount = overview?.items.filter((item) => item.statusCode === 'CRITICAL').length ?? 0;
     const totalPositions = overview?.totalPositionsCount ?? 0;
     const healthShare = totalPositions > 0 ? Math.round((sufficientCount / totalPositions) * 100) : 0;
     const warningCount = Math.max(0, (overview?.lowStockCount ?? 0) - criticalCount);
@@ -179,19 +179,19 @@ export default function WarehouseOverview({
                             <tbody className="divide-y divide-slate-100">
                                 {(overview?.items ?? []).map((item) => (
                                     <tr key={item.nomenclatureId} className="transition hover:bg-violet-50/50">
-                                        <td className="px-5 py-3.5"><div className="flex items-center gap-3"><span className={`h-8 w-1 shrink-0 rounded-full ${item.status === 'CRITICAL' ? 'bg-red-500' : item.status === 'LOW' ? 'bg-amber-500' : 'bg-violet-400'}`} /><span className="text-sm font-bold text-slate-900">{item.name}</span></div></td>
+                                        <td className="px-5 py-3.5"><div className="flex items-center gap-3"><span className={`h-8 w-1 shrink-0 rounded-full ${item.statusCode === 'CRITICAL' ? 'bg-red-500' : item.statusCode === 'LOW' ? 'bg-amber-500' : 'bg-violet-400'}`} /><span className="text-sm font-bold text-slate-900">{item.name}</span></div></td>
                                         <td className="px-5 py-3.5 text-sm font-semibold text-slate-700">
                                             <div className="flex min-w-36 items-center gap-3">
                                                 <span className="min-w-16">{quantity(item.currentQuantity, item.unit)}</span>
-                                                <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-100"><div className={`h-full rounded-full ${item.status === 'CRITICAL' ? 'bg-red-500' : item.status === 'LOW' ? 'bg-amber-500' : 'bg-emerald-500'}`} style={{width: `${Math.min(100, item.minStockLevel > 0 ? item.currentQuantity / item.minStockLevel * 100 : 100)}%`}} /></div>
+                                                <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-100"><div className={`h-full rounded-full ${item.statusCode === 'CRITICAL' ? 'bg-red-500' : item.statusCode === 'LOW' ? 'bg-amber-500' : 'bg-emerald-500'}`} style={{width: `${Math.min(100, item.minStockLevel > 0 ? item.currentQuantity / item.minStockLevel * 100 : 100)}%`}} /></div>
                                             </div>
                                         </td>
                                         <td className="px-5 py-3.5 text-sm text-slate-500">
                                             {quantity(item.minStockLevel, item.unit)}
                                         </td>
                                         <td className="px-5 py-3.5 text-right">
-                                            <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-bold ${stockStatusClasses[item.status]}`}>
-                                                {t(`stockStatuses.${item.status}`)}
+                                            <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-bold ${stockStatusClasses[item.statusCode]}`}>
+                                                {t(`stockStatuses.${item.statusCode}`)}
                                             </span>
                                         </td>
                                     </tr>
