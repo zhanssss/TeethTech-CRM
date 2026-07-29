@@ -72,6 +72,7 @@ export default function Header({ onMenuClick, isMenuOpen = false }: HeaderProps)
 				<button
 					type="button"
 					onClick={onMenuClick}
+					data-tour="app-menu"
 					className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200 text-slate-700 transition-all duration-200 hover:border-violet-200 hover:bg-violet-50 hover:text-violet-700 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
 					aria-label={tHeader('openMenu')}
 					aria-expanded={isMenuOpen}
@@ -108,6 +109,7 @@ export default function Header({ onMenuClick, isMenuOpen = false }: HeaderProps)
 				</Link>
 				<Link
 					href="/knowledge-base"
+					data-tour="knowledge-base"
 					aria-label={tHeader('knowledgeBase')}
 					title={tHeader('knowledgeBase')}
 					className="group relative hidden h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:border-violet-200 hover:bg-violet-50 hover:text-violet-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 sm:inline-flex"

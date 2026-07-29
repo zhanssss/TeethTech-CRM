@@ -36,6 +36,43 @@ const knowledgeBase = {
     previous: 'Previous step',
     next: 'Next step',
     openSection: 'Open CRM section',
+    tour: {
+        badge: 'Interactive training',
+        available: 'Interactive tour available',
+        startGuide: 'Show me in the interface',
+        startHint: 'We will open the right section and highlight every step. Nothing is saved automatically.',
+        restartIntro: 'Replay the CRM overview',
+        close: 'Close training',
+        previous: 'Back',
+        next: 'Next',
+        finish: 'Finish',
+        skip: 'Skip',
+        progress: 'Step {current} of {total}',
+        example: 'Example',
+        check: 'How to check',
+        interactiveHint: 'The highlighted area is active — you can click it and try the action.',
+        targetUnavailable: 'Follow the hint. The target will appear after you open the form or select the required data.',
+        onboarding: {
+            title: 'Your first look at TeethTech',
+            steps: [
+                {
+                    title: 'Welcome to TeethTech',
+                    action: 'This short overview shows where the main sections live and how to start hands-on training at any time.',
+                    check: 'You can skip this overview and replay it later from the Knowledge Base.',
+                },
+                {
+                    title: 'CRM sections are in the menu',
+                    action: 'The menu adapts to your role. It contains the orders, production, warehouse, finance, and settings areas you can access.',
+                    check: 'Only the work areas permitted for your role are shown.',
+                },
+                {
+                    title: 'Hands-on guides are always nearby',
+                    action: 'Open the Knowledge Base using the book icon. Choose a guide and select “Show me in the interface” to walk through it inside the CRM.',
+                    check: 'You can replay an interactive tour as many times as you need.',
+                },
+            ],
+        },
+    },
     warnings: {
         'payroll-plan': 'An inactive plan, or one outside its effective dates, is excluded from payroll calculation.',
         'payroll-rule': 'The backend creates accruals automatically when an employee moves a task forward in the workflow. Finance staff do not create them manually.',

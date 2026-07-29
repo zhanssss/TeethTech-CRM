@@ -30,6 +30,7 @@ import type {
 } from '@/src/types/finance.types';
 import {useTranslations} from 'next-intl';
 import {useAppFormatters} from '@/src/i18n/provider';
+import {useSearchParams} from 'next/navigation';
 
 const inputClass =
     'min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:border-violet-500 dark:focus:ring-violet-500/20 dark:disabled:bg-slate-800 dark:disabled:text-slate-500';
@@ -410,6 +411,7 @@ function RuleEditor({
 }
 
 export default function FlexiblePayrollPage() {
+    const searchParams = useSearchParams();
     const t = useTranslations('accounting.payroll');
     const commonT = useTranslations('common.actions');
     const {currency, date} = useAppFormatters();
@@ -426,7 +428,11 @@ export default function FlexiblePayrollPage() {
         [auth.role, auth.roles]
     );
     const canEdit = normalizedRoles.some((role) => ['ADMIN', 'FINANCIER'].includes(role));
-    const [activeSection, setActiveSection] = useState<'calculate' | 'settings'>('calculate');
+    const [activeSection, setActiveSection] = useState<'calculate' | 'settings'>(() =>
+        ['payrollPlan', 'payrollRules'].includes(searchParams.get('tour') ?? '')
+            ? 'settings'
+            : 'calculate'
+    );
 
     const employeesQuery = useGetSalaryEmployeesQuery();
     const [selectedEmployeeChoice, setSelectedEmployeeChoice] = useState('');
@@ -628,7 +634,7 @@ export default function FlexiblePayrollPage() {
                 </div>
             </header>
 
-            <section className="rounded-[22px] border border-violet-200 bg-gradient-to-r from-violet-50 to-white p-5 shadow-sm dark:border-violet-500/30 dark:from-violet-950/35 dark:to-slate-900">
+            <section data-tour="payroll-employee" className="rounded-[22px] border border-violet-200 bg-gradient-to-r from-violet-50 to-white p-5 shadow-sm dark:border-violet-500/30 dark:from-violet-950/35 dark:to-slate-900">
                 <div className="grid gap-4 lg:grid-cols-[1fr_auto] lg:items-end">
                     <label>
                         <Label>{t('page.employee')}</Label>
@@ -664,7 +670,7 @@ export default function FlexiblePayrollPage() {
                 <p className="mt-1 text-xs leading-5 text-blue-700 dark:text-violet-300">{t('page.warningText')}</p>
             </div>
 
-            <form onSubmit={handleSavePlan} className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-6">
+            <form data-tour="payroll-plan" onSubmit={handleSavePlan} className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-6">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
                         <h2 className="text-lg font-black text-slate-900 dark:text-white">{t('plan.title')}</h2>
@@ -694,7 +700,7 @@ export default function FlexiblePayrollPage() {
                                 <Label>{t('plan.salary')}</Label>
                                 <input disabled={!canEdit} type="text" inputMode="decimal" className={inputClass} value={planDraft.baseSalary} onChange={(e) => updatePlan('baseSalary', e.target.value)} />
                             </label>
-                            <div>
+                            <div data-tour="payroll-cap">
                                 <Label>{t('plan.cap')}</Label>
                                 <Toggle disabled={!canEdit} checked={planDraft.capEnabled} onChange={(value) => updatePlan('capEnabled', value)} label={t('plan.capEnabled')} />
                             </div>
@@ -711,7 +717,7 @@ export default function FlexiblePayrollPage() {
                                             <option value="VARIABLE_ONLY">{t('plan.capVariable')}</option>
                                         </select>
                                     </label>
-                                    <div className="md:col-span-2">
+                                    <div data-tour="payroll-carry" className="md:col-span-2">
                                         <Label>{t('plan.excess')}</Label>
                                         <Toggle disabled={!canEdit} checked={planDraft.carryForward} onChange={(value) => updatePlan('carryForward', value)} label={t('plan.carry')} />
                                     </div>
@@ -732,7 +738,7 @@ export default function FlexiblePayrollPage() {
                         </div>
                         {planError && <div className="mt-4"><StateNotice tone="error">{planError}</StateNotice></div>}
                         {canEdit && (
-                            <button disabled={savePlanState.isLoading} className="mt-5 min-h-11 rounded-xl bg-slate-900 px-5 text-sm font-bold text-white hover:bg-slate-700 disabled:bg-slate-300">
+                            <button data-tour="payroll-save" disabled={savePlanState.isLoading} className="mt-5 min-h-11 rounded-xl bg-slate-900 px-5 text-sm font-bold text-white hover:bg-slate-700 disabled:bg-slate-300">
                                 {savePlanState.isLoading ? t('plan.saving') : planNotFound ? t('plan.create') : t('plan.save')}
                             </button>
                         )}
@@ -740,7 +746,7 @@ export default function FlexiblePayrollPage() {
                 )}
             </form>
 
-            <section className="overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+            <section data-tour="payroll-rules" className="overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
                 <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 p-5 dark:border-slate-800">
                     <div>
                         <h2 className="text-lg font-black text-slate-900 dark:text-white">{t('extras.title')}</h2>
@@ -827,7 +833,7 @@ export default function FlexiblePayrollPage() {
             </section>
             </>}
 
-            {activeSection === 'calculate' && <section className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-6">
+            {activeSection === 'calculate' && <section data-tour="payroll-preview" className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-6">
                 <div>
                     <div className="flex flex-wrap items-start justify-between gap-3">
                         <div>
@@ -865,7 +871,7 @@ export default function FlexiblePayrollPage() {
 
                 {previewQuery.data && (
                     <>
-                        <div className="mt-6 grid gap-3 lg:grid-cols-[1.25fr_1fr_1fr]">
+                        <div data-tour="payroll-preview-result" className="mt-6 grid gap-3 lg:grid-cols-[1.25fr_1fr_1fr]">
                             <article className="rounded-2xl bg-gradient-to-br from-emerald-600 to-teal-600 p-5 text-white shadow-lg shadow-emerald-100 dark:shadow-emerald-950/50">
                                 <p className="text-[10px] font-black uppercase tracking-wider text-emerald-100">{t('preview.payable')}</p>
                                 <p className="mt-2 text-3xl font-black">{localizedMoney(previewQuery.data.payable)}</p>
@@ -956,7 +962,7 @@ export default function FlexiblePayrollPage() {
                         </div>
 
                         {canEdit && (
-                            <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-950">
+                            <div data-tour="payroll-statement" className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-950">
                                 <label>
                                     <Label>{t('preview.statementComment')}</Label>
                                     <input className={inputClass} value={statementComment} onChange={(e) => setStatementComment(e.target.value)} placeholder={t('preview.statementPlaceholder')} />

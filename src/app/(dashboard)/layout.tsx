@@ -18,6 +18,7 @@ import ChatButton from '@/src/components/Chat/ChatButton';
 import PersonalNotesModal from '@/src/components/personal-notes/PersonalNotesModal';
 import QuickActionsMenu from '@/src/components/layout/QuickActionsMenu';
 import Breadcrumbs from '@/src/components/layout/Breadcrumbs';
+import GuidedTour from '@/src/components/guidance/GuidedTour';
 
 const SIDEBAR_STORAGE_KEY = 'teeth-tech-sidebar-open';
 
@@ -205,6 +206,7 @@ export default function DashboardLayout({
 
     return (
         <div className="relative flex h-dvh w-full overflow-hidden bg-slate-50 dark:bg-[#09090b]">
+            <GuidedTour />
             <ChatNotifications />
             <ChatButton />
             <PersonalNotesModal />
@@ -229,7 +231,7 @@ export default function DashboardLayout({
                 />
                 <Breadcrumbs />
 
-                <main className="app-dashboard-main flex-1 overflow-x-hidden overflow-y-auto px-4 py-4 sm:px-6 lg:px-8">
+                <main data-tour="app-content" className="app-dashboard-main flex-1 overflow-x-hidden overflow-y-auto px-4 py-4 sm:px-6 lg:px-8">
                     {children}
                 </main>
             </div>

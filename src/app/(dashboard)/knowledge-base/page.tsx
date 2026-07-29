@@ -146,10 +146,16 @@ export default function KnowledgeBasePage() {
                     <h1 className="mt-1 text-2xl font-black text-slate-950 sm:text-3xl">{t('title')}</h1>
                     <p className="mt-1 text-xs leading-5 text-slate-500">{t('subtitle')}</p>
                 </div>
-                <label className="flex w-full items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 sm:max-w-sm">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" className="h-4 w-4 text-slate-400"><circle cx="11" cy="11" r="7" strokeWidth="2"/><path d="m16 16 4 4" strokeWidth="2"/></svg>
-                    <input value={search} onChange={(event) => setSearch(event.target.value)} className="w-full bg-transparent text-xs font-semibold outline-none" placeholder={t('search')} />
-                </label>
+                <div className="flex w-full flex-col gap-2 sm:max-w-sm">
+                    <label className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" className="h-4 w-4 text-slate-400"><circle cx="11" cy="11" r="7" strokeWidth="2"/><path d="m16 16 4 4" strokeWidth="2"/></svg>
+                        <input value={search} onChange={(event) => setSearch(event.target.value)} className="w-full bg-transparent text-xs font-semibold outline-none" placeholder={t('search')} />
+                    </label>
+                    <Link href="/knowledge-base?tour=welcome" className="flex items-center justify-center gap-2 rounded-xl border border-violet-200 bg-violet-50 px-4 py-2.5 text-xs font-black text-violet-700 transition hover:border-violet-300 hover:bg-violet-100">
+                        <span aria-hidden="true">✦</span>
+                        {t('tour.restartIntro')}
+                    </Link>
+                </div>
             </header>
 
             {isFinanceUser && (
@@ -194,8 +200,18 @@ export default function KnowledgeBasePage() {
 
                 <main className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
                     <div className="border-b border-slate-200 p-5 sm:p-7">
-                        <div className="flex flex-wrap items-center gap-2"><span className="rounded-full bg-violet-100 px-2.5 py-1 text-[9px] font-black uppercase text-violet-700">{activeGuide.category}</span><span className="text-[10px] font-bold text-slate-400">{activeGuide.duration}</span></div>
-                        <h2 className="mt-3 text-2xl font-black text-slate-950">{activeGuide.title}</h2>
+                        <div className="flex flex-wrap items-center gap-2"><span className="rounded-full bg-violet-100 px-2.5 py-1 text-[9px] font-black uppercase text-violet-700">{activeGuide.category}</span><span className="text-[10px] font-bold text-slate-400">{activeGuide.duration}</span><span className="rounded-full bg-emerald-100 px-2.5 py-1 text-[9px] font-black uppercase text-emerald-700">{t('tour.available')}</span></div>
+                        <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                            <h2 className="text-2xl font-black text-slate-950">{activeGuide.title}</h2>
+                            <Link
+                                href={{pathname: activeGuide.href, query: {tour: activeGuide.id}}}
+                                className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-violet-600 px-5 py-2.5 text-center text-xs font-black text-white shadow-lg shadow-violet-500/20 transition hover:bg-violet-700"
+                            >
+                                <span aria-hidden="true">▶</span>
+                                {t('tour.startGuide')}
+                            </Link>
+                        </div>
+                        <p className="mt-2 text-[11px] font-semibold text-violet-600">{t('tour.startHint')}</p>
                         <div className="mt-4 grid gap-3 sm:grid-cols-2">
                             <div className="rounded-xl bg-emerald-50 p-3"><p className="text-[9px] font-black uppercase text-emerald-700">{t('result')}</p><p className="mt-1 text-xs leading-5 text-emerald-900">{activeGuide.result}</p></div>
                             <div className="rounded-xl bg-slate-50 p-3"><p className="text-[9px] font-black uppercase text-slate-500">{t('where')}</p><p className="mt-1 text-xs font-black text-slate-800">{activeGuide.path}</p></div>

@@ -97,6 +97,7 @@ export default function TaskDetailsSidebar({
             />
 
             <aside
+                data-tour="employee-task-details"
                 inert={!isVisible}
                 aria-hidden={!isVisible}
                 className={`fixed inset-x-0 bottom-0 z-50 flex h-[92dvh] w-full flex-col rounded-t-2xl border-l border-slate-200 bg-white shadow-2xl transition-transform duration-300 ease-out motion-reduce:transition-none sm:inset-x-auto sm:right-0 sm:top-0 sm:h-dvh sm:max-w-[30rem] sm:rounded-none ${

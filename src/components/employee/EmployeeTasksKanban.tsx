@@ -97,6 +97,7 @@ function MoveTaskButton({ task }: { task: EmployeeKanbanTask }) {
             <button
                 type="button"
                 onClick={() => setIsOpen(true)}
+                data-tour="employee-task-move"
                 className="inline-flex min-h-9 w-full items-center justify-center rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-4 py-2 text-xs font-black text-white shadow-lg shadow-violet-500/20 transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:translate-y-0 disabled:bg-slate-300"
             >
                 {t('completeStage')} <span aria-hidden="true" className="ml-2">→</span>
@@ -310,7 +311,7 @@ export default function EmployeeTasksKanban() {
 
     return (
         <>
-			<section aria-labelledby="employee-tasks-title" className="min-w-0 space-y-4 overflow-hidden rounded-[26px] border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-950 sm:p-5">
+			<section data-tour="employee-tasks" aria-labelledby="employee-tasks-title" className="min-w-0 space-y-4 overflow-hidden rounded-[26px] border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-950 sm:p-5">
 				<header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                     <div className="min-w-0">
 						<p className="text-[10px] font-black uppercase tracking-[0.18em] text-violet-600">

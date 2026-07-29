@@ -270,6 +270,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 
 	return (
 		<aside
+			data-tour="app-navigation"
 			inert={!isOpen}
 			aria-hidden={!isOpen}
 			className={`fixed inset-y-0 left-ө z-51 h-dvh w-[min(18rem,85vw)] overflow-hidden transition-[width,transform,opacity] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none lg:static lg:z-auto lg:shrink-0 lg:translate-x-0 ${

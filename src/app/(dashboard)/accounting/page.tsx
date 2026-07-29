@@ -403,7 +403,9 @@ export default function AccountingPage() {
                 </p>
             </section>
 
-            <FinanceReportDashboard report={report} isLoading={isReportFetching} />
+            <div data-tour="accounting-report">
+                <FinanceReportDashboard report={report} isLoading={isReportFetching} />
+            </div>
                 </>
             )}
 

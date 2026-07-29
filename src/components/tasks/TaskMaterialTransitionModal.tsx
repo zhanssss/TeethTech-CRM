@@ -416,7 +416,7 @@ export default function TaskMaterialTransitionModal({
                 </button>
             </header>
 
-            <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-5">
+            <div data-tour="material-report" className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-5">
                 {hasReportLoadError ? (
                     <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800" role="alert">
                         {t('loadError')}

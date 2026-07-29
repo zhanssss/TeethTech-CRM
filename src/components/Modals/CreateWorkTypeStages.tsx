@@ -816,6 +816,7 @@ export default function CreateWorkTypeStages({
 
                 <form
                     onSubmit={handleSubmit}
+                    data-tour="work-type-form"
                     className="max-h-[calc(90vh-76px)] overflow-y-auto"
                 >
                     <div className="space-y-5 p-5">
@@ -889,7 +890,7 @@ export default function CreateWorkTypeStages({
                             </div>
                         </section>
 
-                        <section>
+                        <section data-tour="work-type-stages">
                             <div className="mb-3 flex items-center justify-between gap-3">
                                 <div>
                                     <h3 className="text-sm font-black text-slate-900">

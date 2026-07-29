@@ -863,7 +863,7 @@ export default function CreateOrderModal({
                     />
                 )}
 
-                {currentStep === 0 && <section>
+                {currentStep === 0 && <section data-tour="order-customer">
                     <h3 className="text-xs font-black text-violet-600 uppercase tracking-widest mb-4 flex items-center gap-2">
                         <span className="w-2 h-2 bg-violet-600 rounded-full" /> {t('customerSection')}
                     </h3>
@@ -929,7 +929,7 @@ export default function CreateOrderModal({
                     </div>
                 </section>}
 
-                {currentStep === 1 && <section className="flex flex-col">
+                {currentStep === 1 && <section data-tour="order-task" className="flex flex-col">
                     <div className="mb-4 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
                         <h3 className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-violet-600">
                             <span className="h-2 w-2 rounded-full bg-violet-600" /> {t('technicalTask')}
@@ -1259,7 +1259,7 @@ export default function CreateOrderModal({
                                             </div>
                                         </section>
 
-                                        <section aria-labelledby={`task-${index}-files`}>
+                                        <section data-tour="order-files" aria-labelledby={`task-${index}-files`}>
                                             <div className="mb-3 flex items-center gap-2">
                                                 <span className="flex h-5 w-5 items-center justify-center rounded-full bg-violet-100 text-[10px] font-black text-violet-700">4</span>
                                                 <h5 id={`task-${index}-files`} className="text-xs font-black uppercase tracking-wide text-slate-700">
@@ -1392,7 +1392,7 @@ export default function CreateOrderModal({
                 </section>}
 
                 {currentStep === 2 && <>
-                <section className="grid gap-4 lg:grid-cols-[1fr_320px]">
+                <section data-tour="order-review" className="grid gap-4 lg:grid-cols-[1fr_320px]">
                     <div className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
                         <h3 className="text-sm font-black text-slate-900">{t('reviewTitle')}</h3>
                         <div className="mt-4 grid gap-3 sm:grid-cols-2">

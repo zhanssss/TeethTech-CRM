@@ -379,6 +379,7 @@ export default function OrdersPage() {
                 </div>
                 <button
                     onClick={() => setIsModalOpen(true)}
+                    data-tour="orders-create"
                     className="w-full rounded-xl bg-violet-600 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-violet-950/15 transition-all hover:bg-violet-700 active:scale-95 sm:w-auto"
                 >
                     + {t('list.create')}

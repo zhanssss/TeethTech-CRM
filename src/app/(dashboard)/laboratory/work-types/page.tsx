@@ -105,6 +105,7 @@ export default function LaboratoryWorkTypesPage() {
                     <button
                         type="button"
                         onClick={() => setStagesModalOpen(true)}
+                        data-tour="work-type-create"
                         className="w-full rounded-xl bg-violet-600 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-violet-950/15 transition hover:bg-violet-700 active:scale-95 sm:w-auto"
                     >
                         {t('create')}
@@ -175,7 +176,7 @@ export default function LaboratoryWorkTypesPage() {
                     )}
                 </section>
 
-                <section className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm">
+                <section data-tour="work-types-list" className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm">
                     <div className="flex flex-col gap-4 border-b border-slate-200 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
                         <div>
                             <h2 className="text-base font-bold text-slate-900">
