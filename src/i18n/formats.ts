@@ -41,10 +41,11 @@ function resolveDateTimeOptions(
         };
     }
 
-    return {
-        ...defaults,
-        ...options,
-    };
+    const hasExplicitOptions = Object.values(rest).some(
+        (value) => value !== undefined
+    );
+
+    return hasExplicitOptions ? rest : defaults;
 }
 
 function formatDateValue(

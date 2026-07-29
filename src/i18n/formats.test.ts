@@ -39,6 +39,16 @@ describe('localized formatters', () => {
         })).not.toThrow();
     });
 
+    it('does not add a full date when only a weekday or time is requested', () => {
+        const date = new Date(2026, 0, 5, 12, 30);
+
+        expect(formatDate(date, 'ru', {weekday: 'short'})).toMatch(/^пн\.?$/u);
+        expect(formatDateTime(date, 'ru', {
+            hour: '2-digit',
+            minute: '2-digit',
+        })).not.toContain('05.01.2026');
+    });
+
     it('keeps KZT while changing number presentation', () => {
         const ru = formatCurrency(120000, 'ru');
         const en = formatCurrency(120000, 'en');
