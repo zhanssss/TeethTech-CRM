@@ -211,25 +211,25 @@ function KanbanColumn({
     const styles = COLUMN_STYLES[variant];
 
     return (
-		<section className={`min-h-72 rounded-[22px] border shadow-sm ${styles.accent}`}>
+		<section className={`min-h-72 min-w-0 overflow-hidden rounded-[22px] border shadow-sm ${styles.accent}`}>
 			<header className="rounded-t-[21px] border-b border-slate-200/80 bg-white/80 p-3.5 backdrop-blur-sm dark:border-slate-700 dark:bg-slate-900/80">
                 <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
 						<div className="flex items-center gap-1.5 text-[9px] font-black uppercase tracking-[0.16em] text-slate-400"><ColumnIcon variant={variant} />{t(styles.eyebrow as 'previous' | 'current' | 'next')}</div>
-                        <h3 className="mt-1 truncate text-sm font-black text-slate-900">
+                        <h3 className="mt-1 break-words text-sm font-black leading-snug text-slate-900 sm:truncate">
                             {column.title || column.statusName}
                         </h3>
                         {column.title && column.statusName && column.title !== column.statusName && (
-                            <p className="mt-1 truncate text-xs text-slate-500">{column.statusName}</p>
+                            <p className="mt-1 break-words text-xs text-slate-500 sm:truncate">{column.statusName}</p>
                         )}
                     </div>
-                    <span className={`rounded-full px-2.5 py-1 text-xs font-black ${styles.badge}`}>
+                    <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-black ${styles.badge}`}>
                         {column.taskCount}
                     </span>
                 </div>
             </header>
 
-			<div className="max-h-[560px] space-y-2.5 overflow-y-auto p-2.5">
+			<div className="min-w-0 max-h-[560px] space-y-2.5 overflow-y-auto p-2.5">
                 {column.tasks.map((task) => (
                     <EmployeeTaskCard
                         key={task.id}
@@ -240,7 +240,7 @@ function KanbanColumn({
                 ))}
 
                 {column.tasks.length === 0 && (
-                    <div className="rounded-xl border border-dashed border-slate-300 bg-white/70 px-4 py-10 text-center text-xs text-slate-500">
+                    <div className="break-words rounded-xl border border-dashed border-slate-300 bg-white/70 px-4 py-10 text-center text-xs text-slate-500">
                         {t(styles.emptyText as 'previousEmpty' | 'currentEmpty' | 'nextEmpty')}
                     </div>
                 )}
@@ -310,9 +310,9 @@ export default function EmployeeTasksKanban() {
 
     return (
         <>
-			<section aria-labelledby="employee-tasks-title" className="space-y-4 rounded-[26px] border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-950 sm:p-5">
+			<section aria-labelledby="employee-tasks-title" className="min-w-0 space-y-4 overflow-hidden rounded-[26px] border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-950 sm:p-5">
 				<header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-                    <div>
+                    <div className="min-w-0">
 						<p className="text-[10px] font-black uppercase tracking-[0.18em] text-violet-600">
                             {t('shift')}
                         </p>
@@ -324,7 +324,7 @@ export default function EmployeeTasksKanban() {
                         </p>
                     </div>
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
 						<span className="rounded-xl bg-slate-100 px-3 py-2 text-xs font-black text-slate-700 dark:bg-slate-800 dark:text-slate-300">
                             {t('total', {count: totalTasks})}
                         </span>
@@ -339,7 +339,7 @@ export default function EmployeeTasksKanban() {
                     </div>
                 </header>
 
-				<div className="grid items-start gap-3 lg:grid-cols-3">
+				<div className="grid min-w-0 grid-cols-[minmax(0,1fr)] items-start gap-3 lg:grid-cols-3">
                     <KanbanColumn
                         column={data.previousColumn}
                         variant="previous"
