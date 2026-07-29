@@ -35,7 +35,7 @@ export type StockMovementType =
 export type StockMovement = {
     id: string;
     nomenclatureName: string;
-    movementType: StockMovementType;
+    movementTypeCode: StockMovementType;
     quantity: number;
     reason: string;
     createdAt: string;

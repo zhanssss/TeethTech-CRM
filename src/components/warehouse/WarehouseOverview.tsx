@@ -224,7 +224,7 @@ export default function WarehouseOverview({
 
                     <div className="relative mt-4 max-h-[520px] space-y-0 overflow-y-auto px-5 pb-5 before:absolute before:bottom-5 before:left-[34px] before:top-3 before:w-px before:bg-slate-200">
                         {movements.map((movement) => {
-                            const positive = isPositiveMovement(movement.movementType);
+                            const positive = isPositiveMovement(movement.movementTypeCode);
                             return (
                                 <article key={movement.id} className="group relative pl-9 py-2.5">
                                     <span className={`absolute left-1.5 top-4 z-[1] flex h-6 w-6 items-center justify-center rounded-full border-4 border-white text-[10px] font-black text-white shadow-sm ${positive ? 'bg-emerald-500' : 'bg-violet-600'}`}>{positive ? '↓' : '↑'}</span>
@@ -235,7 +235,7 @@ export default function WarehouseOverview({
                                                     #{shortId(movement.id)}
                                                 </span>
                                                 <span className="rounded-md bg-violet-50 px-1.5 py-0.5 text-[10px] font-bold text-violet-700">
-                                                    {t(`movements.${movement.movementType}`)}
+                                                    {t(`movements.${movement.movementTypeCode}`)}
                                                 </span>
                                             </div>
                                             <p className="mt-1.5 truncate text-sm font-bold text-slate-900">
