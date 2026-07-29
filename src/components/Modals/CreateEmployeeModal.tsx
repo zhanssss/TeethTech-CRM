@@ -7,11 +7,49 @@ import PhoneInput from '@/src/components/ui/PhoneInput';
 import QueryErrorNotice from '@/src/components/ui/QueryErrorNotice';
 import { useRegisterUserMutation } from '@/src/services/api/authApi';
 import { useGetRolesQuery } from '@/src/services/api/rolesApi';
-import type { Register, SalaryType } from '@/src/types/auth.types';
+import { useUpdateUserAdminSetupMutation } from '@/src/services/api/usersApi';
+import type { Register } from '@/src/types/auth.types';
 
 type CreateEmployeeModalProps = {
     onClose: () => void;
 };
+
+type CreateEmployeeWithRolesOptions = {
+    employee: Omit<Register, 'role'>;
+    roles: string[];
+    createEmployee: (body: Register) => Promise<string>;
+    updateAdminSetup: (
+        id: string,
+        body: { roles: string[]; status: string }
+    ) => Promise<void>;
+};
+
+export async function createEmployeeWithRoles({
+    employee,
+    roles,
+    createEmployee,
+    updateAdminSetup,
+}: CreateEmployeeWithRolesOptions) {
+    const [primaryRole] = roles;
+
+    if (!primaryRole) {
+        throw new Error('At least one employee role is required');
+    }
+
+    const employeeId = await createEmployee({
+        ...employee,
+        role: primaryRole,
+    });
+
+    if (roles.length > 1) {
+        await updateAdminSetup(employeeId, {
+            roles,
+            status: 'ACTIVE',
+        });
+    }
+
+    return employeeId;
+}
 
 export default function CreateEmployeeModal({ onClose }: CreateEmployeeModalProps) {
     const t = useTranslations('employees.create');
@@ -20,7 +58,6 @@ export default function CreateEmployeeModal({ onClose }: CreateEmployeeModalProp
     const [email, setEmail] = useState('');
     const [phone, setPhone] = useState('');
     const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
-    const salaryType: SalaryType = 'FIXED';
     const [tempPassword, setTempPassword] = useState('');
     const {
         data: roles = [],
@@ -29,7 +66,12 @@ export default function CreateEmployeeModal({ onClose }: CreateEmployeeModalProp
         isError: isRolesError,
         refetch: refetchRoles,
     } = useGetRolesQuery();
-    const [registerUser, { isLoading }] = useRegisterUserMutation();
+    const [registerUser, { isLoading: isCreatingUser }] = useRegisterUserMutation();
+    const [
+        updateUserAdminSetup,
+        { isLoading: isAssigningRoles },
+    ] = useUpdateUserAdminSetupMutation();
+    const isLoading = isCreatingUser || isAssigningRoles;
     const unselectedRoles = roles.filter(
         (role) => !selectedRoles.includes(role.code)
     );
@@ -38,19 +80,19 @@ export default function CreateEmployeeModal({ onClose }: CreateEmployeeModalProp
         event.preventDefault();
         if (isLoading || selectedRoles.length === 0) return;
 
-        const body: Register = {
-            fullName: name,
-            email,
-            phone,
-            roles: selectedRoles,
-            status: 'ACTIVE',
-            password: tempPassword,
-            salaryType,
-            salary: 0,
-        };
-
         try {
-            await registerUser(body).unwrap();
+            await createEmployeeWithRoles({
+                employee: {
+                    fullName: name,
+                    email,
+                    phone,
+                    password: tempPassword,
+                },
+                roles: selectedRoles,
+                createEmployee: (body) => registerUser(body).unwrap(),
+                updateAdminSetup: (id, body) =>
+                    updateUserAdminSetup({ id, body }).unwrap(),
+            });
             onClose();
         } catch (error) {
             console.error('Failed to create employee:', error);

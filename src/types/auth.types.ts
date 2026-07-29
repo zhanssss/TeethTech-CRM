@@ -12,15 +12,10 @@ export type LoginResponse = {
 
 export type AuthSession = Omit<LoginResponse, 'token'>;
 
-export type SalaryType = 'FIXED' | 'PER_UNIT';
-
 export type Register = {
     fullName: string;
     email: string;
     phone: string;
-    roles: string[];
-    status: 'ACTIVE';
+    role: string;
     password: string;
-    salaryType: SalaryType;
-    salary: number;
 }
