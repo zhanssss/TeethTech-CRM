@@ -49,6 +49,7 @@ import {
     normalizeWorkflowStageValue,
     searchWorkflowStatuses,
 } from '@/src/utils/workflowStageMatching';
+import {createClientId} from '@/src/utils/clientId';
 
 type CreateWorkTypeStagesProps = {
     isOpen: boolean;
@@ -78,7 +79,7 @@ const initialFormData: WorkTypeForm = {
 
 function createEditableStage(): EditableStage {
     return {
-        clientId: crypto.randomUUID(),
+        clientId: createClientId('workflow-stage'),
         code: '',
         name: '',
         description: '',
@@ -256,7 +257,8 @@ function StageIdentityFields({
             </div>
 
             {activeField && (
-                <div className="absolute left-0 right-0 top-[calc(100%+0.4rem)] z-40 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl">
+                <div
+                    className="absolute left-0 right-0 top-[calc(100%+0.4rem)] z-40 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl">
                     {statusesLoading ? (
                         <p className="px-3 py-2.5 text-xs font-semibold text-slate-400">
                             {t('loadingExisting')}
@@ -285,7 +287,8 @@ function StageIdentityFields({
                                             <span className="block truncate text-sm font-bold text-slate-500">
                                                 {status.name}
                                             </span>
-                                            <span className="block truncate font-mono text-[10px] font-bold text-slate-400">
+                                            <span
+                                                className="block truncate font-mono text-[10px] font-bold text-slate-400">
                                                 {status.code}
                                             </span>
                                         </span>
@@ -308,7 +311,8 @@ function StageIdentityFields({
                                             <span className="block truncate text-sm font-bold text-slate-700">
                                                 {status.name}
                                             </span>
-                                            <span className="block truncate font-mono text-[10px] font-bold text-slate-400">
+                                            <span
+                                                className="block truncate font-mono text-[10px] font-bold text-slate-400">
                                                 {status.code}
                                             </span>
                                         </span>
@@ -328,7 +332,8 @@ function StageIdentityFields({
             )}
 
             {selectedStatus && (
-                <div className="mt-2 flex flex-wrap items-center gap-2 rounded-lg bg-emerald-50 px-3 py-2 text-[11px] font-semibold text-emerald-700">
+                <div
+                    className="mt-2 flex flex-wrap items-center gap-2 rounded-lg bg-emerald-50 px-3 py-2 text-[11px] font-semibold text-emerald-700">
                     <span>{t('usingExisting')}</span>
                     <span className="font-mono">{selectedStatus.code}</span>
                 </div>
@@ -450,7 +455,6 @@ function SortableStageRow({
                     canCreate={canCreate}
                     onCreateRequest={onCreateRequest}
                 />
-
                 <input
                     type="color"
                     value={normalizedColor}
@@ -462,7 +466,6 @@ function SortableStageRow({
                     title={t('stageColor')}
                     className="h-10 w-12 cursor-pointer rounded-lg border border-slate-200 bg-white p-1"
                 />
-
                 <button
                     type="button"
                     onClick={() =>
@@ -474,7 +477,6 @@ function SortableStageRow({
                     ×
                 </button>
             </div>
-
             <fieldset className="mt-3 flex flex-wrap gap-2 border-t border-slate-100 pt-3">
                 <legend className="sr-only">
                     {t('stageMarkers')}
@@ -506,9 +508,9 @@ function SortableStageRow({
                     </label>
                 ))}
             </fieldset>
-
             <details className="mt-2">
-                <summary className="cursor-pointer select-none text-[11px] font-bold text-slate-400 transition hover:text-violet-600">
+                <summary
+                    className="cursor-pointer select-none text-[11px] font-bold text-slate-400 transition hover:text-violet-600">
                     {t('stageDescription')}
                 </summary>
 
@@ -787,86 +789,88 @@ export default function CreateWorkTypeStages({
 
     return (
         <>
-        <Modal contentClassName="max-h-[90vh] max-w-4xl overflow-hidden p-0">
-            <header className="flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-4">
-                <div>
-                    <p className="text-[10px] font-black uppercase tracking-widest text-violet-600">
-                        {t('badge')}
-                    </p>
+            <Modal contentClassName="max-h-[90vh] max-w-4xl overflow-hidden p-0">
+                <header className="flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-4">
+                    <div>
+                        <p className="text-[10px] font-black uppercase tracking-widest text-violet-600">
+                            {t('badge')}
+                        </p>
 
-                    <h2 className="mt-1 text-lg font-black text-slate-950">
-                        {t('title')}
-                    </h2>
+                        <h2 className="mt-1 text-lg font-black text-slate-950">
+                            {t('title')}
+                        </h2>
 
-                    <p className="text-xs text-slate-500">
-                        {t('subtitle')}
-                    </p>
-                </div>
+                        <p className="text-xs text-slate-500">
+                            {t('subtitle')}
+                        </p>
+                    </div>
 
-                <button
-                    type="button"
-                    onClick={onClose}
-                    className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-100 text-xl font-bold text-slate-400 transition hover:bg-slate-200"
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-100 text-xl font-bold text-slate-400 transition hover:bg-slate-200"
+                    >
+                        ×
+                    </button>
+                </header>
+
+                <form
+                    onSubmit={handleSubmit}
+                    className="max-h-[calc(90vh-76px)] overflow-y-auto"
                 >
-                    ×
-                </button>
-            </header>
+                    <div className="space-y-5 p-5">
+                        <section className="grid gap-3 md:grid-cols-2">
+                            <div>
+                                <label
+                                    className="mb-1 block text-[10px] font-black uppercase tracking-wider text-slate-400">
+                                    {t('workTypeCode')}
+                                </label>
 
-            <form
-                onSubmit={handleSubmit}
-                className="max-h-[calc(90vh-76px)] overflow-y-auto"
-            >
-                <div className="space-y-5 p-5">
-                    <section className="grid gap-3 md:grid-cols-2">
-                        <div>
-                            <label className="mb-1 block text-[10px] font-black uppercase tracking-wider text-slate-400">
-                                {t('workTypeCode')}
-                            </label>
+                                <input
+                                    required
+                                    type="text"
+                                    value={formData.workTypeCode}
+                                    onChange={(event) =>
+                                        setFormData(
+                                            (current) => ({
+                                                ...current,
+                                                workTypeCode:
+                                                event.target
+                                                    .value,
+                                            }),
+                                        )
+                                    }
+                                    placeholder="CROWN"
+                                    className="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 font-mono text-xs font-bold uppercase outline-none transition focus:border-violet-500 focus:bg-white"
+                                />
+                            </div>
 
-                            <input
-                                required
-                                type="text"
-                                value={formData.workTypeCode}
-                                onChange={(event) =>
-                                    setFormData(
-                                        (current) => ({
-                                            ...current,
-                                            workTypeCode:
-                                            event.target
-                                                .value,
-                                        }),
-                                    )
-                                }
-                                placeholder="CROWN"
-                                className="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 font-mono text-xs font-bold uppercase outline-none transition focus:border-violet-500 focus:bg-white"
-                            />
-                        </div>
+                            <div>
+                                <label
+                                    className="mb-1 block text-[10px] font-black uppercase tracking-wider text-slate-400">
+                                    {t('name')}
+                                </label>
 
-                        <div>
-                            <label className="mb-1 block text-[10px] font-black uppercase tracking-wider text-slate-400">
-                                {t('name')}
-                            </label>
+                                <input
+                                    required
+                                    type="text"
+                                    value={formData.workTypeName}
+                                    onChange={(event) =>
+                                        setFormData(
+                                            (current) => ({
+                                                ...current,
+                                                workTypeName:
+                                                event.target
+                                                    .value,
+                                            }),
+                                        )
+                                    }
+                                    placeholder={t('namePlaceholder')}
+                                    className="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm outline-none transition focus:border-violet-500 focus:bg-white"
+                                />
+                            </div>
 
-                            <input
-                                required
-                                type="text"
-                                value={formData.workTypeName}
-                                onChange={(event) =>
-                                    setFormData(
-                                        (current) => ({
-                                            ...current,
-                                            workTypeName:
-                                            event.target
-                                                .value,
-                                        }),
-                                    )
-                                }
-                                placeholder={t('namePlaceholder')}
-                                className="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm outline-none transition focus:border-violet-500 focus:bg-white"
-                            />
-                        </div>
-
-                        <div className="md:col-span-2">
+                            <div className="md:col-span-2">
                             <textarea
                                 value={formData.description}
                                 onChange={(event) =>
@@ -882,191 +886,193 @@ export default function CreateWorkTypeStages({
                                 placeholder={t('descriptionPlaceholder')}
                                 className="min-h-16 w-full resize-none rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs outline-none transition focus:border-violet-500 focus:bg-white"
                             />
-                        </div>
-                    </section>
-
-                    <section>
-                        <div className="mb-3 flex items-center justify-between gap-3">
-                            <div>
-                                <h3 className="text-sm font-black text-slate-900">
-                                    {t('stages')}
-                                </h3>
-
-                                <p className="text-[11px] text-slate-400">
-                                    {t('stagesHint')}
-                                </p>
                             </div>
+                        </section>
 
-                            <button
-                                type="button"
-                                onClick={addStage}
-                                className="rounded-lg bg-violet-50 px-3 py-2 text-xs font-bold text-violet-700 transition hover:bg-violet-100"
-                            >
-                                {t('addStage')}
-                            </button>
-                        </div>
+                        <section>
+                            <div className="mb-3 flex items-center justify-between gap-3">
+                                <div>
+                                    <h3 className="text-sm font-black text-slate-900">
+                                        {t('stages')}
+                                    </h3>
 
-                        <div className="space-y-2">
-                            {stages.length > 0 ? (
-                                <DndContext
-                                    sensors={sensors}
-                                    collisionDetection={
-                                        closestCenter
-                                    }
-                                    onDragEnd={
-                                        handleDragEnd
-                                    }
-                                >
-                                    <SortableContext
-                                        items={stages.map(
-                                            (stage) =>
-                                                stage.clientId,
-                                        )}
-                                        strategy={
-                                            verticalListSortingStrategy
-                                        }
-                                    >
-                                        <div className="space-y-2">
-                                            {stages.map(
-                                                (
-                                                    stage,
-                                                    index,
-                                                ) => (
-                                                    <SortableStageRow
-                                                        key={
-                                                            stage.clientId
-                                                        }
-                                                        stage={
-                                                            stage
-                                                        }
-                                                        index={
-                                                            index
-                                                        }
-                                                        existingStatuses={
-                                                            existingStatuses
-                                                        }
-                                                        statusesLoading={
-                                                            statusesLoading
-                                                        }
-                                                        statusesError={
-                                                            statusesError
-                                                        }
-                                                        roles={
-                                                            roles
-                                                        }
-                                                        rolesLoading={
-                                                            rolesLoading
-                                                        }
-                                                        canCreate={
-                                                            isAdmin
-                                                        }
-                                                        onCreateRequest={() =>
-                                                            setRoleCreationTarget(
-                                                                stage.clientId,
-                                                            )
-                                                        }
-                                                        onChange={
-                                                            updateStage
-                                                        }
-                                                        onMarkerChange={
-                                                            setStageMarker
-                                                        }
-                                                        onDelete={
-                                                            deleteStage
-                                                        }
-                                                        onUseExisting={
-                                                            useExistingStage
-                                                        }
-                                                    />
-                                                ),
-                                            )}
-                                        </div>
-                                    </SortableContext>
-                                </DndContext>
-                            ) : (
+                                    <p className="text-[11px] text-slate-400">
+                                        {t('stagesHint')}
+                                    </p>
+                                </div>
+
                                 <button
                                     type="button"
                                     onClick={addStage}
-                                    className="w-full rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-4 text-xs font-medium text-slate-400 transition hover:border-violet-300 hover:bg-violet-50 hover:text-violet-600"
+                                    className="rounded-lg bg-violet-50 px-3 py-2 text-xs font-bold text-violet-700 transition hover:bg-violet-100"
                                 >
-                                    {t('addIntermediate')}
+                                    {t('addStage')}
                                 </button>
-                            )}
-                        </div>
-                    </section>
+                            </div>
 
-                    {rolesError && (
-                        <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-700">
-                            {t('rolesError')}
-                        </p>
-                    )}
+                            <div className="space-y-2">
+                                {stages.length > 0 ? (
+                                    <DndContext
+                                        sensors={sensors}
+                                        collisionDetection={
+                                            closestCenter
+                                        }
+                                        onDragEnd={
+                                            handleDragEnd
+                                        }
+                                    >
+                                        <SortableContext
+                                            items={stages.map(
+                                                (stage) =>
+                                                    stage.clientId,
+                                            )}
+                                            strategy={
+                                                verticalListSortingStrategy
+                                            }
+                                        >
+                                            <div className="space-y-2">
+                                                {stages.map(
+                                                    (
+                                                        stage,
+                                                        index,
+                                                    ) => (
+                                                        <SortableStageRow
+                                                            key={
+                                                                stage.clientId
+                                                            }
+                                                            stage={
+                                                                stage
+                                                            }
+                                                            index={
+                                                                index
+                                                            }
+                                                            existingStatuses={
+                                                                existingStatuses
+                                                            }
+                                                            statusesLoading={
+                                                                statusesLoading
+                                                            }
+                                                            statusesError={
+                                                                statusesError
+                                                            }
+                                                            roles={
+                                                                roles
+                                                            }
+                                                            rolesLoading={
+                                                                rolesLoading
+                                                            }
+                                                            canCreate={
+                                                                isAdmin
+                                                            }
+                                                            onCreateRequest={() =>
+                                                                setRoleCreationTarget(
+                                                                    stage.clientId,
+                                                                )
+                                                            }
+                                                            onChange={
+                                                                updateStage
+                                                            }
+                                                            onMarkerChange={
+                                                                setStageMarker
+                                                            }
+                                                            onDelete={
+                                                                deleteStage
+                                                            }
+                                                            onUseExisting={
+                                                                useExistingStage
+                                                            }
+                                                        />
+                                                    ),
+                                                )}
+                                            </div>
+                                        </SortableContext>
+                                    </DndContext>
+                                ) : (
+                                    <button
+                                        type="button"
+                                        onClick={addStage}
+                                        className="w-full rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-4 text-xs font-medium text-slate-400 transition hover:border-violet-300 hover:bg-violet-50 hover:text-violet-600"
+                                    >
+                                        {t('addIntermediate')}
+                                    </button>
+                                )}
+                            </div>
+                        </section>
 
-                    {statusesError && (
-                        <div className="flex flex-col gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-700 sm:flex-row sm:items-center sm:justify-between">
+                        {rolesError && (
+                            <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-700">
+                                {t('rolesError')}
+                            </p>
+                        )}
+
+                        {statusesError && (
+                            <div
+                                className="flex flex-col gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-700 sm:flex-row sm:items-center sm:justify-between">
                             <span>
                                 {t('statusesError')}
                             </span>
-                            <button
-                                type="button"
-                                onClick={() => void refetchStatuses()}
-                                disabled={statusesFetching}
-                                className="shrink-0 rounded-lg bg-white px-3 py-1.5 font-bold text-amber-800 transition hover:bg-amber-100 disabled:cursor-wait disabled:opacity-60"
-                            >
-                                {statusesFetching ? t('reloading') : commonT('actions.retry')}
-                            </button>
-                        </div>
-                    )}
+                                <button
+                                    type="button"
+                                    onClick={() => void refetchStatuses()}
+                                    disabled={statusesFetching}
+                                    className="shrink-0 rounded-lg bg-white px-3 py-1.5 font-bold text-amber-800 transition hover:bg-amber-100 disabled:cursor-wait disabled:opacity-60"
+                                >
+                                    {statusesFetching ? t('reloading') : commonT('actions.retry')}
+                                </button>
+                            </div>
+                        )}
 
-                    {formError && (
-                        <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-medium text-red-700">
-                            {formError}
-                        </p>
-                    )}
+                        {formError && (
+                            <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-medium text-red-700">
+                                {formError}
+                            </p>
+                        )}
 
-                    {createError && (
-                        <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-medium text-red-700">
-                            {t('createError')}
-                        </p>
-                    )}
-                </div>
+                        {createError && (
+                            <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-medium text-red-700">
+                                {t('createError')}
+                            </p>
+                        )}
+                    </div>
 
-                <footer className="sticky bottom-0 flex flex-col-reverse gap-2 border-t border-slate-200 bg-white px-4 py-4 sm:flex-row sm:justify-end sm:px-5">
-                    <button
-                        type="button"
-                        onClick={onClose}
-                        className="min-h-11 rounded-lg px-4 py-2 text-xs font-bold text-slate-500 transition hover:bg-slate-100"
-                    >
-                        {commonT('actions.cancel')}
-                    </button>
+                    <footer
+                        className="sticky bottom-0 flex flex-col-reverse gap-2 border-t border-slate-200 bg-white px-4 py-4 sm:flex-row sm:justify-end sm:px-5">
+                        <button
+                            type="button"
+                            onClick={onClose}
+                            className="min-h-11 rounded-lg px-4 py-2 text-xs font-bold text-slate-500 transition hover:bg-slate-100"
+                        >
+                            {commonT('actions.cancel')}
+                        </button>
 
-                    <button
-                        type="submit"
-                        disabled={
-                            creating ||
-                            rolesLoading ||
-                            statusesLoading ||
-                            statusesError
-                        }
-                        className="min-h-11 rounded-lg bg-violet-600 px-5 py-2 text-xs font-bold text-white transition hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                        {creating
-                            ? t('creating')
-                            : t('create')}
-                    </button>
-                </footer>
-            </form>
-        </Modal>
-        {roleCreationTarget && isAdmin && (
-            <RoleCreateModal
-                onClose={() => setRoleCreationTarget(null)}
-                onCreated={(role) => {
-                    updateStage(roleCreationTarget, {
-                        requiredRole: role.code,
-                    });
-                    setRoleCreationTarget(null);
-                }}
-            />
-        )}
+                        <button
+                            type="submit"
+                            disabled={
+                                creating ||
+                                rolesLoading ||
+                                statusesLoading ||
+                                statusesError
+                            }
+                            className="min-h-11 rounded-lg bg-violet-600 px-5 py-2 text-xs font-bold text-white transition hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                            {creating
+                                ? t('creating')
+                                : t('create')}
+                        </button>
+                    </footer>
+                </form>
+            </Modal>
+            {roleCreationTarget && isAdmin && (
+                <RoleCreateModal
+                    onClose={() => setRoleCreationTarget(null)}
+                    onCreated={(role) => {
+                        updateStage(roleCreationTarget, {
+                            requiredRole: role.code,
+                        });
+                        setRoleCreationTarget(null);
+                    }}
+                />
+            )}
         </>
     );
 }
