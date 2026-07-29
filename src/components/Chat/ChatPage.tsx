@@ -267,8 +267,11 @@ export default function ChatPage() {
 		const conversationId = params.conversationId
 		if (conversationId) {
 			dispatch(setActiveConversation(conversationId))
-			const existingMessages = messagesByConversation[conversationId] ?? []
-			if (existingMessages.length === 0) {
+			const hasLoadedMessages = Object.prototype.hasOwnProperty.call(
+				paginationByConversation,
+				conversationId
+			)
+			if (!hasLoadedMessages) {
 				const loadInitialMessages = async () => {
 					dispatch(setLoadingMessages(true))
 					try {
@@ -314,7 +317,13 @@ export default function ChatPage() {
 		} else {
 			dispatch(setActiveConversation(null))
 		}
-	}, [dispatch, messagesByConversation, notifyError, params.conversationId, t])
+	}, [
+		dispatch,
+		notifyError,
+		paginationByConversation,
+		params.conversationId,
+		t
+	])
 
 	useEffect(
 		() => () => {
