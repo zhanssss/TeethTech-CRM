@@ -1,10 +1,60 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import type { PointerEvent as ReactPointerEvent } from 'react';
 import { useSelector } from 'react-redux';
 import {useTranslations} from 'next-intl';
 
 import type { RootState } from '@/src/lib/store';
+
+const QUICK_ACTIONS_POSITION_KEY = 'teeth-tech-quick-actions-position';
+const LAUNCHER_SIZE = 44;
+const VIEWPORT_GAP = 12;
+const DRAG_THRESHOLD = 5;
+
+type QuickActionsPosition = {
+    x: number;
+    y: number;
+};
+
+type DragState = {
+    pointerId: number;
+    startX: number;
+    startY: number;
+    originX: number;
+    originY: number;
+    moved: boolean;
+};
+
+export function clampQuickActionsPosition(
+    position: QuickActionsPosition,
+    viewportWidth: number,
+    viewportHeight: number
+): QuickActionsPosition {
+    return {
+        x: Math.min(
+            Math.max(position.x, VIEWPORT_GAP),
+            Math.max(VIEWPORT_GAP, viewportWidth - LAUNCHER_SIZE - VIEWPORT_GAP)
+        ),
+        y: Math.min(
+            Math.max(position.y, VIEWPORT_GAP),
+            Math.max(VIEWPORT_GAP, viewportHeight - LAUNCHER_SIZE - VIEWPORT_GAP)
+        ),
+    };
+}
+
+function getDefaultPosition(): QuickActionsPosition {
+    const horizontalGap = window.innerWidth < 640 ? 16 : 24;
+
+    return clampQuickActionsPosition(
+        {
+            x: window.innerWidth - LAUNCHER_SIZE - horizontalGap,
+            y: window.innerHeight - LAUNCHER_SIZE - 20,
+        },
+        window.innerWidth,
+        window.innerHeight
+    );
+}
 
 function ActionIcon({ name }: { name: 'launcher' | 'close' | 'chat' | 'note' }) {
     const paths = {
@@ -24,10 +74,61 @@ function ActionIcon({ name }: { name: 'launcher' | 'close' | 'chat' | 'note' }) 
 export default function QuickActionsMenu() {
     const t = useTranslations('header');
     const [isOpen, setIsOpen] = useState(false);
+    const [position, setPosition] = useState<QuickActionsPosition | null>(null);
     const containerRef = useRef<HTMLDivElement | null>(null);
+    const positionRef = useRef<QuickActionsPosition | null>(null);
+    const dragRef = useRef<DragState | null>(null);
+    const suppressClickUntilRef = useRef(0);
     const totalUnreadCount = useSelector(
         (state: RootState) => state.chat.totalUnreadCount
     );
+
+    useEffect(() => {
+        let initialPosition = getDefaultPosition();
+
+        try {
+            const savedPosition = window.localStorage.getItem(QUICK_ACTIONS_POSITION_KEY);
+
+            if (savedPosition) {
+                const parsed = JSON.parse(savedPosition) as Partial<QuickActionsPosition>;
+
+                if (Number.isFinite(parsed.x) && Number.isFinite(parsed.y)) {
+                    initialPosition = clampQuickActionsPosition(
+                        {x: parsed.x as number, y: parsed.y as number},
+                        window.innerWidth,
+                        window.innerHeight
+                    );
+                }
+            }
+        } catch {
+            // A blocked or malformed localStorage value should not hide the launcher.
+        }
+
+        const animationFrameId = window.requestAnimationFrame(() => {
+            positionRef.current = initialPosition;
+            setPosition(initialPosition);
+        });
+
+        const keepInsideViewport = () => {
+            const nextPosition = clampQuickActionsPosition(
+                positionRef.current ?? getDefaultPosition(),
+                window.innerWidth,
+                window.innerHeight
+            );
+
+            positionRef.current = nextPosition;
+            setPosition(nextPosition);
+        };
+
+        window.addEventListener('resize', keepInsideViewport);
+        window.visualViewport?.addEventListener('resize', keepInsideViewport);
+
+        return () => {
+            window.cancelAnimationFrame(animationFrameId);
+            window.removeEventListener('resize', keepInsideViewport);
+            window.visualViewport?.removeEventListener('resize', keepInsideViewport);
+        };
+    }, []);
 
     useEffect(() => {
         if (!isOpen) return;
@@ -49,6 +150,96 @@ export default function QuickActionsMenu() {
         };
     }, [isOpen]);
 
+    const updatePosition = (nextPosition: QuickActionsPosition) => {
+        const clampedPosition = clampQuickActionsPosition(
+            nextPosition,
+            window.innerWidth,
+            window.innerHeight
+        );
+
+        positionRef.current = clampedPosition;
+        setPosition(clampedPosition);
+    };
+
+    const savePosition = () => {
+        if (!positionRef.current) return;
+
+        try {
+            window.localStorage.setItem(
+                QUICK_ACTIONS_POSITION_KEY,
+                JSON.stringify(positionRef.current)
+            );
+        } catch {
+            // Dragging must keep working even when storage is unavailable.
+        }
+    };
+
+    const handlePointerDown = (event: ReactPointerEvent<HTMLButtonElement>) => {
+        if (event.button !== 0 || dragRef.current) return;
+
+        const currentPosition = positionRef.current ?? {
+            x: containerRef.current?.getBoundingClientRect().left ?? event.clientX,
+            y: containerRef.current?.getBoundingClientRect().top ?? event.clientY,
+        };
+
+        dragRef.current = {
+            pointerId: event.pointerId,
+            startX: event.clientX,
+            startY: event.clientY,
+            originX: currentPosition.x,
+            originY: currentPosition.y,
+            moved: false,
+        };
+        event.currentTarget.setPointerCapture(event.pointerId);
+    };
+
+    const handlePointerMove = (event: ReactPointerEvent<HTMLButtonElement>) => {
+        const drag = dragRef.current;
+
+        if (!drag || drag.pointerId !== event.pointerId) return;
+
+        const deltaX = event.clientX - drag.startX;
+        const deltaY = event.clientY - drag.startY;
+
+        if (!drag.moved && Math.hypot(deltaX, deltaY) < DRAG_THRESHOLD) return;
+
+        drag.moved = true;
+        setIsOpen(false);
+        event.preventDefault();
+        updatePosition({
+            x: drag.originX + deltaX,
+            y: drag.originY + deltaY,
+        });
+    };
+
+    const handlePointerUp = (event: ReactPointerEvent<HTMLButtonElement>) => {
+        const drag = dragRef.current;
+
+        if (!drag || drag.pointerId !== event.pointerId) return;
+
+        if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+            event.currentTarget.releasePointerCapture(event.pointerId);
+        }
+        if (drag.moved) {
+            suppressClickUntilRef.current = Date.now() + 400;
+            savePosition();
+        }
+        dragRef.current = null;
+    };
+
+    const handlePointerCancel = (event: ReactPointerEvent<HTMLButtonElement>) => {
+        if (dragRef.current?.pointerId !== event.pointerId) return;
+
+        dragRef.current = null;
+        suppressClickUntilRef.current = 0;
+    };
+
+    const toggleMenu = () => {
+        if (Date.now() < suppressClickUntilRef.current) return;
+
+        setIsOpen((current) => !current);
+    };
+
     const openChat = () => {
         window.dispatchEvent(new Event('teethtech:request-close-notes'));
         window.dispatchEvent(new Event('teethtech:toggle-chat'));
@@ -62,15 +253,28 @@ export default function QuickActionsMenu() {
     };
 
     const actionClass = 'group relative flex h-10 w-10 items-center justify-center rounded-xl border bg-white text-slate-500 shadow-sm transition duration-200 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400 dark:bg-slate-900';
+    const openDownward = position !== null && position.y < 132;
 
     return (
-        <div ref={containerRef} className="fixed bottom-5 right-4 z-[90] flex flex-col items-center gap-2 sm:right-6">
+        <div
+            ref={containerRef}
+            style={position ? {left: position.x, top: position.y} : undefined}
+            className={`fixed z-[90] h-11 w-11 ${
+                position ? '' : 'bottom-5 right-4 sm:right-6'
+            }`}
+        >
             <div
                 aria-hidden={!isOpen}
-                className={`grid transition-[grid-template-rows,opacity,transform] duration-200 ease-out ${
+                className={`absolute right-0 grid transition-[grid-template-rows,opacity,transform] duration-200 ease-out ${
+                    openDownward
+                        ? 'top-[calc(100%+0.5rem)]'
+                        : 'bottom-[calc(100%+0.5rem)]'
+                } ${
                     isOpen
                         ? 'grid-rows-[1fr] translate-y-0 opacity-100'
-                        : 'pointer-events-none grid-rows-[0fr] translate-y-2 opacity-0'
+                        : `pointer-events-none grid-rows-[0fr] opacity-0 ${
+                            openDownward ? '-translate-y-2' : 'translate-y-2'
+                        }`
                 }`}
             >
                 <div className="min-h-0 overflow-visible">
@@ -109,11 +313,15 @@ export default function QuickActionsMenu() {
 
             <button
                 type="button"
-                onClick={() => setIsOpen((current) => !current)}
+                onClick={toggleMenu}
+                onPointerDown={handlePointerDown}
+                onPointerMove={handlePointerMove}
+                onPointerUp={handlePointerUp}
+                onPointerCancel={handlePointerCancel}
                 aria-label={isOpen ? t('closeQuickTools') : t('openQuickTools')}
                 aria-expanded={isOpen}
                 title={isOpen ? t('closeQuickTools') : t('quickTools')}
-                className={`group relative flex h-11 w-11 items-center justify-center rounded-2xl border shadow-[0_8px_24px_-14px_rgba(15,23,42,.45)] backdrop-blur transition duration-200 hover:border-violet-200 hover:text-violet-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:ring-offset-2 ${
+                className={`group relative flex h-11 w-11 touch-none cursor-grab select-none items-center justify-center rounded-2xl border shadow-[0_8px_24px_-14px_rgba(15,23,42,.45)] backdrop-blur transition-[color,background-color,border-color,box-shadow] duration-200 active:cursor-grabbing hover:border-violet-200 hover:text-violet-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:ring-offset-2 ${
                     isOpen
                         ? 'border-slate-300 bg-slate-100 text-slate-700 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200'
                         : 'border-slate-200/90 bg-white/90 text-slate-500 dark:border-slate-700 dark:bg-slate-900/90 dark:text-slate-400'
