@@ -1,7 +1,6 @@
 'use client'
 
 import { useParams, useRouter } from 'next/navigation'
-import Image from 'next/image'
 import { useTranslations } from 'next-intl'
 import {
 	useEffect,
@@ -829,16 +828,12 @@ export default function ChatPage() {
 												key={attachment.id}
 												className="rounded-xl border border-slate-200 bg-slate-50 p-2"
 											>
-												{isImage ? (
-													<Image
-														src={attachment.fileName}
-														alt={attachment.fileName}
-														width={320}
-														height={192}
-														unoptimized
-														className="max-h-48 rounded-lg object-cover"
-													/>
-												) : (
+										{isImage ? (
+											<div className="flex items-center gap-2 text-sm">
+												<span className="rounded-lg bg-slate-200 px-2 py-1">🖼️</span>
+												<span>{attachment.fileName}</span>
+											</div>
+										) : (
 													<div className="flex items-center gap-2 text-sm">
 														<span className="rounded-lg bg-slate-200 px-2 py-1">
 															📎

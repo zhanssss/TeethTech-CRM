@@ -210,6 +210,23 @@ export function disconnectChatRealtime() {
 	}, 0)
 }
 
+export function resetChatRealtime() {
+	if (state.disconnectTimer !== null) {
+		window.clearTimeout(state.disconnectTimer)
+		state.disconnectTimer = null
+	}
+
+	state.consumerCount = 0
+	void state.client?.deactivate()
+	state.client = null
+	state.isConnected = false
+	state.isReconnecting = false
+	state.reconnectAttempt = 0
+	state.activeSubscriptions.clear()
+	state.connectionPromise = null
+	state.hasConnectedBefore = false
+}
+
 export function addChatRealtimeListener(listener: ChatRealtimeListener) {
 	state.listeners.add(listener)
 }

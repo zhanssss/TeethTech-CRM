@@ -2,17 +2,19 @@ import { NextRequest, NextResponse } from 'next/server'
 
 import { defaultLocale, isLocale, localeCookieName } from '@/src/i18n/config'
 import {
-	AUTH_TOKEN_COOKIE,
-	clearAuthCookies,
-	createAuthSession,
-	getJwtMaxAgeSeconds,
-	isSecureRequest,
-	setAuthCookies
+    AUTH_TOKEN_COOKIE,
+    clearAuthCookies,
+    isSecureRequest,
+    setAuthCookies
 } from '@/src/lib/serverAuthCookies'
+import {
+    createBackendSession,
+    getSessionFromBackendAuth,
+    refreshBackendSession
+} from '@/src/lib/serverAuthApi'
 import enMessages from '@/src/messages/en/apiNotifications'
 import kkMessages from '@/src/messages/kk/apiNotifications'
 import ruMessages from '@/src/messages/ru/apiNotifications'
-import type { LoginResponse } from '@/src/types/auth.types'
 
 export const dynamic = 'force-dynamic'
 
@@ -81,12 +83,22 @@ const BODYLESS_METHODS = new Set(['GET', 'HEAD'])
 const BODYLESS_STATUSES = new Set([204, 304])
 const REQUEST_HEADERS_TO_SKIP = new Set([
 	'accept-encoding',
+	'authorization',
 	'connection',
 	'content-length',
 	'cookie',
 	'host',
 	'origin',
-	'referer'
+	'referer',
+	'x-organization-id',
+	'x-tenant-id',
+	'x-user-id',
+	'x-user-role',
+	'x-user-roles',
+	'x-forwarded-for',
+	'x-forwarded-host',
+	'x-forwarded-proto',
+	'x-real-ip'
 ])
 const RESPONSE_HEADERS_TO_SKIP = new Set([
 	'connection',
@@ -106,6 +118,20 @@ function getProxyMessages(request: NextRequest) {
 	return { ru: ruMessages, en: enMessages, kk: kkMessages }[locale].proxy
 }
 
+const TENANT_QUERY_PARAMETERS = new Set([
+	'organizationid',
+	'organization-id',
+	'tenantid',
+	'tenant-id'
+])
+
+const UNSAFE_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE'])
+const BFF_ONLY_AUTH_PATHS = new Set([
+	'auth/login',
+	'auth/sessions/refresh',
+	'auth/sessions/logout'
+])
+
 function buildBackendUrl(path: string[], request: NextRequest) {
 	const isSockJsRequest = path[0] === 'ws-crm'
 	const targetPath = isSockJsRequest ? path.slice(1) : path
@@ -118,13 +144,14 @@ function buildBackendUrl(path: string[], request: NextRequest) {
 	const targetUrl = new URL(`${baseUrl}/${encodedPath}`)
 
 	request.nextUrl.searchParams.forEach((value, key) => {
+		if (TENANT_QUERY_PARAMETERS.has(key.toLowerCase())) return
 		targetUrl.searchParams.append(key, value)
 	})
 
 	return targetUrl
 }
 
-function buildRequestHeaders(request: NextRequest) {
+function buildRequestHeaders(request: NextRequest, token: string) {
 	const headers = new Headers()
 
 	request.headers.forEach((value, key) => {
@@ -140,11 +167,7 @@ function buildRequestHeaders(request: NextRequest) {
 		headers.set(key, value)
 	})
 
-	const token = request.cookies.get(AUTH_TOKEN_COOKIE)?.value
-
-	if (token) {
-		headers.set('Authorization', `Bearer ${token}`)
-	}
+	headers.set('Authorization', `Bearer ${token}`)
 
 	return headers
 }
@@ -187,9 +210,18 @@ function makeProxyResponse(
 	})
 }
 
-function parseLoginResponse(body: ArrayBuffer): LoginResponse | null {
+function parseLoginRequest(body: ArrayBuffer): { email: string; password: string } | null {
 	try {
-		return JSON.parse(new TextDecoder().decode(body)) as LoginResponse
+		const value = JSON.parse(new TextDecoder().decode(body)) as {
+			email?: unknown
+			password?: unknown
+		}
+
+		if (typeof value.email !== 'string' || typeof value.password !== 'string') {
+			return null
+		}
+
+		return { email: value.email, password: value.password }
 	} catch {
 		return null
 	}
@@ -205,6 +237,20 @@ async function getRequestBody(request: NextRequest) {
 	return request.arrayBuffer()
 }
 
+function isAllowedUnsafeRequest(request: NextRequest) {
+	if (!UNSAFE_METHODS.has(request.method)) return true
+
+	const origin = request.headers.get('origin')
+	if (origin) return origin === request.nextUrl.origin
+
+	const fetchSite = request.headers.get('sec-fetch-site')
+	return fetchSite === 'same-origin'
+}
+
+function csrfRejected() {
+	return NextResponse.json({ message: 'Forbidden' }, { status: 403 })
+}
+
 // ============================================
 // ОСНОВНАЯ ФУНКЦИЯ ПРОКСИ
 // ============================================
@@ -213,64 +259,86 @@ async function proxyRequest(request: NextRequest, context: RouteContext) {
 	const proxyMessages = getProxyMessages(request)
 	const { path = [] } = await context.params
 	const isLoginRequest =
-		request.method === 'POST' && path.join('/') === 'auth/login'
-	const targetUrl = buildBackendUrl(path, request)
-	const headers = buildRequestHeaders(request)
+		request.method === 'POST' && path.join('/') === 'auth/sessions'
+	const requestPath = path.join('/')
+
+	if (!isAllowedUnsafeRequest(request)) return csrfRejected()
+
+	if (BFF_ONLY_AUTH_PATHS.has(requestPath)) {
+		return NextResponse.json({ message: 'Not found' }, { status: 404 })
+	}
 
 	if (isLoginRequest) {
-		headers.delete('authorization')
+		const login = parseLoginRequest(await request.arrayBuffer())
+
+		if (!login) return NextResponse.json({ message: 'Invalid request' }, { status: 400 })
+
+		const auth = await createBackendSession(login.email, login.password)
+		if (!auth) return NextResponse.json({ message: 'Unauthorized' }, { status: 401 })
+
+		const session = getSessionFromBackendAuth(auth)
+		const response = NextResponse.json(session)
+		setAuthCookies(response, auth, session, isSecureRequest(request))
+
+		return response
 	}
+
+	let token = request.cookies.get(AUTH_TOKEN_COOKIE)?.value
+	let refreshedAuth: Awaited<ReturnType<typeof refreshBackendSession>> = null
+
+	if (!token) {
+		refreshedAuth = await refreshBackendSession(request)
+		token = refreshedAuth?.accessToken
+	}
+
+	if (!token) return unauthorizedResponse()
+
+	const targetUrl = buildBackendUrl(path, request)
+	const body = await getRequestBody(request)
+	const headers = buildRequestHeaders(request, token)
 
 	if (isMultipartRequest(request)) {
 		headers.delete('content-type')
 	}
 
 	try {
-		const backendResponse = await fetch(targetUrl, {
+		let backendResponse = await fetch(targetUrl, {
 			method: request.method,
 			headers,
-			body: await getRequestBody(request),
+			body,
 			cache: 'no-store',
 			redirect: 'manual'
 		})
-		const responseBody = await backendResponse.arrayBuffer()
 
-		if (isLoginRequest && backendResponse.ok) {
-			const loginResponse = parseLoginResponse(responseBody)
+		if (backendResponse.status === 401 && !refreshedAuth) {
+			refreshedAuth = await refreshBackendSession(request)
 
-			if (!loginResponse?.token) {
-				return NextResponse.json(
-					{ message: proxyMessages.tokenMissing },
-					{ status: 502 }
-				)
+			if (refreshedAuth) {
+				headers.set('Authorization', `Bearer ${refreshedAuth.accessToken}`)
+				backendResponse = await fetch(targetUrl, {
+					method: request.method,
+					headers,
+					body,
+					cache: 'no-store',
+					redirect: 'manual'
+				})
 			}
-
-			if (getJwtMaxAgeSeconds(loginResponse.token) <= 0) {
-				return NextResponse.json(
-					{ message: proxyMessages.tokenExpired },
-					{ status: 502 }
-				)
-			}
-
-			const session = createAuthSession(loginResponse)
-			const response = NextResponse.json(session, {
-				status: backendResponse.status
-			})
-
-			setAuthCookies(
-				response,
-				loginResponse.token,
-				session,
-				isSecureRequest(request)
-			)
-
-			return response
 		}
 
+		const responseBody = await backendResponse.arrayBuffer()
+
 		const response = makeProxyResponse(responseBody, backendResponse, request)
+		response.headers.set('Cache-Control', 'no-store, private')
 
 		if (backendResponse.status === 401) {
 			clearAuthCookies(response)
+		} else if (refreshedAuth) {
+			setAuthCookies(
+				response,
+				refreshedAuth,
+				getSessionFromBackendAuth(refreshedAuth),
+				isSecureRequest(request)
+			)
 		}
 
 		return response
@@ -285,6 +353,12 @@ async function proxyRequest(request: NextRequest, context: RouteContext) {
 			{ status: 502 }
 		)
 	}
+}
+
+function unauthorizedResponse() {
+	const response = NextResponse.json({ message: 'Unauthorized' }, { status: 401 })
+	clearAuthCookies(response)
+	return response
 }
 
 // ============================================

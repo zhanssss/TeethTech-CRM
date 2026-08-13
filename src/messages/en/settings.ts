@@ -76,6 +76,7 @@ export default {
     },
     telegramNotifications: {
         popupBlocked: 'The browser blocked the new tab. Allow pop-ups and create a new link.',
+        invalidLink: 'The server returned an unsafe Telegram link. Create a new link.',
         title: 'Telegram notifications',
         subtitle: 'Receive CRM notifications in a private chat with the TeethTech bot.',
         connected: 'Telegram connected',

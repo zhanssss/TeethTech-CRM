@@ -21,6 +21,7 @@ import type {
     TaskImage,
 } from '@/src/types/task.types';
 import ConfirmDialog from '@/src/components/ui/ConfirmDialog';
+import { getSafeExternalUrl, getSafeObjectUrl, openSafeExternalUrl } from '@/src/lib/safeUrl';
 
 type TaskFilesPanelProps = {
     taskId?: string | null;
@@ -227,7 +228,13 @@ export default function TaskFilesPanel({
 
     const handleOpenFile = async (file: DisplayFile) => {
         if (file.source === 'local') {
-            window.open(file.url, '_blank', 'noopener,noreferrer');
+            const localUrl = file.url ? getSafeObjectUrl(file.url) : null;
+
+            if (!localUrl || !window.open(localUrl, '_blank', 'noopener,noreferrer')) {
+                notifyError(t('missingUrl'));
+                return;
+            }
+
             notifySuccess(t('opened'));
             return;
         }
@@ -240,11 +247,12 @@ export default function TaskFilesPanel({
                 attachmentId: file.id,
             }).unwrap();
 
-            if (!response.url) {
+            const safeUrl = response.url ? getSafeExternalUrl(response.url) : null;
+
+            if (!safeUrl || !openSafeExternalUrl(safeUrl)) {
                 throw new Error(t('missingUrl'));
             }
 
-            window.open(response.url, '_blank', 'noopener,noreferrer');
             notifySuccess(t('opened'));
         } catch (error) {
             if (error instanceof Error) notifyError(error.message);
@@ -652,9 +660,12 @@ function getFileNameFromPath(path: string, fallbackName: string) {
 }
 
 function downloadUrl(url: string, fileName: string) {
+    const safeUrl = getSafeObjectUrl(url) ?? getSafeExternalUrl(url);
+    if (!safeUrl) return;
+
     const anchor = document.createElement('a');
 
-    anchor.href = url;
+    anchor.href = safeUrl;
     anchor.download = fileName;
     anchor.rel = 'noreferrer';
     document.body.append(anchor);

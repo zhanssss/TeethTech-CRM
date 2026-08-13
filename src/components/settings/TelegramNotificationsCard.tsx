@@ -5,6 +5,7 @@ import {useTranslations} from 'next-intl';
 
 import QueryErrorNotice from '@/src/components/ui/QueryErrorNotice';
 import { useNotifications } from '@/src/features/notifications/useNotifications';
+import { isTelegramUrl, openSafeExternalUrl } from '@/src/lib/safeUrl';
 import {
     useCreateTelegramLinkMutation,
     useGetTelegramLinkStatusQuery,
@@ -106,11 +107,15 @@ export default function TelegramNotificationsCard() {
             setLinkExpired(Number.isNaN(expiresAt) || expiresAt <= Date.now());
             setPollingEnabled(!Number.isNaN(expiresAt) && expiresAt > Date.now());
 
-            const openedWindow = window.open(
-                link.url,
-                '_blank',
-                'noopener,noreferrer'
-            );
+            const safeUrl = isTelegramUrl(link.url);
+
+            if (!safeUrl) {
+                notifyError(t('invalidLink'));
+                setPollingEnabled(false);
+                return;
+            }
+
+            const openedWindow = openSafeExternalUrl(safeUrl, new Set(['t.me', 'telegram.me']));
 
             if (!openedWindow) {
                 notifyError(

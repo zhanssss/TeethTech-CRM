@@ -3,10 +3,20 @@ import { NextRequest, NextResponse } from 'next/server';
 import type { AuthSession, LoginResponse } from '@/src/types/auth.types';
 
 export const AUTH_TOKEN_COOKIE = 'teethTechJwt';
+export const AUTH_REFRESH_TOKEN_COOKIE = 'teethTechRefresh';
 export const AUTH_USER_COOKIE = 'teethTechUser';
 
 const DEFAULT_SESSION_MAX_AGE_SECONDS = 60 * 60 * 8;
 const MAX_SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 7;
+
+export type BackendAuthSession = {
+    userId: string;
+    email: string;
+    accessToken: string;
+    refreshToken: string;
+    accessExpiresInMs?: number;
+    roles: string[];
+};
 
 export function isSecureRequest(request: NextRequest) {
     const forwardedProto = request.headers
@@ -103,18 +113,30 @@ export function decodeAuthSession(value: string): AuthSession | null {
 
 export function setAuthCookies(
     response: NextResponse,
-    token: string,
+    auth: BackendAuthSession,
     session: AuthSession,
     secure: boolean,
 ) {
-    const maxAge = getJwtMaxAgeSeconds(token);
+    const jwtMaxAge = getJwtMaxAgeSeconds(auth.accessToken);
+    const responseMaxAge = auth.accessExpiresInMs
+        ? Math.max(1, Math.floor(auth.accessExpiresInMs / 1000))
+        : jwtMaxAge;
+    const maxAge = Math.min(jwtMaxAge, responseMaxAge);
 
-    response.cookies.set(AUTH_TOKEN_COOKIE, token, {
+    response.cookies.set(AUTH_TOKEN_COOKIE, auth.accessToken, {
         httpOnly: true,
         sameSite: 'lax',
         secure,
         path: '/',
         maxAge,
+    });
+
+    response.cookies.set(AUTH_REFRESH_TOKEN_COOKIE, auth.refreshToken, {
+        httpOnly: true,
+        sameSite: 'strict',
+        secure,
+        path: '/',
+        maxAge: MAX_SESSION_MAX_AGE_SECONDS,
     });
 
     response.cookies.set(AUTH_USER_COOKIE, encodeAuthSession(session), {
@@ -127,19 +149,19 @@ export function setAuthCookies(
 }
 
 export function clearAuthCookies(response: NextResponse) {
-    response.cookies.set(AUTH_TOKEN_COOKIE, '', {
-        httpOnly: true,
-        sameSite: 'lax',
-        secure: process.env.NODE_ENV === 'production',
-        path: '/',
-        maxAge: 0,
-    });
+    const secure = process.env.NODE_ENV === 'production';
 
-    response.cookies.set(AUTH_USER_COOKIE, '', {
-        httpOnly: true,
-        sameSite: 'lax',
-        secure: process.env.NODE_ENV === 'production',
-        path: '/',
-        maxAge: 0,
-    });
+    for (const [name, sameSite] of [
+        [AUTH_TOKEN_COOKIE, 'lax'],
+        [AUTH_REFRESH_TOKEN_COOKIE, 'strict'],
+        [AUTH_USER_COOKIE, 'lax'],
+    ] as const) {
+        response.cookies.set(name, '', {
+            httpOnly: true,
+            sameSite,
+            secure,
+            path: '/',
+            maxAge: 0,
+        });
+    }
 }

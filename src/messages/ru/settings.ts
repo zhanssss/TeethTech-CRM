@@ -76,6 +76,7 @@ export default {
     },
     telegramNotifications: {
         popupBlocked: 'Браузер заблокировал новую вкладку. Разрешите всплывающие окна и создайте новую ссылку.',
+        invalidLink: 'Сервер вернул небезопасную ссылку Telegram. Создайте новую ссылку.',
         title: 'Telegram-уведомления',
         subtitle: 'Получайте уведомления CRM в личном чате с ботом TeethTech.',
         connected: 'Telegram подключён',

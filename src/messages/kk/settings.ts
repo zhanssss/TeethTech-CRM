@@ -76,6 +76,7 @@ export default {
     },
     telegramNotifications: {
         popupBlocked: 'Браузер жаңа қойындыны бұғаттады. Қалқымалы терезелерге рұқсат беріп, жаңа сілтеме жасаңыз.',
+        invalidLink: 'Сервер қауіпсіз емес Telegram сілтемесін қайтарды. Жаңа сілтеме жасаңыз.',
         title: 'Telegram хабарландырулары',
         subtitle: 'CRM хабарландыруларын TeethTech ботымен жеке чатта алыңыз.',
         connected: 'Telegram қосылған',

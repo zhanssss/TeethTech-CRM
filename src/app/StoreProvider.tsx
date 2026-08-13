@@ -9,6 +9,7 @@ import {normalizeAuthRole} from '@/src/features/auth/authUtils';
 import type {AuthSession} from '@/src/types/auth.types';
 import NotificationViewport from '@/src/components/ui/NotificationViewport';
 import {makeStore} from '../lib/store';
+import {resetChatRealtime} from '@/src/services/chatRealtimeService';
 
 export default function StoreProvider({children}: {children: ReactNode}){
  const t = useTranslations('common.notifications');
@@ -75,6 +76,20 @@ export default function StoreProvider({children}: {children: ReactNode}){
         return () => {
             isMounted = false;
         };
+    }, [store]);
+
+    useEffect(() => {
+        let previousUserId = store.getState().auth.id;
+
+        return store.subscribe(() => {
+            const nextUserId = store.getState().auth.id;
+
+            if (previousUserId && previousUserId !== nextUserId) {
+                resetChatRealtime();
+            }
+
+            previousUserId = nextUserId;
+        });
     }, [store]);
 
     return (

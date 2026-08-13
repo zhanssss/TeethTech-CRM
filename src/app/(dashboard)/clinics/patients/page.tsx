@@ -101,7 +101,7 @@ export default function ClinicPatientsPage() {
 
                 <div className="grid max-h-[720px] gap-4 overflow-y-auto p-4 sm:p-5 md:grid-cols-2 xl:grid-cols-3">
                     {filteredPatients.map((patient) => (
-                        <article key={patient.id} className="group relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 transition hover:-translate-y-0.5 hover:border-violet-300 hover:shadow-xl hover:shadow-violet-950/5">
+                        <Link href={`/patients/${patient.id}`} key={patient.id} className="group relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 transition hover:-translate-y-0.5 hover:border-violet-300 hover:shadow-xl hover:shadow-violet-950/5">
                             <span className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-violet-600 to-fuchsia-500 opacity-0 transition group-hover:opacity-100" />
                             <div className="flex items-start gap-3">
                                 <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-100 to-purple-100 text-sm font-black text-violet-700">{patient.fullName.trim().split(/\s+/).slice(0, 2).map((part) => part.charAt(0)).join('').toLocaleUpperCase()}</span>
@@ -117,7 +117,7 @@ export default function ClinicPatientsPage() {
                                 <div className="flex flex-1 items-center justify-between rounded-lg bg-violet-50 px-3 py-2"><span className="text-[10px] text-violet-600">{t('orders')}</span><strong className="text-sm text-violet-800">{patient.orders.length}</strong></div>
                                 <div className="flex flex-1 items-center justify-between rounded-lg bg-slate-50 px-3 py-2"><span className="text-[10px] text-slate-500">{t('files')}</span><strong className="text-sm text-slate-800">{patient.files.length}</strong></div>
                             </div>
-                        </article>
+                        </Link>
                     ))}
                     {filteredPatients.length === 0 && <div className="col-span-full py-16 text-center text-sm text-slate-400">{t('empty')}</div>}
                 </div>

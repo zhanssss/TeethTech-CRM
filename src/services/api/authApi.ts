@@ -20,7 +20,7 @@ export const authApi = teethTechApi.injectEndpoints({
         }),
         loginUser: builder.mutation<AuthSession, Login>({
             query: (body) => ({
-                url: '/auth/login',
+                url: '/auth/sessions',
                 method: 'POST',
                 body
             })

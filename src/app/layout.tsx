@@ -1,5 +1,6 @@
 import type {Metadata} from 'next';
 import {cookies, headers} from 'next/headers';
+import Script from 'next/script';
 import './globals.css';
 import StoreProvider from './StoreProvider';
 import {AppI18nProvider} from '@/src/i18n/provider';
@@ -39,6 +40,7 @@ export default async function RootLayout({
 }>) {
     const cookieStore = await cookies();
     const headerStore = await headers();
+    const nonce = headerStore.get('x-nonce') ?? undefined;
     const locale = resolveLocale(
         cookieStore.get(localeCookieName)?.value,
         headerStore.get('accept-language')
@@ -48,7 +50,9 @@ export default async function RootLayout({
     return (
         <html lang={locale} suppressHydrationWarning>
             <head>
-                <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+                <Script id="initial-theme" nonce={nonce} strategy="beforeInteractive">
+                    {themeScript}
+                </Script>
             </head>
             <body>
                 <AppI18nProvider initialLocale={locale} initialMessages={messages}>
