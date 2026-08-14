@@ -14,6 +14,8 @@ import { useGetMaterialsQuery } from '@/src/services/api/laboratory/materialApi'
 import { normalizeMaterialIds, validateMaterialIds } from '@/src/utils/materialAccounting';
 import { useGetColorsQuery } from '@/src/services/api/laboratory/colorsApi';
 import { useGetAdminWorkflowStepsQuery } from '@/src/services/api/workflowApi';
+import { useGetWorkDirectionsQuery } from '@/src/services/api/workDirectionsApi';
+import { getDisplayRoleNames } from '@/src/features/auth/authUtils';
 import type { User } from '@/src/types/user.types';
 import { useAppFormatters } from '@/src/i18n/provider';
 
@@ -43,6 +45,7 @@ const PATIENTS_LOOKUP_PARAMS = {
 };
 const MAX_AUTOCOMPLETE_OPTIONS = 8;
 const createEmptyTask = (): CreateOrderTaskDto => ({
+    workDirectionId: '',
     workTypeId: '',
     quantity: 1,
     toothNumbers: [],
@@ -78,7 +81,8 @@ function isCustomerStepComplete(order: CreateOrderDto) {
 
 function isCreateOrderTaskComplete(task: CreateOrderTaskDto) {
     return Boolean(
-        task.workTypeId
+        task.workDirectionId
+        && task.workTypeId
         && task.colorId
         && Number(task.quantity) > 0
         && task.materialIds.length > 0
@@ -116,8 +120,14 @@ function filterUsersByRole(users: User[], tokens: string[]) {
 }
 
 function getUserLabel(user: User) {
-    const meta = getUserRoleValues(user).join(' / ');
+    const meta = getDisplayRoleNames(getUserRoleValues(user)).join(' / ');
     return meta ? `${user.fullName} (${meta})` : user.fullName;
+}
+
+function isAdministrator(user: User) {
+    return getUserRoleValues(user).some(
+        (role) => normalizeRoleValue(role) === 'admin'
+    );
 }
 
 function formatFileSize(size: number) {
@@ -274,10 +284,12 @@ type AssignmentStage = {
     statusId: string;
     statusName: string;
     requiredRole: string;
+    isFinalReviewStage: boolean;
 };
 
 function getAssignmentStages(steps: WorkflowStep[]): AssignmentStage[] {
     const sortedSteps = [...steps].sort((left, right) => left.sortOrder - right.sortOrder);
+    const finalSortOrder = sortedSteps.at(-1)?.sortOrder;
     const destinationStatusIds = new Set(sortedSteps.map((step) => step.toStatusId));
     const initialStatusId = sortedSteps.find(
         (step) => !destinationStatusIds.has(step.fromStatusId)
@@ -297,20 +309,28 @@ function getAssignmentStages(steps: WorkflowStep[]): AssignmentStage[] {
             statusId: step.fromStatusId,
             statusName: step.fromStatusName,
             requiredRole: step.requiredRole,
+            isFinalReviewStage: step.sortOrder === finalSortOrder,
         }));
 }
 
-function getEligibleAssignmentUsers(users: User[], requiredRole: string) {
+function getEligibleAssignmentUsers(
+    users: User[],
+    requiredRole: string,
+    isFinalReviewStage: boolean
+) {
     const activeUsers = users.filter((user) => user.status !== 'FIRED');
     const normalizedRequiredRole = normalizeRoleValue(requiredRole);
-
-    if (!normalizedRequiredRole) return activeUsers;
+    const eligibleStageUsers = isFinalReviewStage
+        ? activeUsers
+        : activeUsers.filter((user) => !isAdministrator(user));
 
     if (normalizedRequiredRole.includes('admin') || normalizedRequiredRole.includes('dispatcher')) {
-        return filterUsersByRole(activeUsers, ['ROLE_ADMIN', 'ROLE_DISPATCHER']);
+        return filterUsersByRole(eligibleStageUsers, ['ROLE_ADMIN', 'ROLE_DISPATCHER']);
     }
 
-    return filterUsersByRole(activeUsers, [requiredRole]);
+    if (!normalizedRequiredRole) return eligibleStageUsers;
+
+    return filterUsersByRole(eligibleStageUsers, [requiredRole]);
 }
 
 function TaskAssignmentFields({
@@ -405,7 +425,11 @@ function TaskAssignmentFields({
                     ) : (
                         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                             {stages.map((stage) => {
-                                const eligibleUsers = getEligibleAssignmentUsers(users, stage.requiredRole);
+                                const eligibleUsers = getEligibleAssignmentUsers(
+                                    users,
+                                    stage.requiredRole,
+                                    stage.isFinalReviewStage
+                                );
                                 const normalizedRequiredRole = normalizeRoleValue(stage.requiredRole);
                                 const roleLabel = normalizedRequiredRole.includes('admin')
                                     || normalizedRequiredRole.includes('dispatcher')
@@ -485,6 +509,13 @@ export default function CreateOrderModal({
         isError: isWorkTypesError,
         refetch: refetchWorkTypes,
     } = useGetWorkTypesQuery(undefined, { skip: !isOpen });
+    const {
+        data: workDirections = [],
+        isLoading: isWorkDirectionsLoading,
+        isFetching: isWorkDirectionsFetching,
+        isError: isWorkDirectionsError,
+        refetch: refetchWorkDirections,
+    } = useGetWorkDirectionsQuery(undefined, { skip: !isOpen });
     const {
         data: materials = [],
         isLoading: isMaterialsLoading,
@@ -769,6 +800,7 @@ export default function CreateOrderModal({
         isDoctorsLoading ||
         isPatientsLoading ||
         isUsersLoading ||
+        isWorkDirectionsLoading ||
         isWorkTypesLoading ||
         isMaterialsLoading ||
         isColorsLoading;
@@ -777,6 +809,7 @@ export default function CreateOrderModal({
         isDoctorsError ? t('dictionaries.doctors') : '',
         isPatientsError ? t('dictionaries.patients') : '',
         isUsersError ? t('dictionaries.employees') : '',
+        isWorkDirectionsError ? t('dictionaries.workDirections') : '',
         isWorkTypesError ? t('dictionaries.workTypes') : '',
         isMaterialsError ? t('dictionaries.materials') : '',
         isColorsError ? t('dictionaries.colors') : '',
@@ -785,6 +818,7 @@ export default function CreateOrderModal({
         || isDoctorsFetching
         || isPatientsFetching
         || isUsersFetching
+        || isWorkDirectionsFetching
         || isWorkTypesFetching
         || isMaterialsFetching
         || isColorsFetching;
@@ -798,6 +832,7 @@ export default function CreateOrderModal({
         if (isDoctorsError) void refetchDoctors();
         if (isPatientsError) void refetchPatients();
         if (isUsersError) void refetchUsers();
+        if (isWorkDirectionsError) void refetchWorkDirections();
         if (isWorkTypesError) void refetchWorkTypes();
         if (isMaterialsError) void refetchMaterials();
         if (isColorsError) void refetchColors();
@@ -942,6 +977,7 @@ export default function CreateOrderModal({
                     <div className="mb-4 flex gap-2 overflow-x-auto pb-1">
                         {formData.tasks.map((task, index) => {
                             const selectedWorkType = workTypes.find((workType) => workType.id === task.workTypeId);
+                            const selectedWorkDirection = workDirections.find((direction) => direction.id === task.workDirectionId);
                             const complete = isCreateOrderTaskComplete(task);
                             return (
                                 <button
@@ -959,7 +995,9 @@ export default function CreateOrderModal({
                                         <span className={`h-2 w-2 rounded-full ${complete ? 'bg-emerald-500' : 'bg-amber-400'}`} />
                                     </span>
                                     <span className="mt-1 block truncate text-xs font-black text-slate-800">
-                                        {selectedWorkType?.name || t('incomplete')}
+                                        {selectedWorkDirection?.name && selectedWorkType?.name
+                                            ? `${selectedWorkDirection.name} · ${selectedWorkType.name}`
+                                            : selectedWorkType?.name || selectedWorkDirection?.name || t('incomplete')}
                                     </span>
                                 </button>
                             );
@@ -1023,6 +1061,25 @@ export default function CreateOrderModal({
                                             </div>
 
                                             <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
+                                                <label className="block md:col-span-2">
+                                                    <span className="mb-1.5 block text-[10px] font-bold uppercase text-slate-400">
+                                                        {t('workDirection')}
+                                                    </span>
+                                                    <select
+                                                        required
+                                                        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-700 outline-none transition focus:border-violet-500 focus:ring-2 focus:ring-violet-100"
+                                                        value={task.workDirectionId}
+                                                        onChange={(e) => handleTaskChange(index, 'workDirectionId', e.target.value)}
+                                                    >
+                                                        <option value="">{t('workDirectionPlaceholder')}</option>
+                                                        {workDirections.map((direction) => (
+                                                            <option key={direction.id} value={direction.id}>
+                                                                {direction.name} — {direction.code}
+                                                            </option>
+                                                        ))}
+                                                    </select>
+                                                </label>
+
                                                 <label className="block md:col-span-2">
                                                     <span className="mb-1.5 block text-[10px] font-bold uppercase text-slate-400">
                                                         {t('workType')}
@@ -1417,7 +1474,7 @@ export default function CreateOrderModal({
                                 >
                                     <span className="min-w-0">
                                         <span className="block truncate text-xs font-black text-slate-800">
-                                            {index + 1}. {workTypes.find((item) => item.id === task.workTypeId)?.name}
+                                            {index + 1}. {workDirections.find((item) => item.id === task.workDirectionId)?.name} · {workTypes.find((item) => item.id === task.workTypeId)?.name}
                                         </span>
                                         <span className="text-[10px] text-slate-400">
                                             {t('compactTaskSummary', {quantity: task.quantity, materials: task.materialIds.length, teeth: task.toothNumbers.length})}

@@ -160,6 +160,9 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 					{ name: t('employees'), href: '/laboratory/employees' },
 					{ name: t('colors'), href: '/laboratory/colors' },
 					{ name: t('workTypes'), href: '/laboratory/work-types' },
+					...(hasAdmin
+						? [{ name: t('workDirections'), href: '/laboratory/work-directions' }]
+						: []),
 					...(hasAdmin || hasChiefTechnician
 						? [{ name: t('roles'), href: '/laboratory/roles' }]
 						: [])

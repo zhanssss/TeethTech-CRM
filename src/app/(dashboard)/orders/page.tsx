@@ -28,6 +28,11 @@ import QueryErrorNotice from '@/src/components/ui/QueryErrorNotice';
 import ConfirmDialog from '@/src/components/ui/ConfirmDialog';
 import {useTranslations} from 'next-intl';
 import {useAppFormatters} from '@/src/i18n/provider';
+import { useSelector } from 'react-redux';
+import { useGetUsersQuery } from '@/src/services/api/usersApi';
+import { normalizeAuthRoles } from '@/src/features/auth/authUtils';
+import type { RootState } from '@/src/lib/store';
+import { isWorkDirectionAccessError } from '@/src/utils/workDirections';
 
 const DEFAULT_ORDER_SORT = 'deadline,ASC';
 const DEFAULT_PAGE_SIZE = 10;
@@ -74,6 +79,7 @@ function stripOrderFiles(payload: CreateOrderDto): CreateOrderDto {
     return {
         ...payload,
         tasks: payload.tasks.map((task) => ({
+            workDirectionId: task.workDirectionId,
             workTypeId: task.workTypeId,
             quantity: task.quantity,
             toothNumbers: task.toothNumbers,
@@ -242,6 +248,18 @@ export default function OrdersPage() {
         status === 'ACTIVE' ? t('statuses.ACTIVE') : t('statuses.CLOSED')
     );
     const { notifyError, notifySuccess } = useNotifications();
+    const { id: currentUserId, role, roles } = useSelector((state: RootState) => state.auth);
+    const normalizedRoles = normalizeAuthRoles(roles.length > 0 ? roles : role ? [role] : []);
+    const isAdmin = normalizedRoles.includes('ADMIN');
+    const isDispatcher = normalizedRoles.includes('DISPATCHER');
+    const usersQuery = useGetUsersQuery(undefined, { skip: !isDispatcher || isAdmin });
+    const currentUser = usersQuery.data?.find((user) => user.id === currentUserId);
+    const dispatcherScopePending = isDispatcher && !isAdmin && (usersQuery.isLoading || usersQuery.isFetching);
+    const dispatcherHasNoDirections = isDispatcher
+        && !isAdmin
+        && !dispatcherScopePending
+        && !usersQuery.isError
+        && (currentUser?.workDirections?.filter((direction) => direction.active).length ?? 0) === 0;
     const [createOrder, { isLoading: isCreatingOrder }] = useCreateOrderMutation();
     const [deleteOrder, { isLoading: isDeletingOrder }] = useDeleteOrderMutation();
     const [uploadTaskFile] = useUploadTaskFileMutation();
@@ -262,12 +280,13 @@ export default function OrdersPage() {
         data: ordersPage,
         isFetching: isOrdersLoading,
         isError: isOrdersError,
+        error: ordersError,
         refetch: refetchOrders,
     } = useGetOrdersQuery({
         page,
         size,
         sort,
-    });
+    }, { skip: dispatcherScopePending || dispatcherHasNoDirections || usersQuery.isError });
 
     const orders = useMemo(
         () => ordersPage?.content.map(mapApiOrderToListItem) ?? [],
@@ -370,6 +389,21 @@ export default function OrdersPage() {
         }
     };
 
+    if (dispatcherScopePending) {
+        return <div className="text-sm text-slate-500">{t('list.loading')}</div>;
+    }
+
+    if (dispatcherHasNoDirections) {
+        return (
+            <section className="mx-auto max-w-3xl rounded-2xl border border-amber-200 bg-amber-50 p-6 text-center">
+                <h1 className="text-lg font-black text-amber-900">{t('list.noAssignedDirections')}</h1>
+                <p className="mt-2 text-sm text-amber-800">{t('list.noAssignedDirectionsHint')}</p>
+            </section>
+        );
+    }
+
+    const isDirectionForbidden = isWorkDirectionAccessError(ordersError);
+
     return (
         <div className="relative mx-auto max-w-[1600px] space-y-5 pb-6">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -386,7 +420,13 @@ export default function OrdersPage() {
                 </button>
             </div>
 
-            {isOrdersError && (
+            {isDirectionForbidden && (
+                <section className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-700">
+                    {t('details.directionForbidden')}
+                </section>
+            )}
+
+            {isOrdersError && !isDirectionForbidden && (
                 <QueryErrorNotice
                     message={t('list.loadError')}
                     onRetry={() => void refetchOrders()}

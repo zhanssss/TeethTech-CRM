@@ -1,3 +1,5 @@
+import type { WorkDirection } from './workDirection.types';
+
 export type User = {
     id: string,
     fullName: string,
@@ -11,6 +13,7 @@ export type User = {
     salary?: number,
     unitsCompleted?: number,
     status: string,
+    workDirections?: WorkDirection[],
     stats: {
         completed: number,
         inProgress: number,
@@ -32,6 +35,7 @@ export type UpdateUserProfileRequest = {
 export type UpdateUserAdminSetupRequest = {
     roles: string[];
     status: string;
+    workDirectionIds: string[];
 };
 
 export type BatchCreateUserItem = {
@@ -40,6 +44,7 @@ export type BatchCreateUserItem = {
     phone: string;
     role: string;
     password: string;
+    workDirectionIds?: string[];
 };
 
 export type BatchCreateUsersRequest = {

@@ -4,6 +4,7 @@ import {
     canAccessManagementZone,
     canAccessWorkZone,
     getAuthRedirectPath,
+    getDisplayRoleNames,
     hasAuthRole,
     normalizeAuthRole,
     normalizeAuthRoles,
@@ -22,17 +23,25 @@ describe('authUtils', () => {
         expect(hasAuthRole(roles, 'ROLE_FINANCIER')).toBe(true);
     });
 
-    it('allows an administrator to use both workspaces', () => {
+    it('shows an administrator as only an administrator without changing stored roles', () => {
+        expect(getDisplayRoleNames(['ROLE_ADMIN', 'ROLE_PROSTHETIST'])).toEqual(['ADMIN']);
+        expect(getDisplayRoleNames(['ROLE_PROSTHETIST', 'ROLE_FINANCIER'])).toEqual([
+            'PROSTHETIST',
+            'FINANCIER',
+        ]);
+    });
+
+    it('keeps administrators out of the production workspace', () => {
         const roles = ['ROLE_ADMIN', 'ROLE_PROSTHETIST'];
 
-        expect(canAccessWorkZone(roles)).toBe(true);
+        expect(canAccessWorkZone(roles)).toBe(false);
         expect(canAccessManagementZone(roles)).toBe(true);
     });
 
     it('restores the last workspace after login when it is available', () => {
         const roles = ['ROLE_ADMIN', 'ROLE_PROSTHETIST'];
 
-        expect(getAuthRedirectPath('ADMIN', roles, 'work')).toBe('/employee');
+        expect(getAuthRedirectPath('ADMIN', roles, 'work')).toBe('/orders');
         expect(getAuthRedirectPath('ADMIN', roles, 'management')).toBe('/orders');
     });
 

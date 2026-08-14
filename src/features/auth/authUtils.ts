@@ -13,7 +13,6 @@ const MANAGEMENT_ROLES = new Set([
 ]);
 
 const WORK_ROLES = new Set([
-    'ADMIN',
     'TECHNICIAN',
     'CHIEF_TECHNICIAN',
     'HEAD_TECHNICIAN',
@@ -25,6 +24,16 @@ export function normalizeRoleName(role: string) {
 
 export function normalizeAuthRoles(roles: string[] = []) {
     return [...new Set(roles.map(normalizeRoleName))];
+}
+
+/**
+ * Roles remain intact for authorization, but an administrator is presented as
+ * a single administrative role throughout the UI.
+ */
+export function getDisplayRoleNames(roles: string[] = []) {
+    const normalizedRoles = normalizeAuthRoles(roles);
+
+    return normalizedRoles.includes('ADMIN') ? ['ADMIN'] : normalizedRoles;
 }
 
 export function hasAuthRole(roles: string[], expectedRole: string) {
@@ -46,6 +55,10 @@ export function canAccessWorkZone(roles: string[], role?: AuthRole | null) {
     const normalizedRoles = normalizeAuthRoles(
         roles.length > 0 ? roles : role ? [role] : []
     );
+
+    // Administrators work with a task from the management board: start it,
+    // review it, and complete it. They must not take part in production stages.
+    if (normalizedRoles.includes('ADMIN')) return false;
 
     return normalizedRoles.some((item) => WORK_ROLES.has(item))
         || normalizedRoles.some((item) => !MANAGEMENT_ROLES.has(item));

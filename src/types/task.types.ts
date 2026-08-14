@@ -235,6 +235,9 @@ export interface Task {
     deadline?: string;
     priority?: string;
     type?: string;
+    workDirectionId?: string;
+    workDirectionName?: string;
+    workDirectionCode?: string;
     material?: string;
     materialIds?: string[];
     materialNames?: string[];
@@ -266,6 +269,9 @@ export type TaskDashboardTask = {
     clinicName: string;
     doctorName: string;
     workTypeName: string;
+    workDirectionId: string;
+    workDirectionName: string;
+    workDirectionCode: string;
     materialIds: string[];
     materialNames: string[];
     colorCode: string;
@@ -289,6 +295,7 @@ export type RecentCompletedDashboardTask = {
     orderNumber: string;
     patientName: string;
     workTypeName: string;
+    workDirectionName: string;
     technicianName: string;
     completedAt: string;
 };
@@ -309,6 +316,9 @@ export type EmployeeKanbanTask = {
     workTypeName: string;
     workTypeCode: string;
     workTypeId?: string;
+    workDirectionId?: string;
+    workDirectionName?: string;
+    workDirectionCode?: string;
     materialIds: string[];
     materialNames: string[];
     colorCode: string;

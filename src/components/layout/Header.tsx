@@ -1,7 +1,7 @@
 'use client'
 
 import { RootState } from '@/src/lib/store'
-import { normalizeAuthRoles } from '@/src/features/auth/authUtils'
+import { getDisplayRoleNames, normalizeAuthRoles } from '@/src/features/auth/authUtils'
 import Link from 'next/link'
 import { useEffect, useRef, useState } from 'react'
 import { useSelector } from 'react-redux'
@@ -41,8 +41,11 @@ export default function Header({ onMenuClick, isMenuOpen = false }: HeaderProps)
 	const canOpenTvDashboard =
 		normalizedRoles.includes('ADMIN')
 		|| normalizedRoles.includes('DISPATCHER')
-	const roleLabel = normalizedRoles.length > 0
-		? normalizedRoles
+	const displayRoles = getDisplayRoleNames(
+		roles.length > 0 ? roles : role ? [role] : []
+	)
+	const roleLabel = displayRoles.length > 0
+		? displayRoles
 			.map(getRoleLabel)
 			.join(' · ')
 		: tCommon('states.roleMissing')

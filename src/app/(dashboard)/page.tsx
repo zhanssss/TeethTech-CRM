@@ -3,11 +3,18 @@
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import {useTranslations} from 'next-intl';
+import { useSelector } from 'react-redux';
 
 import { useGetTasksDashboardQuery } from '@/src/services/api/tasksDashboardApi';
+import { useGetUsersQuery } from '@/src/services/api/usersApi';
+import { useGetWorkDirectionsQuery } from '@/src/services/api/workDirectionsApi';
 import MaterialChips from '@/src/components/tasks/MaterialChips';
+import WorkDirectionBadge from '@/src/components/work-directions/WorkDirectionBadge';
 import {useAppFormatters, useAppLocale} from '@/src/i18n/provider';
+import { normalizeAuthRoles } from '@/src/features/auth/authUtils';
+import type { RootState } from '@/src/lib/store';
 import { taskMatchesMaterialSearch } from '@/src/utils/materialAccounting';
+import { isWorkDirectionAccessError } from '@/src/utils/workDirections';
 import type {
     TaskDashboardColumn,
     TaskDashboardTask,
@@ -122,6 +129,9 @@ function TaskCard({ task }: { task: TaskDashboardTask }) {
                     <h3 className="mt-1 line-clamp-2 text-sm font-bold leading-5 text-slate-900">
                         {getTaskTitle(task, t('taskFallback'))}
                     </h3>
+                    <div className="mt-2">
+                        <WorkDirectionBadge code={task.workDirectionCode} name={task.workDirectionName} />
+                    </div>
                 </div>
 
                 <span
@@ -195,6 +205,7 @@ function CompactTaskCard({ task }: { task: TaskDashboardTask }) {
                 <p className="mt-0.5 truncate text-xs font-black text-slate-900 dark:text-slate-100">
                     {getTaskTitle(task, t('taskFallback'))}
                 </p>
+                <div className="mt-1"><WorkDirectionBadge code={task.workDirectionCode} name={task.workDirectionName} /></div>
             </div>
             <div className="shrink-0 text-right">
                 <p className={`text-[9px] font-black ${task.isOverdue ? 'text-red-600' : 'text-slate-500'}`}>
@@ -226,12 +237,31 @@ export default function Dashboard() {
     const tCommon = useTranslations('common.actions');
     const format = useAppFormatters();
     const {locale} = useAppLocale();
+    const { id: currentUserId, role, roles } = useSelector((state: RootState) => state.auth);
+    const normalizedRoles = normalizeAuthRoles(roles.length > 0 ? roles : role ? [role] : []);
+    const isAdmin = normalizedRoles.includes('ADMIN');
+    const isDispatcher = normalizedRoles.includes('DISPATCHER');
     const [search, setSearch] = useState('');
     const [workTypeCode, setWorkTypeCode] = useState('');
     const [selectedStatusKey, setSelectedStatusKey] = useState('');
     const [selectedStatusId, setSelectedStatusId] = useState<string | undefined>();
     const [selectedStatusLabel, setSelectedStatusLabel] = useState('');
     const [flowView, setFlowView] = useState<'compact' | 'kanban'>('compact');
+    const [selectedDirectionId, setSelectedDirectionId] = useState('');
+    const usersQuery = useGetUsersQuery(undefined, { skip: !isDispatcher });
+    const directionsQuery = useGetWorkDirectionsQuery();
+    const currentUser = usersQuery.data?.find((user) => user.id === currentUserId);
+    const directionOptions = useMemo(
+        () => isAdmin
+            ? (directionsQuery.data ?? [])
+            : (currentUser?.workDirections ?? []).filter((direction) => direction.active),
+        [currentUser?.workDirections, directionsQuery.data, isAdmin]
+    );
+    const dispatcherDirectionsPending = isDispatcher && (usersQuery.isLoading || usersQuery.isFetching);
+    const dispatcherHasNoDirections = isDispatcher
+        && !dispatcherDirectionsPending
+        && !usersQuery.isError
+        && directionOptions.length === 0;
 
     const dashboardFilters = useMemo(
         () => ({
@@ -248,7 +278,10 @@ export default function Dashboard() {
         isFetching,
         isLoading,
         refetch,
-    } = useGetTasksDashboardQuery(dashboardFilters);
+        error: dashboardError,
+    } = useGetTasksDashboardQuery(dashboardFilters, {
+        skip: dispatcherDirectionsPending || dispatcherHasNoDirections || usersQuery.isError,
+    });
 
     const columns = useMemo(() => data?.columns ?? [], [data?.columns]);
     const statusOptions = useMemo(() => buildStatusOptions(columns), [columns]);
@@ -271,7 +304,11 @@ export default function Dashboard() {
     }, [selectedStatusId, selectedStatusKey, selectedStatusLabel, statusOptions, t]);
 
     const visibleColumns = useMemo(() => {
-        const statusColumns = !selectedStatusKey || selectedStatusId ? columns : columns.filter((column) => {
+        const directionColumns = !selectedDirectionId ? columns : columns.map((column) => {
+            const tasks = column.tasks.filter((task) => task.workDirectionId === selectedDirectionId);
+            return { ...column, tasks, count: tasks.length };
+        });
+        const statusColumns = !selectedStatusKey || selectedStatusId ? directionColumns : directionColumns.filter((column) => {
             const value = column.statusId || column.statusCode;
 
             return value === selectedStatusKey;
@@ -283,14 +320,14 @@ export default function Dashboard() {
             const tasks = column.tasks.filter((task) => taskMatchesMaterialSearch(task, search, locale));
             return { ...column, tasks, count: tasks.length };
         });
-    }, [columns, locale, search, selectedStatusId, selectedStatusKey]);
+    }, [columns, locale, search, selectedDirectionId, selectedStatusId, selectedStatusKey]);
 
     const visibleTaskCount = visibleColumns.reduce(
         (count, column) => count + column.tasks.length,
         0
     );
     const hasFilters = Boolean(
-        search.trim() || workTypeCode.trim() || selectedStatusKey
+        search.trim() || workTypeCode.trim() || selectedStatusKey || selectedDirectionId
     );
 
     const handleStatusChange = (value: string) => {
@@ -307,7 +344,38 @@ export default function Dashboard() {
         setSelectedStatusKey('');
         setSelectedStatusId(undefined);
         setSelectedStatusLabel('');
+        setSelectedDirectionId('');
     };
+
+    const selectedDirection = directionOptions.find((direction) => direction.id === selectedDirectionId);
+    const visibleRecentCompleted = (data?.recentCompletedTasks ?? []).filter(
+        (task) => !selectedDirection || task.workDirectionName === selectedDirection.name
+    );
+    const isDirectionForbidden = isWorkDirectionAccessError(dashboardError);
+
+    if (dispatcherDirectionsPending) {
+        return <DashboardSkeleton />;
+    }
+
+    if (dispatcherHasNoDirections) {
+        return (
+            <div className="mx-auto max-w-3xl py-10">
+                <section className="rounded-2xl border border-amber-200 bg-amber-50 p-6 text-center">
+                    <h1 className="text-lg font-black text-amber-900">{t('noAssignedDirections')}</h1>
+                    <p className="mt-2 text-sm text-amber-800">{t('noAssignedDirectionsHint')}</p>
+                </section>
+            </div>
+        );
+    }
+
+    if (usersQuery.isError) {
+        return (
+            <section className="rounded-2xl border border-red-200 bg-red-50 p-5 text-sm text-red-700">
+                <p className="font-semibold">{t('profileLoadError')}</p>
+                <button type="button" onClick={() => void usersQuery.refetch()} className="mt-3 rounded-lg bg-red-600 px-4 py-2 font-bold text-white">{tCommon('retry')}</button>
+            </section>
+        );
+    }
 
     return (
         <div className="mx-auto max-w-[1920px] space-y-5 pb-6">
@@ -361,6 +429,28 @@ export default function Dashboard() {
             )}
 
             <section className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.03)]">
+                <div className="mb-4 border-b border-slate-100 pb-4">
+                    <p className="mb-2 text-xs font-bold text-slate-500">{t('filters.workDirection')}</p>
+                    <div className="flex flex-wrap gap-2">
+                        <button
+                            type="button"
+                            onClick={() => setSelectedDirectionId('')}
+                            className={`rounded-full border px-3 py-2 text-xs font-bold transition ${!selectedDirectionId ? 'border-violet-600 bg-violet-600 text-white' : 'border-slate-200 bg-white text-slate-600 hover:border-violet-300'}`}
+                        >
+                            {isAdmin ? t('filters.allDirections') : t('filters.allMine')}
+                        </button>
+                        {directionOptions.map((direction) => (
+                            <button
+                                key={direction.id}
+                                type="button"
+                                onClick={() => setSelectedDirectionId(direction.id)}
+                                className={`rounded-full border px-3 py-2 text-xs font-bold transition ${selectedDirectionId === direction.id ? 'border-violet-600 bg-violet-600 text-white' : 'border-slate-200 bg-white text-slate-600 hover:border-violet-300'}`}
+                            >
+                                {direction.name}
+                            </button>
+                        ))}
+                    </div>
+                </div>
                 <div className="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,2fr)_minmax(11rem,1fr)_minmax(11rem,1fr)_auto]">
                     <label className="block">
                         <span className="mb-1 block text-xs font-bold text-slate-500">
@@ -417,7 +507,13 @@ export default function Dashboard() {
                 </div>
             </section>
 
-            {isError && (
+            {isDirectionForbidden && (
+                <section className="rounded-lg border border-red-200 bg-red-50 p-5 text-sm text-red-700">
+                    <p className="font-semibold">{t('directionForbidden')}</p>
+                </section>
+            )}
+
+            {isError && !isDirectionForbidden && (
                 <section className="rounded-lg border border-red-200 bg-red-50 p-5 text-sm text-red-700">
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                         <p className="font-semibold">
@@ -575,12 +671,12 @@ export default function Dashboard() {
                 </div>
 
                 <div className="divide-y divide-slate-100">
-                    {(data?.recentCompletedTasks ?? []).length === 0 ? (
+                    {visibleRecentCompleted.length === 0 ? (
                         <div className="p-6 text-sm text-slate-400">
                             {t('noCompleted')}
                         </div>
                     ) : (
-                        data?.recentCompletedTasks.map((task) => (
+                        visibleRecentCompleted.map((task) => (
                             <div
                                 key={task.id}
                                 className="grid grid-cols-1 gap-3 p-4 text-sm md:grid-cols-[1.3fr_1fr_1fr_1fr] md:items-center"
@@ -592,6 +688,14 @@ export default function Dashboard() {
                                     <p className="mt-1 text-xs text-blue-600">
                                         {t('order', {number: task.orderNumber || getShortId(task.id)})}
                                     </p>
+                                    {task.workDirectionName && (
+                                        <div className="mt-2">
+                                            <WorkDirectionBadge
+                                                code={directionOptions.find((direction) => direction.name === task.workDirectionName)?.code ?? task.workDirectionName}
+                                                name={task.workDirectionName}
+                                            />
+                                        </div>
+                                    )}
                                 </div>
 
                                 <p className="text-slate-600">

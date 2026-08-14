@@ -10,13 +10,17 @@ import {
     getStatusBadge,
 } from '@/src/utils/employeesUtils';
 import CreateEmployeeModal from '@/src/components/Modals/CreateEmployeeModal';
+import EditEmployeeAdminSetupModal from '@/src/components/Modals/EditEmployeeAdminSetupModal';
+import WorkDirectionBadge from '@/src/components/work-directions/WorkDirectionBadge';
 import { useDeleteUserMutation, useGetUsersQuery } from "@/src/services/api/usersApi";
 import ErrorState from '@/src/components/ui/ErrorState';
 import ConfirmDialog from '@/src/components/ui/ConfirmDialog';
 import { useGetRolesQuery } from '@/src/services/api/rolesApi';
+import { getDisplayRoleNames } from '@/src/features/auth/authUtils';
 import type { RootState } from '@/src/lib/store';
 import { useAppLocale } from '@/src/i18n/provider';
 import { intlLocaleByLocale } from '@/src/i18n/config';
+import type { User } from '@/src/types/user.types';
 
 
 function StatCard({
@@ -48,6 +52,7 @@ export default function EmployeesPage() {
     const [showFiredEmployees, setShowFiredEmployees] = useState(false);
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [employeeToDelete, setEmployeeToDelete] = useState<{ id: string; fullName: string } | null>(null);
+    const [employeeToEdit, setEmployeeToEdit] = useState<User | null>(null);
 
     const {
         data: users = [],
@@ -236,7 +241,19 @@ export default function EmployeesPage() {
                                                 {employee.fullName}
                                             </p><span className={`shrink-0 rounded-lg border px-2 py-1 text-[9px] font-bold uppercase ${getStatusBadge(employee.status)}`}>{employee.status === 'ACTIVE' || employee.status === 'BUSY' || employee.status === 'OFFLINE' || employee.status === 'FIRED' ? detailT(`statuses.${employee.status}`) : employee.status}</span></div>
                                             <p className="mt-1 truncate text-xs text-slate-500">{employee.specialization || t('specializationMissing')}</p>
-                                            <p className="mt-1 text-[10px] font-semibold uppercase tracking-wider text-violet-600">{employee.roles?.join(', ') || employee.role || t('roleMissing')}</p>
+                                            <p className="mt-1 text-[10px] font-semibold uppercase tracking-wider text-violet-600">
+                                                {getDisplayRoleNames([
+                                                    ...(employee.roles ?? []),
+                                                    ...(employee.role ? [employee.role] : []),
+                                                ]).join(', ') || t('roleMissing')}
+                                            </p>
+                                            {employee.workDirections?.length ? (
+                                                <div className="mt-2 flex flex-wrap gap-1">
+                                                    {employee.workDirections.map((direction) => (
+                                                        <WorkDirectionBadge key={direction.id} code={direction.code} name={direction.name} />
+                                                    ))}
+                                                </div>
+                                            ) : null}
                                         </div>
                                     </div>
 
@@ -251,6 +268,15 @@ export default function EmployeesPage() {
                                         >
                                             {t('open')}
                                         </Link>
+                                        {isAdmin && (
+                                            <button
+                                                type="button"
+                                                onClick={() => setEmployeeToEdit(employee)}
+                                                className="rounded-lg px-2 py-1.5 text-[10px] font-bold text-slate-500 transition hover:bg-violet-50 hover:text-violet-700"
+                                            >
+                                                {commonT('actions.edit')}
+                                            </button>
+                                        )}
                                         {isAdmin && (
                                             <button
                                                 type="button"
@@ -274,6 +300,12 @@ export default function EmployeesPage() {
             </section>
             {isAdmin && isCreateModalOpen && (
                 <CreateEmployeeModal onClose={() => setIsCreateModalOpen(false)} />
+            )}
+            {isAdmin && employeeToEdit && (
+                <EditEmployeeAdminSetupModal
+                    user={employeeToEdit}
+                    onClose={() => setEmployeeToEdit(null)}
+                />
             )}
             <ConfirmDialog
                 open={employeeToDelete !== null}

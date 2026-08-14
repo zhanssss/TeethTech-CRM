@@ -4,6 +4,7 @@ import { useState } from 'react';
 
 import TaskDetailsSidebar from '@/src/components/layout/TaskDetailsSidebar';
 import MaterialChips from '@/src/components/tasks/MaterialChips';
+import WorkDirectionBadge from '@/src/components/work-directions/WorkDirectionBadge';
 import TaskMaterialTransitionModal from '@/src/components/tasks/TaskMaterialTransitionModal';
 import {
     useGetMyTasksKanbanQuery,
@@ -68,6 +69,9 @@ function mapTaskToDetails(task: EmployeeKanbanTask, fallback: string, unspecifie
         hasAccess: task.hasAccess,
         orderId: task.orderId,
         type: task.workTypeName,
+        workDirectionId: task.workDirectionId,
+        workDirectionName: task.workDirectionName,
+        workDirectionCode: task.workDirectionCode,
         material: (task.materialNames ?? []).join(', '),
         materialIds: task.materialIds,
         materialNames: task.materialNames,
@@ -155,6 +159,11 @@ function EmployeeTaskCard({
 			<h3 className="mt-2.5 text-sm font-black leading-snug text-slate-900 dark:text-white">
                 {taskLabel}
             </h3>
+            {task.workDirectionName && task.workDirectionCode ? (
+                <div className="mt-2">
+                    <WorkDirectionBadge code={task.workDirectionCode} name={task.workDirectionName} />
+                </div>
+            ) : null}
             <div className="mt-2 space-y-1.5 text-xs leading-5 text-slate-500">
                 <MaterialChips materialNames={task.materialNames} compact />
                 {task.colorCode ? <p>{t('color', {color: task.colorCode})}</p> : null}

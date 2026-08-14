@@ -9,8 +9,13 @@ import QualityIncidentsPanel from '@/src/components/tasks/QualityIncidentsPanel'
 import TaskFilesPanel from '@/src/components/tasks/TaskFilesPanel';
 import TaskHistoryTimeline from '@/src/components/tasks/TaskHistoryTimeline';
 import MaterialChips from '@/src/components/tasks/MaterialChips';
+import ConfirmDialog from '@/src/components/ui/ConfirmDialog';
+import WorkDirectionBadge from '@/src/components/work-directions/WorkDirectionBadge';
+import { normalizeAuthRoles } from '@/src/features/auth/authUtils';
 import TaskMaterialAccountingPanel from '@/src/components/tasks/TaskMaterialAccountingPanel';
 import { RootState } from '@/src/lib/store';
+import { useUpdateTaskMutation } from '@/src/services/api/ordersApi';
+import { useGetWorkDirectionsQuery } from '@/src/services/api/workDirectionsApi';
 import type { Task, TaskAttachment, TaskImage } from '@/src/types/task.types';
 import { useAppFormatters } from '@/src/i18n/provider';
 
@@ -39,7 +44,14 @@ export default function TaskDetailsSidebar({
     const [isVisible, setIsVisible] = useState(false);
     const [isHistoryDetailsOpen, setIsHistoryDetailsOpen] = useState(false);
     const [activeTab, setActiveTab] = useState<'overview' | 'materials'>('overview');
-    const { isAuthenticated } = useSelector((state: RootState) => state.auth);
+    const [pendingWorkDirectionId, setPendingWorkDirectionId] = useState('');
+    const { isAuthenticated, roles } = useSelector((state: RootState) => state.auth);
+    const isAdmin = normalizeAuthRoles(roles).includes('ADMIN');
+    const directionsQuery = useGetWorkDirectionsQuery(
+        { includeInactive: true },
+        { skip: !isAdmin }
+    );
+    const [updateTask, updateTaskState] = useUpdateTaskMutation();
 
     useEffect(() => {
         let animationFrame: number | undefined;
@@ -84,6 +96,30 @@ export default function TaskDetailsSidebar({
 
         onAddComment(trimmed);
         setCommentText('');
+    };
+
+    const handleConfirmDirectionChange = async () => {
+        if (!pendingWorkDirectionId || pendingWorkDirectionId === task.workDirectionId) {
+            setPendingWorkDirectionId('');
+            return;
+        }
+
+        try {
+            await updateTask({
+                taskId: task.id,
+                body: { workDirectionId: pendingWorkDirectionId },
+            }).unwrap();
+            const direction = directionsQuery.data?.find((item) => item.id === pendingWorkDirectionId);
+            setRenderedTask((current) => current ? {
+                ...current,
+                workDirectionId: pendingWorkDirectionId,
+                workDirectionName: direction?.name ?? current.workDirectionName,
+                workDirectionCode: direction?.code ?? current.workDirectionCode,
+            } : current);
+            setPendingWorkDirectionId('');
+        } catch {
+            // Глобальный обработчик API показывает сообщение backend.
+        }
     };
 
     return (
@@ -187,6 +223,14 @@ export default function TaskDetailsSidebar({
                             {task.deadline && <InfoItem label={t('deadline')} value={task.deadline} />}
                             {task.priority && <InfoItem label={t('priority')} value={task.priority} />}
                             {task.type && <InfoItem label={t('workType')} value={task.type} />}
+                            {(task.workDirectionName || task.workDirectionCode) && (
+                                <div className="rounded-xl border border-slate-200 bg-white p-3">
+                                    <p className="text-[10px] font-black uppercase text-slate-400">{t('workDirection')}</p>
+                                    <div className="mt-2">
+                                        <WorkDirectionBadge code={task.workDirectionCode ?? ''} name={task.workDirectionName ?? task.workDirectionCode ?? ''} />
+                                    </div>
+                                </div>
+                            )}
                             {task.materialNames ? (
                                 <div className="rounded-xl border border-slate-200 bg-white p-3 sm:col-span-2">
                                     <p className="text-[10px] font-black uppercase text-slate-400">{t('taskMaterials')}</p>
@@ -197,6 +241,27 @@ export default function TaskDetailsSidebar({
                             {task.unitPrice ? <InfoItem label={t('price')} value={formats.currency(task.unitPrice)} /> : null}
                             {task.discount ? <InfoItem label={t('discount')} value={formats.number(task.discount)} /> : null}
                         </div>
+                        {isAdmin && UUID_PATTERN.test(task.id) && (
+                            <label className="mt-4 block">
+                                <span className="mb-1.5 block text-[10px] font-black uppercase text-slate-400">{t('changeWorkDirection')}</span>
+                                <select
+                                    value={task.workDirectionId ?? ''}
+                                    disabled={directionsQuery.isLoading || directionsQuery.isError || updateTaskState.isLoading}
+                                    onChange={(event) => {
+                                        if (event.target.value && event.target.value !== task.workDirectionId) {
+                                            setPendingWorkDirectionId(event.target.value);
+                                        }
+                                    }}
+                                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-700 outline-none focus:border-violet-500"
+                                >
+                                    <option value="">{t('selectWorkDirection')}</option>
+                                    {(directionsQuery.data ?? []).map((direction) => (
+                                        <option key={direction.id} value={direction.id}>{direction.name} — {direction.code}</option>
+                                    ))}
+                                </select>
+                                {directionsQuery.isError && <span className="mt-1 block text-xs font-semibold text-red-600">{t('directionsLoadError')}</span>}
+                            </label>
+                        )}
                     </section>
 
                     {UUID_PATTERN.test(task.id) ? (
@@ -313,6 +378,17 @@ export default function TaskDetailsSidebar({
                     }}
                 />
             ) : null}
+
+            <ConfirmDialog
+                open={Boolean(pendingWorkDirectionId)}
+                title={t('directionChangeTitle')}
+                description={t('directionChangeWarning')}
+                confirmLabel={t('directionChangeConfirm')}
+                tone="warning"
+                isLoading={updateTaskState.isLoading}
+                onClose={() => setPendingWorkDirectionId('')}
+                onConfirm={handleConfirmDirectionChange}
+            />
         </>
     );
 }

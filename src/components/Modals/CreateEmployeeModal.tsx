@@ -5,9 +5,12 @@ import RoleSelect from '@/src/components/roles/RoleSelect';
 import Modal from '@/src/components/ui/Modal';
 import PhoneInput from '@/src/components/ui/PhoneInput';
 import QueryErrorNotice from '@/src/components/ui/QueryErrorNotice';
+import WorkDirectionMultiSelect from '@/src/components/work-directions/WorkDirectionMultiSelect';
+import { hasAuthRole } from '@/src/features/auth/authUtils';
 import { useRegisterUserMutation } from '@/src/services/api/authApi';
 import { useGetRolesQuery } from '@/src/services/api/rolesApi';
 import { useUpdateUserAdminSetupMutation } from '@/src/services/api/usersApi';
+import { useGetWorkDirectionsQuery } from '@/src/services/api/workDirectionsApi';
 import type { Register } from '@/src/types/auth.types';
 
 type CreateEmployeeModalProps = {
@@ -20,7 +23,7 @@ type CreateEmployeeWithRolesOptions = {
     createEmployee: (body: Register) => Promise<string>;
     updateAdminSetup: (
         id: string,
-        body: { roles: string[]; status: string }
+        body: { roles: string[]; status: string; workDirectionIds: string[] }
     ) => Promise<void>;
 };
 
@@ -45,6 +48,7 @@ export async function createEmployeeWithRoles({
         await updateAdminSetup(employeeId, {
             roles,
             status: 'ACTIVE',
+            workDirectionIds: employee.workDirectionIds ?? [],
         });
     }
 
@@ -58,6 +62,8 @@ export default function CreateEmployeeModal({ onClose }: CreateEmployeeModalProp
     const [email, setEmail] = useState('');
     const [phone, setPhone] = useState('');
     const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
+    const [workDirectionIds, setWorkDirectionIds] = useState<string[]>([]);
+    const [formError, setFormError] = useState('');
     const [tempPassword, setTempPassword] = useState('');
     const {
         data: roles = [],
@@ -66,6 +72,8 @@ export default function CreateEmployeeModal({ onClose }: CreateEmployeeModalProp
         isError: isRolesError,
         refetch: refetchRoles,
     } = useGetRolesQuery();
+    const isDispatcher = hasAuthRole(selectedRoles, 'DISPATCHER');
+    const directionsQuery = useGetWorkDirectionsQuery(undefined, { skip: !isDispatcher });
     const [registerUser, { isLoading: isCreatingUser }] = useRegisterUserMutation();
     const [
         updateUserAdminSetup,
@@ -79,6 +87,11 @@ export default function CreateEmployeeModal({ onClose }: CreateEmployeeModalProp
     const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault();
         if (isLoading || selectedRoles.length === 0) return;
+        if (isDispatcher && workDirectionIds.length === 0) {
+            setFormError(t('directionRequired'));
+            return;
+        }
+        setFormError('');
 
         try {
             await createEmployeeWithRoles({
@@ -87,6 +100,7 @@ export default function CreateEmployeeModal({ onClose }: CreateEmployeeModalProp
                     email,
                     phone,
                     password: tempPassword,
+                    workDirectionIds,
                 },
                 roles: selectedRoles,
                 createEmployee: (body) => registerUser(body).unwrap(),
@@ -236,6 +250,40 @@ export default function CreateEmployeeModal({ onClose }: CreateEmployeeModalProp
                             <p className="mt-2 text-xs font-medium text-amber-600">{t('roleRequired')}</p>
                         )}
                     </section>
+
+                    {isDispatcher && (
+                        <section className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4 dark:border-slate-700 dark:bg-slate-800/70 sm:p-5">
+                            <div>
+                                <h3 className="text-sm font-black text-slate-900 dark:text-white">{t('workDirections')}</h3>
+                                <p className="mt-1 text-xs text-slate-500">{t('workDirectionsHint')}</p>
+                            </div>
+                            <div className="mt-4">
+                                {directionsQuery.isError ? (
+                                    <QueryErrorNotice
+                                        message={t('directionsError')}
+                                        onRetry={() => void directionsQuery.refetch()}
+                                        isRetrying={directionsQuery.isFetching}
+                                    />
+                                ) : (
+                                    <WorkDirectionMultiSelect
+                                        directions={directionsQuery.data ?? []}
+                                        value={workDirectionIds}
+                                        onChange={(ids) => {
+                                            setWorkDirectionIds(ids);
+                                            if (ids.length > 0) setFormError('');
+                                        }}
+                                        disabled={directionsQuery.isLoading || isLoading}
+                                        emptyText={t('directionsEmpty')}
+                                    />
+                                )}
+                            </div>
+                            {workDirectionIds.length === 0 && (
+                                <p className="mt-2 text-xs font-semibold text-red-600">{t('directionRequired')}</p>
+                            )}
+                        </section>
+                    )}
+
+                    {formError && <p role="alert" className="text-sm font-semibold text-red-600">{formError}</p>}
                 </div>
 
                 <footer className="flex flex-col-reverse gap-3 border-t border-slate-100 px-4 py-4 dark:border-slate-800 sm:flex-row sm:items-center sm:justify-end sm:px-7">
@@ -249,7 +297,7 @@ export default function CreateEmployeeModal({ onClose }: CreateEmployeeModalProp
                     </button>
                     <button
                         type="submit"
-                        disabled={isLoading || isRolesError || selectedRoles.length === 0}
+                        disabled={isLoading || isRolesError || selectedRoles.length === 0 || (isDispatcher && (directionsQuery.isError || workDirectionIds.length === 0))}
                         className="min-h-11 cursor-pointer rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-6 py-3 text-sm font-bold text-white shadow-lg shadow-violet-500/20 transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:bg-slate-300 sm:min-w-40"
                     >
                         {isLoading ? t('creating') : t('submit')}

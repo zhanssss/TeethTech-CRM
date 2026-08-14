@@ -8,7 +8,7 @@ function createOrder(materialIds: string[]): CreateOrderDto {
     return {
         clinicId: 'clinic', patientFullName: 'Пациент', doctorFullName: 'Врач', deadline: '2026-08-01', comment: '',
         tasks: [{
-            workTypeId: 'work', quantity: 2, toothNumbers: [11, 12], colorId: 'color', materialIds,
+            workDirectionId: 'direction', workTypeId: 'work', quantity: 2, toothNumbers: [11, 12], colorId: 'color', materialIds,
             pricePerUnit: 25000, discount: 0, discountPercent: 0, assignmentMode: 'AUTO', statusAssignees: [],
         }],
     };
@@ -21,6 +21,7 @@ describe('breaking API заказа', () => {
     ])('создаёт задачу с $label материалом(ами)', ({ materialIds }) => {
         const body = buildCreateOrderBody(createOrder(materialIds));
         expect(body.tasks[0].materialIds).toEqual(materialIds);
+        expect(body.tasks[0].workDirectionId).toBe('direction');
         expect(body.tasks[0]).not.toHaveProperty('materialId');
         expect(body.tasks[0]).not.toHaveProperty('materialName');
     });

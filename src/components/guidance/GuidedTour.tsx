@@ -165,7 +165,6 @@ export default function GuidedTour() {
     const [activeTourId, setActiveTourId] = useState<string | null>(null);
     const [stepIndex, setStepIndex] = useState(0);
     const [highlightRect, setHighlightRect] = useState<HighlightRect | null>(null);
-    const checkedAutoTour = useRef(false);
     const dialogRef = useRef<HTMLDivElement | null>(null);
 
     const tour = useMemo(() => {
@@ -200,26 +199,6 @@ export default function GuidedTour() {
         setActiveTourId(requestedTour);
         setStepIndex(0);
     }, [requestedTour]);
-
-    useEffect(() => {
-        if (checkedAutoTour.current) return;
-        checkedAutoTour.current = true;
-        if (requestedTour) return;
-
-        const storageKey = `teethtech:onboarding:${AUTO_TOUR_VERSION}:${userId ?? 'user'}`;
-        try {
-            if (window.localStorage.getItem(storageKey)) return;
-        } catch {
-            return;
-        }
-
-        const timer = window.setTimeout(() => {
-            setActiveTourId('welcome');
-            setStepIndex(0);
-        }, 700);
-
-        return () => window.clearTimeout(timer);
-    }, [requestedTour, userId]);
 
     useEffect(() => {
         if (!tour || !step) return;

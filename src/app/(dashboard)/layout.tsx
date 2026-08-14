@@ -45,9 +45,22 @@ export default function DashboardLayout({
     const canViewRoles =
         normalizedJwtRoles.includes('ADMIN')
         || normalizedJwtRoles.includes('CHIEF_TECHNICIAN');
+    const canViewWorkDirections = normalizedJwtRoles.includes('ADMIN');
     const canViewWorkZone = canAccessWorkZone(roles, role);
 
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+    useEffect(() => {
+        if (
+            isInitialized
+            && isAuthenticated
+            && role
+            && pathname.startsWith('/laboratory/work-directions')
+            && !canViewWorkDirections
+        ) {
+            router.replace(getAuthRedirectPath(role, roles));
+        }
+    }, [canViewWorkDirections, isAuthenticated, isInitialized, pathname, role, roles, router]);
 
     useEffect(() => {
         const mediaQuery = window.matchMedia('(min-width: 1024px)');
@@ -186,6 +199,10 @@ export default function DashboardLayout({
         isAuthenticated
         && pathname.startsWith('/laboratory/roles')
         && !canViewRoles;
+    const isWorkDirectionsAccessDenied =
+        isAuthenticated
+        && pathname.startsWith('/laboratory/work-directions')
+        && !canViewWorkDirections;
     const isDocumentsAccessDenied =
         isAuthenticated
         && pathname.startsWith('/documents')
@@ -200,6 +217,7 @@ export default function DashboardLayout({
         || !isAuthenticated
         || isAccountingAccessDenied
         || isRolesAccessDenied
+        || isWorkDirectionsAccessDenied
         || isDocumentsAccessDenied
         || isWorkZoneAccessDenied
     ) return null;

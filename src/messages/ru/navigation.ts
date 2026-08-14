@@ -32,6 +32,7 @@ export default {
     inventory: 'Инвентаризация',
     colors: 'Цвета',
     workTypes: 'Типы работ',
+    workDirections: 'Направления работ',
     roles: 'Роли',
     financeReport: 'Финансовый отчёт',
     salaries: 'Зарплаты',

@@ -32,6 +32,7 @@ export default {
     inventory: 'Түгендеу',
     colors: 'Реңктер',
     workTypes: 'Жұмыс түрлері',
+    workDirections: 'Жұмыс бағыттары',
     roles: 'Рөлдер',
     financeReport: 'Қаржылық есеп',
     salaries: 'Жалақы',

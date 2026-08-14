@@ -14,6 +14,7 @@ import {
     OrderGetApiResponse,
     OrderKanbanColumn,
     UpdateOrderArgs,
+    UpdateTaskArgs,
     UpdateTaskMaterialsArgs,
     UpdateTaskStatusArgs,
 } from '@/src/types/order.types';
@@ -52,6 +53,7 @@ export function buildCreateOrderBody(body: CreateOrderDto): CreateOrderRequest {
     return {
         ...body,
         tasks: body.tasks.map(({
+            workDirectionId,
             workTypeId,
             quantity,
             toothNumbers,
@@ -63,6 +65,7 @@ export function buildCreateOrderBody(body: CreateOrderDto): CreateOrderRequest {
             assignmentMode,
             statusAssignees,
         }) => ({
+            workDirectionId,
             workTypeId,
             quantity,
             toothNumbers,
@@ -177,6 +180,20 @@ export const ordersApi = teethTechApi.injectEndpoints({
                 'OrderKanban',
                 { type: 'TaskMaterialPlan', id: taskId },
                 { type: 'TaskMaterialAccounting', id: taskId },
+                { type: 'TaskHistory', id: taskId },
+            ],
+        }),
+
+        updateTask: builder.mutation<void, UpdateTaskArgs>({
+            query: ({ taskId, body }) => ({
+                url: `/tasks/${taskId}`,
+                method: 'PATCH',
+                body,
+            }),
+            invalidatesTags: (_result, error, { taskId }) => error ? [] : [
+                'Orders',
+                'OrderKanban',
+                'Tasks',
                 { type: 'TaskHistory', id: taskId },
             ],
         }),
@@ -309,6 +326,7 @@ export const {
     useUpdateOrderStatusMutation,
     useUpdateTaskStatusMutation,
     useUpdateTaskMaterialsMutation,
+    useUpdateTaskMutation,
     useGetTaskMaterialPlanQuery,
     useGetTaskMaterialUsagesQuery,
     useGetTaskMaterialAccountingQuery,

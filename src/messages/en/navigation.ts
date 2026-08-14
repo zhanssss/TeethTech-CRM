@@ -32,6 +32,7 @@ export default {
     inventory: 'Inventory',
     colors: 'Shades',
     workTypes: 'Work Types',
+    workDirections: 'Work Directions',
     roles: 'Roles',
     financeReport: 'Financial Report',
     salaries: 'Payroll',

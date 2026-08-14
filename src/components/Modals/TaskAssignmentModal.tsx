@@ -10,6 +10,7 @@ import {
 } from '@/src/services/api/ordersApi';
 import { useGetWorkTypesQuery } from '@/src/services/api/laboratory/workTypesApi';
 import { useGetAdminWorkflowStepsQuery } from '@/src/services/api/workflowApi';
+import { getDisplayRoleNames } from '@/src/features/auth/authUtils';
 import type { OrderKanbanTask } from '@/src/types/order.types';
 import type {
     TaskAssignment,
@@ -34,6 +35,7 @@ type AssignmentStage = {
     statusCode?: string;
     statusName: string;
     requiredRole: string;
+    isFinalReviewStage: boolean;
 };
 
 function normalizeRoleValue(value: string | undefined | null) {
@@ -57,18 +59,32 @@ function getUserRoleValues(user: User) {
 }
 
 function getUserLabel(user: User) {
-    const roles = getUserRoleValues(user).join(' / ');
+    const roles = getDisplayRoleNames(getUserRoleValues(user)).join(' / ');
     return roles ? `${user.fullName} (${roles})` : user.fullName;
 }
 
-function getEligibleUsers(users: User[], requiredRole: string) {
+function isAdministrator(user: User) {
+    return getUserRoleValues(user).some(
+        (role) => normalizeRoleValue(role) === 'admin'
+    );
+}
+
+function getEligibleUsers(
+    users: User[],
+    requiredRole: string,
+    isFinalReviewStage: boolean
+) {
     const activeUsers = users.filter((user) => user.status !== 'FIRED');
     const normalizedRequiredRole = normalizeRoleValue(requiredRole);
-
-    if (!normalizedRequiredRole) return activeUsers;
+    // An administrator may only perform management actions (start, review,
+    // complete), never a production-stage assignment—even if they hold a
+    // second production role.
+    const eligibleStageUsers = isFinalReviewStage
+        ? activeUsers
+        : activeUsers.filter((user) => !isAdministrator(user));
 
     if (normalizedRequiredRole.includes('admin') || normalizedRequiredRole.includes('dispatcher')) {
-        return activeUsers.filter((user) =>
+        return eligibleStageUsers.filter((user) =>
             getUserRoleValues(user).some((role) => {
                 const normalizedUserRole = normalizeRoleValue(role);
                 return normalizedUserRole === 'admin' || normalizedUserRole === 'dispatcher';
@@ -76,7 +92,9 @@ function getEligibleUsers(users: User[], requiredRole: string) {
         );
     }
 
-    return activeUsers.filter((user) =>
+    if (!normalizedRequiredRole) return eligibleStageUsers;
+
+    return eligibleStageUsers.filter((user) =>
         getUserRoleValues(user).some((role) => {
             const normalizedUserRole = normalizeRoleValue(role);
             return normalizedUserRole === normalizedRequiredRole
@@ -88,6 +106,7 @@ function getEligibleUsers(users: User[], requiredRole: string) {
 
 function getWorkflowAssignmentStages(steps: WorkflowStep[]): AssignmentStage[] {
     const sortedSteps = [...steps].sort((left, right) => left.sortOrder - right.sortOrder);
+    const finalSortOrder = sortedSteps.at(-1)?.sortOrder;
     const destinationStatusIds = new Set(sortedSteps.map((step) => step.toStatusId));
     const initialStatusId = sortedSteps.find(
         (step) => !destinationStatusIds.has(step.fromStatusId)
@@ -107,6 +126,7 @@ function getWorkflowAssignmentStages(steps: WorkflowStep[]): AssignmentStage[] {
             statusId: step.fromStatusId,
             statusName: step.fromStatusName,
             requiredRole: step.requiredRole,
+            isFinalReviewStage: step.sortOrder === finalSortOrder,
         }));
 }
 
@@ -129,6 +149,7 @@ function getAssignmentStages(steps: WorkflowStep[], assignment?: TaskAssignment)
                 statusCode: assignee.statusCode,
                 statusName: assignee.statusName,
                 requiredRole: '',
+                isFinalReviewStage: false,
             });
         }
     }
@@ -215,7 +236,11 @@ function TaskAssignmentEditor({
         || (isPreassigned && changedStatusAssignees.length > 0);
     const hasCompletePlan = stages.length > 0 && stages.every((stage) => {
         const selectedUserId = assigneeByStatus.get(stage.statusId);
-        return getEligibleUsers(users, stage.requiredRole).some(
+        return getEligibleUsers(
+            users,
+            stage.requiredRole,
+            stage.isFinalReviewStage
+        ).some(
             (user) => user.id === selectedUserId
         );
     });
@@ -356,7 +381,11 @@ function TaskAssignmentEditor({
                     {stages.length > 0 && (
                         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                             {stages.map((stage) => {
-                                const eligibleUsers = getEligibleUsers(users, stage.requiredRole);
+                                const eligibleUsers = getEligibleUsers(
+                                    users,
+                                    stage.requiredRole,
+                                    stage.isFinalReviewStage
+                                );
                                 const normalizedRequiredRole = normalizeRoleValue(stage.requiredRole);
                                 const roleLabel = normalizedRequiredRole.includes('admin')
                                     || normalizedRequiredRole.includes('dispatcher')

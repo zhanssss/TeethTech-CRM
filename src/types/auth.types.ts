@@ -18,4 +18,5 @@ export type Register = {
     phone: string;
     role: string;
     password: string;
+    workDirectionIds?: string[];
 }

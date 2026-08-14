@@ -95,6 +95,7 @@ export const teethTechApi = createApi({
         "Colors",
         "Materials",
         "WorkTypes",
+        "WorkDirections",
         "Analytics",
         "Orders",
         "OrderKanban",

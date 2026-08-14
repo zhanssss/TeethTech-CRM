@@ -19,6 +19,7 @@ import type {
 } from './task.types';
 
 export type AddTaskDto = {
+    workDirectionId: string,
     workTypeId: string,
     quantity: number,
     toothNumbers: number[]
@@ -185,6 +186,7 @@ export interface OrderDetails {
 }
 
 export interface CreateOrderTaskDto {
+    workDirectionId: string;
     workTypeId: string;
     quantity: number;
     toothNumbers: number[];
@@ -210,6 +212,7 @@ export interface CreateOrderDto {
 }
 
 export interface CreateOrderTaskRequest {
+    workDirectionId: string;
     workTypeId: string;
     quantity: number;
     toothNumbers: number[];
@@ -252,6 +255,9 @@ export interface OrderKanbanTask {
     id: string;
     orderId: string;
     workTypeId?: string;
+    workDirectionId: string;
+    workDirectionName: string;
+    workDirectionCode: string;
     taskType?: OrderTaskType;
     workTypeName: string;
     workTypeCode: string;
@@ -303,6 +309,15 @@ export interface UpdateTaskStatusArgs {
 export interface UpdateTaskMaterialsArgs {
     taskId: string;
     materialIds: string[];
+}
+
+export interface UpdateTaskRequest {
+    workDirectionId?: string;
+}
+
+export interface UpdateTaskArgs {
+    taskId: string;
+    body: UpdateTaskRequest;
 }
 
 export interface AssignTaskArgs {

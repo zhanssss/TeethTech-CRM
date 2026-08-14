@@ -7,6 +7,7 @@ import {useSelector} from 'react-redux';
 import TaskDetailsSidebar from '@/src/components/layout/TaskDetailsSidebar';
 import TaskAssignmentModal from '@/src/components/Modals/TaskAssignmentModal';
 import MaterialChips from '@/src/components/tasks/MaterialChips';
+import WorkDirectionBadge from '@/src/components/work-directions/WorkDirectionBadge';
 import TaskMaterialTransitionModal from '@/src/components/tasks/TaskMaterialTransitionModal';
 import {RootState} from '@/src/lib/store';
 import type {Task} from '@/src/types/task.types';
@@ -27,6 +28,8 @@ import {useNotifications} from '@/src/features/notifications/useNotifications';
 import {getApiErrorMessage} from '@/src/services/apiNotifications';
 import {useTranslations} from 'next-intl';
 import {useAppFormatters} from '@/src/i18n/provider';
+import {isWorkDirectionAccessError} from '@/src/utils/workDirections';
+import {normalizeAuthRoles} from '@/src/features/auth/authUtils';
 
 const ORDER_LOOKUP_PARAMS = {
     page: 0,
@@ -397,6 +400,9 @@ function mapOrderKanbanTaskToDetailsTask(task: OrderKanbanTask, order?: ServerOr
         patient: getStringValue(order, ['patientFullName', 'patientName', 'patient']),
         deadline: getStringValue(order, ['deadline']),
         type: task.workTypeName || task.workTypeCode,
+        workDirectionId: task.workDirectionId,
+        workDirectionName: task.workDirectionName,
+        workDirectionCode: task.workDirectionCode,
         material: (task.materialNames ?? []).join(', '),
         materialIds: task.materialIds,
         materialNames: task.materialNames,
@@ -415,14 +421,14 @@ export default function OrderBoardPage() {
     const params = useParams<{ id: string | string[] }>();
     const id = Array.isArray(params.id) ? params.id[0] : params.id;
     const {id: currentUserId, role, roles} = useSelector((state: RootState) => state.auth);
-    const canAssignTasks = role === 'ADMIN'
-        || role === 'DISPATCHER'
-        || roles.some((userRole) => ['ROLE_ADMIN', 'ROLE_DISPATCHER'].includes(userRole));
+    const normalizedRoles = normalizeAuthRoles(roles.length > 0 ? roles : role ? [role] : []);
+    const canAssignTasks = normalizedRoles.some((userRole) => ['ADMIN', 'DISPATCHER'].includes(userRole));
     const {
         data: serverOrders,
         isLoading: isServerOrdersLoading,
         isFetching: isServerOrdersFetching,
         isError: isServerOrdersError,
+        error: serverOrdersError,
         refetch: refetchServerOrders,
     } = useGetOrdersQuery(ORDER_LOOKUP_PARAMS);
     const {
@@ -454,6 +460,7 @@ export default function OrderBoardPage() {
         isLoading: isKanbanLoading,
         isFetching: isKanbanFetching,
         isError: isKanbanError,
+        error: kanbanError,
         refetch: refetchKanban,
     } = useGetOrderKanbanQuery(
         {id, userId: kanbanUserId ?? ''},
@@ -469,6 +476,8 @@ export default function OrderBoardPage() {
         || isUsersError
         || isKanbanError
         || isWorkflowStatusesError;
+    const isDirectionForbidden = [serverOrdersError, kanbanError]
+        .some(isWorkDirectionAccessError);
     const isPageRefetching = isServerOrdersFetching
         || isUsersFetching
         || isKanbanFetching
@@ -489,6 +498,14 @@ export default function OrderBoardPage() {
 
     if (isPageLoading) {
         return <div className="text-sm text-slate-500">{t('loading')}</div>;
+    }
+
+    if (isDirectionForbidden) {
+        return (
+            <ErrorState title={t('directionForbidden')}>
+                {t('directionForbiddenHint')}
+            </ErrorState>
+        );
     }
 
     if (hasPageError) {
@@ -740,6 +757,12 @@ function ServerKanbanBoard({
                                         </span>
                                         <span className="rounded-md bg-slate-100 px-2 py-1 font-semibold text-slate-500">{task.quantity} {t('units')}</span>
                                     </div>
+
+                                    <WorkDirectionBadge
+                                        code={task.workDirectionCode}
+                                        name={task.workDirectionName}
+                                        className="self-start"
+                                    />
 
                                     <div>
                                         <h3 className="text-sm font-bold leading-5 text-slate-900">
