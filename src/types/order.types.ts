@@ -243,7 +243,6 @@ export interface UpdateOrderArgs {
 
 export interface GetOrderKanbanArgs {
     id: string;
-    userId: string;
 }
 
 export interface OrderKanbanAssignee {

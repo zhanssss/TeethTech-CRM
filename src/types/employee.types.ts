@@ -1,3 +1,5 @@
+import type { EmployeeStatusResponse } from './user.types';
+
 export type EmployeeRole =
     | 'TECHNICIAN'
     | 'OPERATOR'
@@ -11,7 +13,7 @@ export type EmployeeRole =
     | 'Гипсовщик'
     | 'Протезист';
 
-export type EmployeeStatus = 'ACTIVE' | 'BUSY' | 'OFFLINE' | 'FIRED';
+export type EmployeeStatus = EmployeeStatusResponse;
 
 export interface EmployeeStats {
     completed: number;

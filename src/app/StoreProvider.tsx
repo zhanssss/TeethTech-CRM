@@ -10,6 +10,10 @@ import type {AuthSession} from '@/src/types/auth.types';
 import NotificationViewport from '@/src/components/ui/NotificationViewport';
 import {makeStore} from '../lib/store';
 import {resetChatRealtime} from '@/src/services/chatRealtimeService';
+import {
+    INACTIVE_ACCOUNT_STORAGE_KEY,
+    isInactiveAccountPayload,
+} from '@/src/lib/inactiveAccount';
 
 export default function StoreProvider({children}: {children: ReactNode}){
  const t = useTranslations('common.notifications');
@@ -33,6 +37,13 @@ export default function StoreProvider({children}: {children: ReactNode}){
                 if (!isMounted) return;
 
                 if (!response.ok) {
+                    if (response.status === 401) {
+                        const payload = await response.json().catch(() => null);
+                        if (isInactiveAccountPayload(payload)) {
+                            window.sessionStorage.setItem(INACTIVE_ACCOUNT_STORAGE_KEY, '1');
+                            window.location.replace('/auth/login?reason=inactive');
+                        }
+                    }
                     if (response.status !== 401) {
                         store.dispatch(
                             enqueueNotification({

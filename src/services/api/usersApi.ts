@@ -2,6 +2,7 @@ import {teethTechApi} from "@/src/services/teethTechApi"
 
 import type {
     BatchCreateUsersRequest,
+    EmployeeStatus,
     UpdateUserAdminSetupRequest,
     UpdateUserProfileRequest,
     User
@@ -34,6 +35,27 @@ export const usersApi = teethTechApi.injectEndpoints({
                 body,
             }),
             invalidatesTags: ['Users'],
+        }),
+        updateUserStatus: builder.mutation<void, { id: string; status: EmployeeStatus }>({
+            query: ({ id, status }) => ({
+                url: `/users/${encodeURIComponent(id)}/status`,
+                method: 'PATCH',
+                body: { status },
+            }),
+            async onQueryStarted({ id, status }, { dispatch, queryFulfilled }) {
+                try {
+                    await queryFulfilled;
+                    dispatch(
+                        usersApi.util.updateQueryData('getUsers', undefined, (users) => {
+                            const user = users.find((item) => item.id === id);
+                            if (user) user.status = status;
+                        })
+                    );
+                } catch {
+                    // The previous cache value remains unchanged after a failed request.
+                }
+            },
+            invalidatesTags: (_result, error) => error ? [] : ['Users'],
         }),
         changeUserPassword: builder.mutation<void, ChangeUserPasswordArgs>({
             query: ({id, newPassword}) => ({
@@ -72,6 +94,7 @@ export const {
     useGetUsersQuery,
     useUpdateUserMutation,
     useUpdateUserAdminSetupMutation,
+    useUpdateUserStatusMutation,
     useChangeUserPasswordMutation,
     useCreateUsersBatchMutation,
     useDeleteUserMutation,

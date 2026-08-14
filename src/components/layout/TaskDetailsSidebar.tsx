@@ -14,7 +14,7 @@ import WorkDirectionBadge from '@/src/components/work-directions/WorkDirectionBa
 import { normalizeAuthRoles } from '@/src/features/auth/authUtils';
 import TaskMaterialAccountingPanel from '@/src/components/tasks/TaskMaterialAccountingPanel';
 import { RootState } from '@/src/lib/store';
-import { useUpdateTaskMutation } from '@/src/services/api/ordersApi';
+import { useDeleteTaskMutation, useUpdateTaskMutation } from '@/src/services/api/ordersApi';
 import { useGetWorkDirectionsQuery } from '@/src/services/api/workDirectionsApi';
 import type { Task, TaskAttachment, TaskImage } from '@/src/types/task.types';
 import { useAppFormatters } from '@/src/i18n/provider';
@@ -45,13 +45,17 @@ export default function TaskDetailsSidebar({
     const [isHistoryDetailsOpen, setIsHistoryDetailsOpen] = useState(false);
     const [activeTab, setActiveTab] = useState<'overview' | 'materials'>('overview');
     const [pendingWorkDirectionId, setPendingWorkDirectionId] = useState('');
-    const { isAuthenticated, roles } = useSelector((state: RootState) => state.auth);
-    const isAdmin = normalizeAuthRoles(roles).includes('ADMIN');
+    const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+    const { isAuthenticated, role, roles } = useSelector((state: RootState) => state.auth);
+    const normalizedRoles = normalizeAuthRoles(roles.length ? roles : role ? [role] : []);
+    const isAdmin = normalizedRoles.includes('ADMIN');
+    const canDeleteTask = normalizedRoles.some((item) => item === 'ADMIN' || item === 'DISPATCHER');
     const directionsQuery = useGetWorkDirectionsQuery(
         { includeInactive: true },
         { skip: !isAdmin }
     );
     const [updateTask, updateTaskState] = useUpdateTaskMutation();
+    const [deleteTask, deleteTaskState] = useDeleteTaskMutation();
 
     useEffect(() => {
         let animationFrame: number | undefined;
@@ -122,6 +126,16 @@ export default function TaskDetailsSidebar({
         }
     };
 
+    const handleDeleteTask = async () => {
+        try {
+            await deleteTask({ taskId: task.id, orderId: task.orderId }).unwrap();
+            setIsDeleteConfirmOpen(false);
+            onClose();
+        } catch {
+            // The centralized API handler shows the backend error.
+        }
+    };
+
     return (
         <>
             <div
@@ -162,6 +176,15 @@ export default function TaskDetailsSidebar({
                                 className="mt-3 rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-black text-amber-800 transition hover:border-amber-400 hover:bg-amber-100"
                             >
                                 {t('returnForRework')}
+                            </button>
+                        ) : null}
+                        {canDeleteTask && UUID_PATTERN.test(task.id) ? (
+                            <button
+                                type="button"
+                                onClick={() => setIsDeleteConfirmOpen(true)}
+                                className="mt-3 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-black text-red-700 transition hover:border-red-300 hover:bg-red-100"
+                            >
+                                {t('deleteTask')}
                             </button>
                         ) : null}
                     </div>
@@ -388,6 +411,15 @@ export default function TaskDetailsSidebar({
                 isLoading={updateTaskState.isLoading}
                 onClose={() => setPendingWorkDirectionId('')}
                 onConfirm={handleConfirmDirectionChange}
+            />
+            <ConfirmDialog
+                open={isDeleteConfirmOpen}
+                title={t('deleteTaskTitle')}
+                description={t('deleteTaskDescription')}
+                confirmLabel={t('deleteTask')}
+                isLoading={deleteTaskState.isLoading}
+                onClose={() => setIsDeleteConfirmOpen(false)}
+                onConfirm={handleDeleteTask}
             />
         </>
     );

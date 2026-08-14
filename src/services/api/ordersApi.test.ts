@@ -1,5 +1,6 @@
 import {
     buildCreateOrderBody,
+    buildGetOrderKanbanQuery,
     buildUpdateTaskMaterialsBody,
 } from '@/src/services/api/ordersApi';
 import type { CreateOrderDto } from '@/src/types/order.types';
@@ -37,6 +38,12 @@ describe('breaking API заказа', () => {
             'current-material',
         ])).toEqual({
             materialIds: ['current-material', 'new-material'],
+        });
+    });
+    it('builds the order kanban request without a client-controlled user selector', () => {
+        expect(buildGetOrderKanbanQuery('order-id')).toEqual({
+            url: '/orders/order-id/kanban',
+            method: 'GET',
         });
     });
 });

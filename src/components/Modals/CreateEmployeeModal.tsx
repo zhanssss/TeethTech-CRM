@@ -12,6 +12,7 @@ import { useGetRolesQuery } from '@/src/services/api/rolesApi';
 import { useUpdateUserAdminSetupMutation } from '@/src/services/api/usersApi';
 import { useGetWorkDirectionsQuery } from '@/src/services/api/workDirectionsApi';
 import type { Register } from '@/src/types/auth.types';
+import type { EmployeeStatus } from '@/src/types/user.types';
 
 type CreateEmployeeModalProps = {
     onClose: () => void;
@@ -23,7 +24,7 @@ type CreateEmployeeWithRolesOptions = {
     createEmployee: (body: Register) => Promise<string>;
     updateAdminSetup: (
         id: string,
-        body: { roles: string[]; status: string; workDirectionIds: string[] }
+        body: { roles: string[]; status: EmployeeStatus; workDirectionIds: string[] }
     ) => Promise<void>;
 };
 
@@ -44,7 +45,7 @@ export async function createEmployeeWithRoles({
         role: primaryRole,
     });
 
-    if (roles.length > 1) {
+    if (roles.length > 1 || hasAuthRole(roles, 'DISPATCHER')) {
         await updateAdminSetup(employeeId, {
             roles,
             status: 'ACTIVE',

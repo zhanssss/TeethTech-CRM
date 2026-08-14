@@ -2,9 +2,9 @@ const apiNotifications = {
     success: {
         loginUser: 'Signed in', registerUser: 'Employee created', createClinic: 'Clinic created', updateClinic: 'Clinic details saved',
         deleteClinic: 'Clinic deleted', createOrder: 'Order created', updateOrder: 'Order changes saved', deleteOrder: 'Order deleted',
-        updateOrderStatus: 'Order status updated', updateTaskStatus: 'Task status updated', updateTaskMaterials: 'Task materials saved',
+        updateOrderStatus: 'Order status updated', updateTaskStatus: 'Task status updated', updateTaskMaterials: 'Task materials saved', deleteTask: 'Task deleted',
         assignTask: 'Assignee assigned', updateTaskAssignment: 'Responsibility plan saved', addTask: 'Task added',
-        updateUser: 'Employee details saved', updateUserAdminSetup: 'Employee settings saved', changeUserPassword: 'Password updated',
+        updateUser: 'Employee details saved', updateUserAdminSetup: 'Employee settings saved', updateUserStatus: 'Employee status updated', changeUserPassword: 'Password updated',
         createUsersBatch: 'Employees created', deleteUser: 'Employee deleted', createColor: 'Shade created', updateColor: 'Shade saved',
         deleteColor: 'Shade deleted', createMaterial: 'Material created', updateMaterial: 'Material saved', deleteMaterial: 'Material deleted',
         createWorkType: 'Work type created', updateWorkType: 'Work type saved', deleteWorkType: 'Work type deleted',

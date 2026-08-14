@@ -1,5 +1,9 @@
 import type { WorkDirection } from './workDirection.types';
 
+export type EmployeeStatus = 'ACTIVE' | 'INACTIVE';
+export type LegacyEmployeeStatus = 'BUSY' | 'BLOCKED' | 'DISMISSED';
+export type EmployeeStatusResponse = EmployeeStatus | LegacyEmployeeStatus;
+
 export type User = {
     id: string,
     fullName: string,
@@ -12,7 +16,7 @@ export type User = {
     salaryType?: 'FIXED' | 'PER_UNIT',
     salary?: number,
     unitsCompleted?: number,
-    status: string,
+    status: EmployeeStatusResponse,
     workDirections?: WorkDirection[],
     stats: {
         completed: number,
@@ -29,13 +33,17 @@ export type UpdateUserProfileRequest = {
     email: string;
     phone: string;
     role: string;
-    status: string;
+    status: EmployeeStatus;
 };
 
 export type UpdateUserAdminSetupRequest = {
     roles: string[];
-    status: string;
+    status: EmployeeStatus;
     workDirectionIds: string[];
+};
+
+export type UpdateUserStatusRequest = {
+    status: EmployeeStatus;
 };
 
 export type BatchCreateUserItem = {

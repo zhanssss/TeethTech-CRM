@@ -74,7 +74,7 @@ function getEligibleUsers(
     requiredRole: string,
     isFinalReviewStage: boolean
 ) {
-    const activeUsers = users.filter((user) => user.status !== 'FIRED');
+    const activeUsers = users.filter((user) => user.status === 'ACTIVE');
     const normalizedRequiredRole = normalizeRoleValue(requiredRole);
     // An administrator may only perform management actions (start, review,
     // complete), never a production-stage assignment—even if they hold a

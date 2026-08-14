@@ -1,6 +1,14 @@
 import type { Employee } from '@/src/types/employee.types';
 import type { User } from '@/src/types/user.types';
 
+export function isEmployeeActive(status: string) {
+    return status === 'ACTIVE';
+}
+
+export function normalizeEmployeeStatus(status: string) {
+    return isEmployeeActive(status) ? 'ACTIVE' as const : 'INACTIVE' as const;
+}
+
 export function mapUserToEmployee(user: User): Employee {
     return {
         id: user.id,
@@ -32,14 +40,7 @@ export function getKpiColor(rate: number) {
 }
 
 export function getStatusBadge(status: string) {
-    switch (status) {
-        case 'ACTIVE':
-            return 'bg-green-50 text-green-700 border-green-200';
-        case 'BUSY':
-            return 'bg-blue-50 text-blue-700 border-blue-200';
-        case 'FIRED':
-            return 'bg-red-50 text-red-700 border-red-200';
-        default:
-            return 'bg-slate-50 text-slate-700 border-slate-200';
-    }
+    return isEmployeeActive(status)
+        ? 'bg-green-50 text-green-700 border-green-200'
+        : 'bg-slate-50 text-slate-700 border-slate-200';
 }

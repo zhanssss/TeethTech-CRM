@@ -55,7 +55,7 @@ function ColumnIcon({ variant }: { variant: ColumnVariant }) {
 }
 
 function getTaskLabel(task: EmployeeKanbanTask, fallback: string) {
-    return task.workTypeName || task.workTypeCode || fallback;
+    return task.workTypeName || fallback;
 }
 
 function mapTaskToDetails(task: EmployeeKanbanTask, fallback: string, unspecified: string): Task {
@@ -130,7 +130,7 @@ function EmployeeTaskCard({
     const t = useTranslations('workspace.kanban');
     const {currency} = useAppFormatters();
     const status = task.currentStatusFormName || task.currentStatusCode;
-    const taskLabel = getTaskLabel(task, t('task', {id: task.id.slice(0, 8)}));
+    const taskLabel = getTaskLabel(task, t('task', {id: ''}).trim());
 
     return (
         <article
@@ -148,9 +148,7 @@ function EmployeeTaskCard({
         >
 			<span className="absolute inset-y-3 left-0 w-1 rounded-r-full bg-gradient-to-b from-violet-500 to-indigo-500 opacity-0 transition group-hover:opacity-100" />
             <div className="flex items-start justify-between gap-3">
-				<span className="rounded-lg bg-violet-50 px-2 py-1 font-mono text-[9px] font-black uppercase tracking-wide text-violet-700 dark:bg-violet-500/15 dark:text-violet-300">
-                    {task.workTypeCode || task.id.slice(0, 8)}
-                </span>
+                <span className="text-[10px] font-black uppercase tracking-wide text-violet-600">{taskLabel}</span>
                 <span className="shrink-0 text-xs font-semibold text-slate-400">
                     {t('units', {count: task.quantity})}
                 </span>

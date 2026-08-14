@@ -11,8 +11,9 @@ import {
 } from '@/src/lib/serverAuthCookies';
 import {
     getSessionFromBackendAuth,
-    refreshBackendSession,
+    refreshBackendSessionResult,
 } from '@/src/lib/serverAuthApi';
+import { INACTIVE_ACCOUNT_MESSAGE } from '@/src/lib/inactiveAccount';
 
 export const dynamic = 'force-dynamic';
 
@@ -28,7 +29,9 @@ export async function GET(request: NextRequest) {
     const encodedSession = request.cookies.get(AUTH_USER_COOKIE)?.value;
 
 	if (!token || !encodedSession || isJwtExpired(token)) {
-        const refreshedAuth = await refreshBackendSession(request);
+        const refreshAttempt = await refreshBackendSessionResult(request);
+        if (refreshAttempt.inactive) return inactiveUnauthorized();
+        const refreshedAuth = refreshAttempt.auth;
 
         if (refreshedAuth) {
             const refreshedSession = getSessionFromBackendAuth(refreshedAuth);
@@ -52,4 +55,13 @@ export async function GET(request: NextRequest) {
 	return NextResponse.json(session, {
         headers: { 'Cache-Control': 'no-store, private' },
     });
+}
+
+function inactiveUnauthorized() {
+    const response = NextResponse.json(
+        { message: INACTIVE_ACCOUNT_MESSAGE },
+        { status: 401 }
+    );
+    clearAuthCookies(response);
+    return response;
 }

@@ -2,9 +2,9 @@ const apiNotifications = {
     success: {
         loginUser: 'Вход выполнен', registerUser: 'Сотрудник создан', createClinic: 'Клиника создана', updateClinic: 'Данные клиники сохранены',
         deleteClinic: 'Клиника удалена', createOrder: 'Заказ создан', updateOrder: 'Изменения заказа сохранены', deleteOrder: 'Заказ удалён',
-        updateOrderStatus: 'Статус заказа обновлён', updateTaskStatus: 'Статус задачи обновлён', updateTaskMaterials: 'Материалы задачи сохранены',
+        updateOrderStatus: 'Статус заказа обновлён', updateTaskStatus: 'Статус задачи обновлён', updateTaskMaterials: 'Материалы задачи сохранены', deleteTask: 'Задача удалена',
         assignTask: 'Исполнитель назначен', updateTaskAssignment: 'План ответственных сохранён', addTask: 'Задача добавлена',
-        updateUser: 'Данные сотрудника сохранены', updateUserAdminSetup: 'Настройки сотрудника сохранены', changeUserPassword: 'Пароль обновлён',
+        updateUser: 'Данные сотрудника сохранены', updateUserAdminSetup: 'Настройки сотрудника сохранены', updateUserStatus: 'Статус сотрудника обновлён', changeUserPassword: 'Пароль обновлён',
         createUsersBatch: 'Сотрудники созданы', deleteUser: 'Сотрудник удалён', createColor: 'Цвет создан', updateColor: 'Цвет сохранён',
         deleteColor: 'Цвет удалён', createMaterial: 'Материал создан', updateMaterial: 'Материал сохранён', deleteMaterial: 'Материал удалён',
         createWorkType: 'Тип работы создан', updateWorkType: 'Тип работы сохранён', deleteWorkType: 'Тип работы удалён',

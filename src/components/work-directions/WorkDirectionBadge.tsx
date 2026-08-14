@@ -11,12 +11,13 @@ export default function WorkDirectionBadge({
     name,
     className = '',
 }: WorkDirectionBadgeProps) {
+    if (!name.trim()) return null;
+
     return (
         <span
-            title={code}
             className={`inline-flex max-w-full items-center rounded-full border px-2.5 py-1 text-[10px] font-bold ${getWorkDirectionBadgeClass(code)} ${className}`}
         >
-            <span className="truncate">{name || code}</span>
+            <span className="truncate">{name}</span>
         </span>
     );
 }

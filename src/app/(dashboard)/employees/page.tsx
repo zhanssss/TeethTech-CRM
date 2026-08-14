@@ -8,11 +8,12 @@ import { useSelector } from 'react-redux';
 import {
     getKpiColor,
     getStatusBadge,
+    isEmployeeActive,
 } from '@/src/utils/employeesUtils';
 import CreateEmployeeModal from '@/src/components/Modals/CreateEmployeeModal';
 import EditEmployeeAdminSetupModal from '@/src/components/Modals/EditEmployeeAdminSetupModal';
 import WorkDirectionBadge from '@/src/components/work-directions/WorkDirectionBadge';
-import { useDeleteUserMutation, useGetUsersQuery } from "@/src/services/api/usersApi";
+import { useGetUsersQuery, useUpdateUserStatusMutation } from "@/src/services/api/usersApi";
 import ErrorState from '@/src/components/ui/ErrorState';
 import ConfirmDialog from '@/src/components/ui/ConfirmDialog';
 import { useGetRolesQuery } from '@/src/services/api/rolesApi';
@@ -49,9 +50,9 @@ export default function EmployeesPage() {
     const intlLocale = intlLocaleByLocale[locale];
     const [search, setSearch] = useState('');
     const [selectedRole, setSelectedRole] = useState('ALL');
-    const [showFiredEmployees, setShowFiredEmployees] = useState(false);
+    const [statusFilter, setStatusFilter] = useState<'ALL' | 'ACTIVE' | 'INACTIVE'>('ALL');
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-    const [employeeToDelete, setEmployeeToDelete] = useState<{ id: string; fullName: string } | null>(null);
+    const [employeeToDeactivate, setEmployeeToDeactivate] = useState<{ id: string; fullName: string } | null>(null);
     const [employeeToEdit, setEmployeeToEdit] = useState<User | null>(null);
 
     const {
@@ -66,7 +67,7 @@ export default function EmployeesPage() {
     const { data: availableRoles = [] } = useGetRolesQuery(undefined, {
         skip: !isAdmin,
     });
-    const [deleteUser, { isLoading: isDeletingUser }] = useDeleteUserMutation();
+    const [updateUserStatus, updateStatusState] = useUpdateUserStatusMutation();
     const filteredEmployees = useMemo(() => {
         const normalizedSearch = search.trim().toLowerCase();
 
@@ -80,18 +81,19 @@ export default function EmployeesPage() {
                 employee.fullName.toLowerCase().includes(normalizedSearch) ||
                 employee.specialization?.toLowerCase().includes(normalizedSearch);
 
-            const matchesStatus =
-                showFiredEmployees || employee.status !== 'FIRED';
+            const active = isEmployeeActive(employee.status);
+            const matchesStatus = statusFilter === 'ALL'
+                || (statusFilter === 'ACTIVE' ? active : !active);
 
             return matchesRole && matchesSearch && matchesStatus;
         });
-    }, [users, search, selectedRole, showFiredEmployees]);
+    }, [users, search, selectedRole, statusFilter]);
 
     const summary = useMemo(() => {
         const totalEmployees = filteredEmployees.length;
 
-        const busyEmployees = filteredEmployees.filter(
-            (employee) => employee.status === 'BUSY'
+        const activeEmployees = filteredEmployees.filter(
+            (employee) => isEmployeeActive(employee.status)
         ).length;
 
         const totalInProgress = filteredEmployees.reduce(
@@ -111,20 +113,24 @@ export default function EmployeesPage() {
 
         return {
             totalEmployees,
-            busyEmployees,
+            activeEmployees,
             totalInProgress,
             averageOnTimeRate,
         };
     }, [filteredEmployees]);
 
-    const handleDeleteUser = async () => {
-        if (!employeeToDelete) return;
+    const changeStatus = async (id: string, status: 'ACTIVE' | 'INACTIVE') => {
         try {
-            await deleteUser(employeeToDelete.id).unwrap();
-            setEmployeeToDelete(null);
+            await updateUserStatus({ id, status }).unwrap();
+            setEmployeeToDeactivate(null);
         } catch (error) {
-            console.error('User delete failed:', error);
+            console.error('User status update failed:', error);
         }
+    };
+
+    const handleDeactivateUser = async () => {
+        if (!employeeToDeactivate) return;
+        await changeStatus(employeeToDeactivate.id, 'INACTIVE');
     };
 
     if (isLoading) {
@@ -165,9 +171,9 @@ export default function EmployeesPage() {
                     description={t('metrics.totalHint')}
                 />
                 <StatCard
-                    title={t('metrics.busy')}
-                    value={summary.busyEmployees}
-                    description={t('metrics.busyHint')}
+                    title={t('metrics.active')}
+                    value={summary.activeEmployees}
+                    description={t('metrics.activeHint')}
                 />
                 <StatCard
                     title={t('metrics.inProgress')}
@@ -203,16 +209,15 @@ export default function EmployeesPage() {
                                 </option>
                             ))}
                         </select>
-                        <label htmlFor="fired-employees" className="flex items-start gap-2 text-sm text-slate-600 sm:items-center">
-                            <input
-                                id="fired-employees"
-                                type="checkbox"
-                                checked={showFiredEmployees}
-                                onChange={(e) => setShowFiredEmployees(e.target.checked)}
-                                className="h-4 w-4 accent-violet-600"
-                            />
-                            <h3>{t('showFired')}</h3>
-                        </label>
+                        <select
+                            value={statusFilter}
+                            onChange={(event) => setStatusFilter(event.target.value as typeof statusFilter)}
+                            className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-violet-500 focus:bg-white sm:w-48"
+                        >
+                            <option value="ALL">{t('statusFilters.all')}</option>
+                            <option value="ACTIVE">{t('statusFilters.active')}</option>
+                            <option value="INACTIVE">{t('statusFilters.inactive')}</option>
+                        </select>
                     </div>
                     <div className="text-xs font-medium text-slate-400">
                         {t('found', {count: filteredEmployees.length})}
@@ -239,7 +244,7 @@ export default function EmployeesPage() {
                                         <div className="min-w-0 flex-1">
                                             <div className="flex items-start justify-between gap-2"><p className="truncate text-sm font-black text-slate-900" title={employee.fullName}>
                                                 {employee.fullName}
-                                            </p><span className={`shrink-0 rounded-lg border px-2 py-1 text-[9px] font-bold uppercase ${getStatusBadge(employee.status)}`}>{employee.status === 'ACTIVE' || employee.status === 'BUSY' || employee.status === 'OFFLINE' || employee.status === 'FIRED' ? detailT(`statuses.${employee.status}`) : employee.status}</span></div>
+                                            </p><span className={`shrink-0 rounded-lg border px-2 py-1 text-[9px] font-bold uppercase ${getStatusBadge(employee.status)}`}>{isEmployeeActive(employee.status) ? detailT('statuses.ACTIVE') : detailT('statuses.INACTIVE')}</span></div>
                                             <p className="mt-1 truncate text-xs text-slate-500">{employee.specialization || t('specializationMissing')}</p>
                                             <p className="mt-1 text-[10px] font-semibold uppercase tracking-wider text-violet-600">
                                                 {getDisplayRoleNames([
@@ -280,11 +285,17 @@ export default function EmployeesPage() {
                                         {isAdmin && (
                                             <button
                                                 type="button"
-                                                onClick={() => setEmployeeToDelete({ id: employee.id, fullName: employee.fullName })}
-                                                disabled={isDeletingUser}
-                                                className="rounded-lg px-2 py-1.5 text-[10px] font-bold text-slate-400 transition hover:bg-red-50 hover:text-red-600 disabled:opacity-40"
+                                                onClick={() => {
+                                                    if (isEmployeeActive(employee.status)) {
+                                                        setEmployeeToDeactivate({ id: employee.id, fullName: employee.fullName });
+                                                    } else {
+                                                        void changeStatus(employee.id, 'ACTIVE');
+                                                    }
+                                                }}
+                                                disabled={updateStatusState.isLoading}
+                                                className={`rounded-lg px-2 py-1.5 text-[10px] font-bold transition disabled:opacity-40 ${isEmployeeActive(employee.status) ? 'text-slate-500 hover:bg-red-50 hover:text-red-600' : 'text-emerald-700 hover:bg-emerald-50'}`}
                                             >
-                                                {commonT('actions.delete')}
+                                                {isEmployeeActive(employee.status) ? t('deactivate') : t('activate')}
                                             </button>
                                         )}
                                     </div></div>
@@ -308,13 +319,13 @@ export default function EmployeesPage() {
                 />
             )}
             <ConfirmDialog
-                open={employeeToDelete !== null}
-                title={t('deleteTitle')}
-                description={t('deleteDescription', {name: employeeToDelete?.fullName ?? ''})}
-                confirmLabel={t('deleteConfirm')}
-                isLoading={isDeletingUser}
-                onClose={() => setEmployeeToDelete(null)}
-                onConfirm={handleDeleteUser}
+                open={employeeToDeactivate !== null}
+                title={t('deactivateTitle')}
+                description={t('deactivateDescription')}
+                confirmLabel={t('deactivate')}
+                isLoading={updateStatusState.isLoading}
+                onClose={() => setEmployeeToDeactivate(null)}
+                onConfirm={handleDeactivateUser}
             />
         </div>
     );

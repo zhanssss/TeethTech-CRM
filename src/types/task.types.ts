@@ -305,6 +305,8 @@ export type TasksDashboardResponse = {
     inProgressTasksCount: number;
     onReviewTasksCount: number;
     overdueTasksCount: number;
+    displayedTasksCount: number;
+    cardsTruncated: boolean;
     columns: TaskDashboardColumn[];
     totalCompletedCount: number;
     recentCompletedTasks: RecentCompletedDashboardTask[];

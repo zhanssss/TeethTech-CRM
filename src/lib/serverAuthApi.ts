@@ -6,6 +6,12 @@ import {
     type BackendAuthSession,
     createAuthSession,
 } from '@/src/lib/serverAuthCookies';
+import { isInactiveAccountPayload } from '@/src/lib/inactiveAccount';
+
+export type BackendAuthAttempt = {
+    auth: BackendAuthSession | null;
+    inactive: boolean;
+};
 
 function getBackendApiBaseUrl(): string {
     if (process.env.BACKEND_API_BASE_URL) return process.env.BACKEND_API_BASE_URL;
@@ -50,10 +56,26 @@ function parseBackendAuthSession(value: unknown): BackendAuthSession | null {
     };
 }
 
-export async function createBackendSession(
+async function readAuthAttempt(response: Response): Promise<BackendAuthAttempt> {
+    let payload: unknown = null;
+
+    try {
+        payload = await response.json();
+    } catch {
+        // Authentication failures may intentionally have no response body.
+    }
+
+    if (!response.ok) {
+        return { auth: null, inactive: isInactiveAccountPayload(payload) };
+    }
+
+    return { auth: parseBackendAuthSession(payload), inactive: false };
+}
+
+export async function createBackendSessionResult(
     email: string,
     password: string,
-): Promise<BackendAuthSession | null> {
+): Promise<BackendAuthAttempt> {
     try {
         const response = await fetch(getAuthUrl('auth/sessions'), {
             method: 'POST',
@@ -63,20 +85,22 @@ export async function createBackendSession(
             redirect: 'manual',
         });
 
-        if (!response.ok) return null;
-
-        return parseBackendAuthSession(await response.json());
+        return readAuthAttempt(response);
     } catch {
-        return null;
+        return { auth: null, inactive: false };
     }
 }
 
-export async function refreshBackendSession(
+export async function createBackendSession(email: string, password: string) {
+    return (await createBackendSessionResult(email, password)).auth;
+}
+
+export async function refreshBackendSessionResult(
     request: NextRequest,
-): Promise<BackendAuthSession | null> {
+): Promise<BackendAuthAttempt> {
     const refreshToken = request.cookies.get(AUTH_REFRESH_TOKEN_COOKIE)?.value;
 
-    if (!refreshToken) return null;
+    if (!refreshToken) return { auth: null, inactive: false };
 
     try {
         const response = await fetch(getAuthUrl('auth/sessions/refresh'), {
@@ -87,12 +111,14 @@ export async function refreshBackendSession(
             redirect: 'manual',
         });
 
-        if (!response.ok) return null;
-
-        return parseBackendAuthSession(await response.json());
+        return readAuthAttempt(response);
     } catch {
-        return null;
+        return { auth: null, inactive: false };
     }
+}
+
+export async function refreshBackendSession(request: NextRequest) {
+    return (await refreshBackendSessionResult(request)).auth;
 }
 
 export async function revokeBackendSession(request: NextRequest) {

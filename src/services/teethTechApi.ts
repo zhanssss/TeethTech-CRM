@@ -12,6 +12,10 @@ import {
     getApiSuccessMessage,
     shouldNotifyApiError,
 } from '@/src/services/apiNotifications';
+import {
+    INACTIVE_ACCOUNT_STORAGE_KEY,
+    isInactiveAccountPayload,
+} from '@/src/lib/inactiveAccount';
 
 const API_BASE_URL = "/api/backend";
 
@@ -50,12 +54,21 @@ const baseQueryWithAuth: BaseQueryFn<
         typeof requestArgs === 'string' ? 'GET' : requestArgs.method ?? 'GET'
     ).toUpperCase();
 
+    const inactiveAccount = result.error?.status === 401
+        && isInactiveAccountPayload(result.error.data);
+
     if (result.error?.status === 401) {
         api.dispatch(logout());
+
+        if (inactiveAccount && typeof window !== 'undefined') {
+            window.sessionStorage.setItem(INACTIVE_ACCOUNT_STORAGE_KEY, '1');
+            window.location.replace('/auth/login?reason=inactive');
+        }
     }
 
     if (
         result.error &&
+        !inactiveAccount &&
         notification?.error !== false &&
         shouldNotifyApiError(api.endpoint)
     ) {
@@ -127,7 +140,8 @@ export const teethTechApi = createApi({
         "TelegramLink",
         "TelegramIntegration",
         "Warehouses",
-        "PersonalNotes"
+        "PersonalNotes",
+        "PatientHistory"
     ],
     endpoints: () => ({}),
 });

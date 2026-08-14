@@ -25,7 +25,7 @@ export default {
     },
     sidebar: {
         details: 'Тапсырма деректері', taskNumber: 'Тапсырма #{id}', status: 'Мәртебе: {status}',
-        returnForRework: 'Қайта жасауға қайтару', sectionsAria: 'Тапсырма бөлімдері', overview: 'Шолу',
+        returnForRework: 'Қайта жасауға қайтару', deleteTask: 'Тапсырманы жою', deleteTaskTitle: 'Тапсырма жойылсын ба?', deleteTaskDescription: 'Тапсырма тапсырыстан, dashboard және kanban тақталарынан жоғалады. Бұл әрекетті қайтару мүмкін емес.', sectionsAria: 'Тапсырма бөлімдері', overview: 'Шолу',
         materials: 'Материалдар', materialsAfterSave: 'Материалдық есеп өндірістік тапсырма сақталғаннан кейін қолжетімді.',
         mainInfo: 'Негізгі ақпарат', patient: 'Пациент', order: 'Тапсырыс', deadline: 'Мерзім',
         priority: 'Басымдық', workType: 'Жұмыс түрі', workDirection: 'Бағыт', taskMaterials: 'Тапсырма материалдары', quantity: 'Саны',

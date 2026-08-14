@@ -2,9 +2,9 @@ const apiNotifications = {
     success: {
         loginUser: 'Кіру орындалды', registerUser: 'Қызметкер жасалды', createClinic: 'Клиника жасалды', updateClinic: 'Клиника деректері сақталды',
         deleteClinic: 'Клиника жойылды', createOrder: 'Тапсырыс жасалды', updateOrder: 'Тапсырыс өзгерістері сақталды', deleteOrder: 'Тапсырыс жойылды',
-        updateOrderStatus: 'Тапсырыс мәртебесі жаңартылды', updateTaskStatus: 'Тапсырма мәртебесі жаңартылды', updateTaskMaterials: 'Тапсырма материалдары сақталды',
+        updateOrderStatus: 'Тапсырыс мәртебесі жаңартылды', updateTaskStatus: 'Тапсырма мәртебесі жаңартылды', updateTaskMaterials: 'Тапсырма материалдары сақталды', deleteTask: 'Тапсырма жойылды',
         assignTask: 'Орындаушы тағайындалды', updateTaskAssignment: 'Жауаптылар жоспары сақталды', addTask: 'Тапсырма қосылды',
-        updateUser: 'Қызметкер деректері сақталды', updateUserAdminSetup: 'Қызметкер баптаулары сақталды', changeUserPassword: 'Құпиясөз жаңартылды',
+        updateUser: 'Қызметкер деректері сақталды', updateUserAdminSetup: 'Қызметкер баптаулары сақталды', updateUserStatus: 'Қызметкер күйі жаңартылды', changeUserPassword: 'Құпиясөз жаңартылды',
         createUsersBatch: 'Қызметкерлер жасалды', deleteUser: 'Қызметкер жойылды', createColor: 'Түс жасалды', updateColor: 'Түс сақталды',
         deleteColor: 'Түс жойылды', createMaterial: 'Материал жасалды', updateMaterial: 'Материал сақталды', deleteMaterial: 'Материал жойылды',
         createWorkType: 'Жұмыс түрі жасалды', updateWorkType: 'Жұмыс түрі сақталды', deleteWorkType: 'Жұмыс түрі жойылды',

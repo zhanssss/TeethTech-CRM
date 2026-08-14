@@ -8,6 +8,7 @@ import { useSelector } from 'react-redux';
 import { useGetTasksDashboardQuery } from '@/src/services/api/tasksDashboardApi';
 import { useGetUsersQuery } from '@/src/services/api/usersApi';
 import { useGetWorkDirectionsQuery } from '@/src/services/api/workDirectionsApi';
+import { useGetWorkTypesQuery } from '@/src/services/api/laboratory/workTypesApi';
 import MaterialChips from '@/src/components/tasks/MaterialChips';
 import WorkDirectionBadge from '@/src/components/work-directions/WorkDirectionBadge';
 import {useAppFormatters, useAppLocale} from '@/src/i18n/provider';
@@ -19,6 +20,7 @@ import type {
     TaskDashboardColumn,
     TaskDashboardTask,
 } from '@/src/types/task.types';
+import { useDebouncedValue } from '@/src/hooks/useDebouncedValue';
 
 type StatusOption = {
     value: string;
@@ -36,10 +38,6 @@ const statusThemes = [
     { border: 'border-rose-300 dark:border-rose-500/40', dot: 'bg-rose-500', badge: 'bg-rose-50 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300', glow: 'from-rose-500/10 dark:from-rose-500/15' },
 ];
 
-function getShortId(value: string) {
-    return value.length > 8 ? value.slice(0, 8) : value;
-}
-
 function getColumnTheme(index: number) {
     return statusThemes[index % statusThemes.length];
 }
@@ -48,8 +46,8 @@ function getTaskTitle(task: TaskDashboardTask, fallback: string) {
     return task.workTypeName || task.materialNames?.[0] || fallback;
 }
 
-function getOrderLabel(task: TaskDashboardTask) {
-    return task.orderNumber || getShortId(task.orderId);
+function getOrderLabel(task: TaskDashboardTask, fallback: string) {
+    return task.orderNumber || fallback;
 }
 
 function getTeethLabel(task: TaskDashboardTask, fallback: string) {
@@ -124,7 +122,7 @@ function TaskCard({ task }: { task: TaskDashboardTask }) {
             <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                     <p className="text-[11px] font-bold uppercase tracking-wider text-violet-600">
-                        {t('order', {number: getOrderLabel(task)})}
+                        {t('order', {number: getOrderLabel(task, t('orderMissing'))})}
                     </p>
                     <h3 className="mt-1 line-clamp-2 text-sm font-bold leading-5 text-slate-900">
                         {getTaskTitle(task, t('taskFallback'))}
@@ -196,7 +194,7 @@ function CompactTaskCard({ task }: { task: TaskDashboardTask }) {
             <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
                     <span className="shrink-0 text-[9px] font-black uppercase text-violet-600">
-                        #{getOrderLabel(task)}
+                        {getOrderLabel(task, t('orderMissing'))}
                     </span>
                     <span className="truncate text-[9px] font-semibold text-slate-400">
                         {task.clinicName || t('noClinic')}
@@ -248,8 +246,10 @@ export default function Dashboard() {
     const [selectedStatusLabel, setSelectedStatusLabel] = useState('');
     const [flowView, setFlowView] = useState<'compact' | 'kanban'>('compact');
     const [selectedDirectionId, setSelectedDirectionId] = useState('');
+    const debouncedSearch = useDebouncedValue(search, 400);
     const usersQuery = useGetUsersQuery(undefined, { skip: !isDispatcher });
     const directionsQuery = useGetWorkDirectionsQuery();
+    const workTypesQuery = useGetWorkTypesQuery();
     const currentUser = usersQuery.data?.find((user) => user.id === currentUserId);
     const directionOptions = useMemo(
         () => isAdmin
@@ -265,11 +265,11 @@ export default function Dashboard() {
 
     const dashboardFilters = useMemo(
         () => ({
-            search,
+            search: debouncedSearch,
             workTypeCode,
             statusId: selectedStatusId,
         }),
-        [search, workTypeCode, selectedStatusId]
+        [debouncedSearch, workTypeCode, selectedStatusId]
     );
 
     const {
@@ -468,12 +468,16 @@ export default function Dashboard() {
                         <span className="mb-1 block text-xs font-bold text-slate-500">
                             {t('filters.workTypeCode')}
                         </span>
-                        <input
+                        <select
                             value={workTypeCode}
                             onChange={(event) => setWorkTypeCode(event.target.value)}
-                            placeholder="workTypeCode"
-                            className="min-h-11 w-full rounded-xl border border-slate-200 px-3 text-sm outline-none transition focus:border-violet-500 focus:ring-2 focus:ring-violet-100"
-                        />
+                            className="min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none transition focus:border-violet-500 focus:ring-2 focus:ring-violet-100"
+                        >
+                            <option value="">{t('filters.allWorkTypes')}</option>
+                            {(workTypesQuery.data ?? []).filter((workType) => workType.isActive).map((workType) => (
+                                <option key={workType.id} value={workType.code}>{workType.name}</option>
+                            ))}
+                        </select>
                     </label>
 
                     <label className="block">
@@ -506,6 +510,12 @@ export default function Dashboard() {
                     </div>
                 </div>
             </section>
+
+            {data?.cardsTruncated && (
+                <section role="status" className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-900">
+                    {t('cardsTruncated')}
+                </section>
+            )}
 
             {isDirectionForbidden && (
                 <section className="rounded-lg border border-red-200 bg-red-50 p-5 text-sm text-red-700">
@@ -686,7 +696,7 @@ export default function Dashboard() {
                                         {task.workTypeName || t('completedTaskFallback')}
                                     </p>
                                     <p className="mt-1 text-xs text-blue-600">
-                                        {t('order', {number: task.orderNumber || getShortId(task.id)})}
+                                        {t('order', {number: task.orderNumber || t('orderMissing')})}
                                     </p>
                                     {task.workDirectionName && (
                                         <div className="mt-2">

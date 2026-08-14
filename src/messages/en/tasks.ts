@@ -25,7 +25,7 @@ export default {
     },
     sidebar: {
         details: 'Task details', taskNumber: 'Task #{id}', status: 'Status: {status}',
-        returnForRework: 'Return for rework', sectionsAria: 'Task sections', overview: 'Overview',
+        returnForRework: 'Return for rework', deleteTask: 'Delete task', deleteTaskTitle: 'Delete task?', deleteTaskDescription: 'The task will disappear from the order, dashboard, and kanban. This action cannot be undone.', sectionsAria: 'Task sections', overview: 'Overview',
         materials: 'Materials', materialsAfterSave: 'Material accounting is available after the production task is saved.',
         mainInfo: 'General information', patient: 'Patient', order: 'Order', deadline: 'Deadline',
         priority: 'Priority', workType: 'Work type', workDirection: 'Direction', taskMaterials: 'Task materials', quantity: 'Qty.',

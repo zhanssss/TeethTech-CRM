@@ -9,6 +9,7 @@ import { useGetRolesQuery } from '@/src/services/api/rolesApi';
 import { useUpdateUserAdminSetupMutation } from '@/src/services/api/usersApi';
 import { useGetWorkDirectionsQuery } from '@/src/services/api/workDirectionsApi';
 import type { User } from '@/src/types/user.types';
+import { normalizeEmployeeStatus } from '@/src/utils/employeesUtils';
 
 type EditEmployeeAdminSetupModalProps = {
     user: User;
@@ -26,7 +27,7 @@ export default function EditEmployeeAdminSetupModal({
         [user.role, user.roles]
     );
     const [roles, setRoles] = useState(initialRoles);
-    const [status, setStatus] = useState(user.status);
+    const [status, setStatus] = useState(() => normalizeEmployeeStatus(user.status));
     const [workDirectionIds, setWorkDirectionIds] = useState(
         () => user.workDirections?.map((direction) => direction.id) ?? []
     );
@@ -74,8 +75,8 @@ export default function EditEmployeeAdminSetupModal({
                 <div className="max-h-[70dvh] space-y-5 overflow-y-auto px-5 py-5 sm:px-7">
                     <label className="block">
                         <span className="mb-1.5 block text-xs font-bold text-slate-600">{t('status')}</span>
-                        <select value={status} onChange={(event) => setStatus(event.target.value)} className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-violet-500">
-                            {(['ACTIVE', 'BUSY', 'OFFLINE', 'FIRED'] as const).map((value) => (
+                        <select value={status} onChange={(event) => setStatus(event.target.value as 'ACTIVE' | 'INACTIVE')} className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-violet-500">
+                            {(['ACTIVE', 'INACTIVE'] as const).map((value) => (
                                 <option key={value} value={value}>{t(`statuses.${value}`)}</option>
                             ))}
                         </select>

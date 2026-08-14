@@ -20,7 +20,8 @@ import chat from './chat';
 import tvDashboard from './tvDashboard';
 import apiNotifications from './apiNotifications';
 import workDirections from './workDirections';
+import patientHistory from './patientHistory';
 
-const messages = {accounting, analytics, apiNotifications, auth, chat, clinics, common, dashboard, documents, employees, glossary, header, knowledgeBase, laboratory, navigation, orders, settings, tasks, tvDashboard, warehouse, workDirections, workspace} as const;
+const messages = {accounting, analytics, apiNotifications, auth, chat, clinics, common, dashboard, documents, employees, glossary, header, knowledgeBase, laboratory, navigation, orders, patientHistory, settings, tasks, tvDashboard, warehouse, workDirections, workspace} as const;
 
 export default messages;

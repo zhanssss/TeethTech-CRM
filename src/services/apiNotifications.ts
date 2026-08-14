@@ -9,6 +9,9 @@ type ErrorData = {
     error?: unknown;
     title?: unknown;
     businessMessage?: unknown;
+    errors?: unknown;
+    fieldErrors?: unknown;
+    violations?: unknown;
 };
 
 type ApiNotificationMessages = {
@@ -65,13 +68,37 @@ function getServerMessage(data: unknown) {
     if (!isRecord(data)) return '';
 
     const errorData = data as ErrorData;
-    return (
+    const directMessage = (
         readText(errorData.businessMessage) ||
         readText(errorData.message) ||
         readText(errorData.detail) ||
         readText(errorData.error) ||
         readText(errorData.title)
     );
+
+    if (directMessage) return directMessage;
+
+    for (const value of [errorData.errors, errorData.fieldErrors, errorData.violations]) {
+        if (Array.isArray(value)) {
+            const messages = value.flatMap((item) => {
+                if (typeof item === 'string') return [item.trim()];
+                if (!isRecord(item)) return [];
+                return [readText(item.message) || readText(item.defaultMessage)].filter(Boolean);
+            });
+            if (messages.length) return messages.join('. ');
+        }
+
+        if (isRecord(value)) {
+            const messages = Object.values(value).flatMap((item) =>
+                Array.isArray(item)
+                    ? item.map(readText).filter(Boolean)
+                    : [readText(item)].filter(Boolean)
+            );
+            if (messages.length) return messages.join('. ');
+        }
+    }
+
+    return '';
 }
 
 export function shouldNotifyApiError(endpoint: string) {

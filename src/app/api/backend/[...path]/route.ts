@@ -8,10 +8,11 @@ import {
     setAuthCookies
 } from '@/src/lib/serverAuthCookies'
 import {
-    createBackendSession,
+    createBackendSessionResult,
     getSessionFromBackendAuth,
-    refreshBackendSession
+    refreshBackendSessionResult
 } from '@/src/lib/serverAuthApi'
+import { INACTIVE_ACCOUNT_MESSAGE } from '@/src/lib/inactiveAccount'
 import enMessages from '@/src/messages/en/apiNotifications'
 import kkMessages from '@/src/messages/kk/apiNotifications'
 import ruMessages from '@/src/messages/ru/apiNotifications'
@@ -273,8 +274,15 @@ async function proxyRequest(request: NextRequest, context: RouteContext) {
 
 		if (!login) return NextResponse.json({ message: 'Invalid request' }, { status: 400 })
 
-		const auth = await createBackendSession(login.email, login.password)
-		if (!auth) return NextResponse.json({ message: 'Unauthorized' }, { status: 401 })
+		const attempt = await createBackendSessionResult(login.email, login.password)
+		if (!attempt.auth) {
+			if (attempt.inactive) return inactiveUnauthorizedResponse()
+			return NextResponse.json(
+				{ message: 'Unauthorized' },
+				{ status: 401 }
+			)
+		}
+		const auth = attempt.auth
 
 		const session = getSessionFromBackendAuth(auth)
 		const response = NextResponse.json(session)
@@ -284,10 +292,12 @@ async function proxyRequest(request: NextRequest, context: RouteContext) {
 	}
 
 	let token = request.cookies.get(AUTH_TOKEN_COOKIE)?.value
-	let refreshedAuth: Awaited<ReturnType<typeof refreshBackendSession>> = null
+	let refreshedAuth: Awaited<ReturnType<typeof refreshBackendSessionResult>>['auth'] = null
 
 	if (!token) {
-		refreshedAuth = await refreshBackendSession(request)
+		const refreshAttempt = await refreshBackendSessionResult(request)
+		if (refreshAttempt.inactive) return inactiveUnauthorizedResponse()
+		refreshedAuth = refreshAttempt.auth
 		token = refreshedAuth?.accessToken
 	}
 
@@ -311,7 +321,9 @@ async function proxyRequest(request: NextRequest, context: RouteContext) {
 		})
 
 		if (backendResponse.status === 401 && !refreshedAuth) {
-			refreshedAuth = await refreshBackendSession(request)
+			const refreshAttempt = await refreshBackendSessionResult(request)
+			if (refreshAttempt.inactive) return inactiveUnauthorizedResponse()
+			refreshedAuth = refreshAttempt.auth
 
 			if (refreshedAuth) {
 				headers.set('Authorization', `Bearer ${refreshedAuth.accessToken}`)
@@ -357,6 +369,15 @@ async function proxyRequest(request: NextRequest, context: RouteContext) {
 
 function unauthorizedResponse() {
 	const response = NextResponse.json({ message: 'Unauthorized' }, { status: 401 })
+	clearAuthCookies(response)
+	return response
+}
+
+function inactiveUnauthorizedResponse() {
+	const response = NextResponse.json(
+		{ message: INACTIVE_ACCOUNT_MESSAGE },
+		{ status: 401 }
+	)
 	clearAuthCookies(response)
 	return response
 }

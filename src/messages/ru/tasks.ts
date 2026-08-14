@@ -57,6 +57,7 @@ export default {
         taskNumber: 'Задача #{id}',
         status: 'Статус: {status}',
         returnForRework: 'Вернуть на переделку',
+        deleteTask: 'Удалить задачу', deleteTaskTitle: 'Удалить задачу?', deleteTaskDescription: 'Задача исчезнет из заказа, dashboard и kanban. Это действие нельзя отменить.',
         sectionsAria: 'Разделы задачи',
         overview: 'Обзор',
         materials: 'Материалы',

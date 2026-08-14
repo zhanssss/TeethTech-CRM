@@ -318,7 +318,7 @@ function getEligibleAssignmentUsers(
     requiredRole: string,
     isFinalReviewStage: boolean
 ) {
-    const activeUsers = users.filter((user) => user.status !== 'FIRED');
+    const activeUsers = users.filter((user) => user.status === 'ACTIVE');
     const normalizedRequiredRole = normalizeRoleValue(requiredRole);
     const eligibleStageUsers = isFinalReviewStage
         ? activeUsers

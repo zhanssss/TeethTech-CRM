@@ -1,7 +1,7 @@
 'use client';
 
 import {useMemo, useState} from 'react';
-import {useParams} from 'next/navigation';
+import {useParams, useSearchParams} from 'next/navigation';
 import Link from 'next/link';
 import {useSelector} from 'react-redux';
 import TaskDetailsSidebar from '@/src/components/layout/TaskDetailsSidebar';
@@ -420,7 +420,7 @@ export default function OrderBoardPage() {
     const t = useTranslations('orders.details');
     const params = useParams<{ id: string | string[] }>();
     const id = Array.isArray(params.id) ? params.id[0] : params.id;
-    const {id: currentUserId, role, roles} = useSelector((state: RootState) => state.auth);
+    const {role, roles} = useSelector((state: RootState) => state.auth);
     const normalizedRoles = normalizeAuthRoles(roles.length > 0 ? roles : role ? [role] : []);
     const canAssignTasks = normalizedRoles.some((userRole) => ['ADMIN', 'DISPATCHER'].includes(userRole));
     const {
@@ -448,13 +448,7 @@ export default function OrderBoardPage() {
     const closedStatus = workflowStatuses.find(
         (status) => status.code === CLOSED_STATUS_CODE
     );
-    const kanbanUserId = useMemo(
-        () => isUuid(currentUserId)
-            ? currentUserId ?? undefined
-            : users.find((user) => isUuid(user.id))?.id,
-        [currentUserId, users]
-    );
-    const canLoadServerKanban = isUuid(id) && Boolean(kanbanUserId);
+    const canLoadServerKanban = isUuid(id);
     const {
         data: serverKanbanColumns,
         isLoading: isKanbanLoading,
@@ -463,7 +457,7 @@ export default function OrderBoardPage() {
         error: kanbanError,
         refetch: refetchKanban,
     } = useGetOrderKanbanQuery(
-        {id, userId: kanbanUserId ?? ''},
+        {id},
         {skip: !canLoadServerKanban}
     );
     const serverOrder = serverOrders?.content.find((item) => item.id === id);
@@ -572,20 +566,23 @@ function ServerKanbanBoard({
     const t = useTranslations('orders.details');
     const tStatuses = useTranslations('orders.statuses');
     const format = useAppFormatters();
+    const searchParams = useSearchParams();
     const boardColumns = useMemo(
         () => buildOrderKanbanColumns(columns, order, closedStatus),
         [closedStatus, columns, order]
     );
     const taskCount = boardColumns.reduce((sum, column) => sum + column.taskCount, 0);
-    const [selectedTask, setSelectedTask] = useState<OrderKanbanTask | null>(null);
     const [isAssignmentModalOpen, setIsAssignmentModalOpen] = useState(false);
     const [assignmentModalTaskId, setAssignmentModalTaskId] = useState('');
-    const allTasks = Array.from(
+    const allTasks = useMemo(() => Array.from(
         new Map(
             [...getOrderDetailTasks(order), ...getColumnsTasks(boardColumns)]
                 .map((task) => [task.id, task] as const)
         ).values()
-    );
+    ), [boardColumns, order]);
+    const requestedTaskId = searchParams.get('taskId');
+    const [selectedTaskId, setSelectedTaskId] = useState<string | null>(requestedTaskId);
+    const selectedTask = allTasks.find((task) => task.id === selectedTaskId) ?? null;
     const activeTaskCount = closedStatus
         ? new Set(
             allTasks
@@ -606,11 +603,8 @@ function ServerKanbanBoard({
     const totalPrice = getNumberValue(order, ['totalPrice', 'totalAmount']) || allTasks.reduce((sum, task) => sum + Number(task.totalAmount ?? task.totalPrice ?? 0), 0);
     const colors = collectUnique(allTasks.map(getTaskColor));
     const isActive = isRecord(order) && typeof order.isActive === 'boolean' ? order.isActive : true;
-    const refreshedSelectedTask = selectedTask
-        ? allTasks.find((task) => task.id === selectedTask.id) ?? selectedTask
-        : null;
-    const selectedDetailsTask = refreshedSelectedTask
-        ? mapOrderKanbanTaskToDetailsTask(refreshedSelectedTask, order)
+    const selectedDetailsTask = selectedTask
+        ? mapOrderKanbanTaskToDetailsTask(selectedTask, order)
         : null;
     const openAssignmentModal = (taskId = '') => {
         setAssignmentModalTaskId(taskId);
@@ -747,7 +741,7 @@ function ServerKanbanBoard({
                                 <div key={task.id} className="space-y-2">
                                     <button
                                         type="button"
-                                        onClick={() => setSelectedTask(task)}
+                                        onClick={() => setSelectedTaskId(task.id)}
                                         className="group relative flex w-full flex-col gap-2.5 overflow-hidden rounded-xl border border-slate-200 bg-white p-3 text-left shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-violet-300 hover:shadow-lg hover:shadow-violet-950/10 focus:outline-none focus:ring-2 focus:ring-violet-500 dark:border-slate-700 dark:bg-slate-900 dark:hover:border-violet-500"
                                     >
                                     <span className="absolute inset-y-0 left-0 w-1 bg-violet-500 opacity-0 transition group-hover:opacity-100" />
@@ -847,7 +841,7 @@ function ServerKanbanBoard({
 
         <TaskDetailsSidebar
             task={selectedDetailsTask}
-            onClose={() => setSelectedTask(null)}
+            onClose={() => setSelectedTaskId(null)}
         />
         </>
     );

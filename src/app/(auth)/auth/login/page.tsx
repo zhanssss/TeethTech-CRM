@@ -1,6 +1,6 @@
 'use client';
 
-import { type FormEvent, useState } from 'react';
+import { type FormEvent, useEffect, useState } from 'react';
 import { useDispatch } from 'react-redux';
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
@@ -17,6 +17,10 @@ import {
 import { useNotifications } from '@/src/features/notifications/useNotifications';
 import type { AppDispatch } from '@/src/lib/store';
 import { useLoginUserMutation } from '@/src/services/api/authApi';
+import {
+    INACTIVE_ACCOUNT_MESSAGE,
+    INACTIVE_ACCOUNT_STORAGE_KEY,
+} from '@/src/lib/inactiveAccount';
 
 function DentalTechAnimation() {
     return (
@@ -90,6 +94,17 @@ export default function LoginPage() {
     const router = useRouter();
     const [loginUser, { isLoading }] = useLoginUserMutation();
     const { notifyError } = useNotifications();
+
+    useEffect(() => {
+        const shouldNotify = new URLSearchParams(window.location.search).get('reason') === 'inactive'
+            || window.sessionStorage.getItem(INACTIVE_ACCOUNT_STORAGE_KEY) === '1';
+
+        if (!shouldNotify) return;
+
+        window.sessionStorage.removeItem(INACTIVE_ACCOUNT_STORAGE_KEY);
+        notifyError(INACTIVE_ACCOUNT_MESSAGE, { duration: 8000 });
+        window.history.replaceState(null, '', '/auth/login');
+    }, [notifyError]);
 
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');

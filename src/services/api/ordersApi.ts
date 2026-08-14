@@ -34,6 +34,7 @@ import type {
     TaskHistoryResponse,
     UpdateTaskAssignmentArgs,
 } from '@/src/types/task.types';
+import { tasksDashboardApi } from '@/src/services/api/tasksDashboardApi';
 
 type WithNotificationOptions = {
     notification?: ApiCallNotificationOptions;
@@ -46,6 +47,13 @@ type AssignTaskMutationArgs = AssignTaskArgs & WithNotificationOptions;
 export function buildUpdateTaskMaterialsBody(materialIds: string[]) {
     return {
         materialIds: Array.from(new Set(materialIds.map((id) => id.trim()).filter(Boolean))),
+    };
+}
+
+export function buildGetOrderKanbanQuery(id: string) {
+    return {
+        url: `/orders/${id}/kanban`,
+        method: 'GET' as const,
     };
 }
 
@@ -127,11 +135,7 @@ export const ordersApi = teethTechApi.injectEndpoints({
         }),
 
         getOrderKanban: builder.query<OrderKanbanColumn[], GetOrderKanbanArgs>({
-            query: ({ id, userId }) => ({
-                url: `/orders/${id}/kanban`,
-                method: 'GET',
-                params: { userId },
-            }),
+            query: ({ id }) => buildGetOrderKanbanQuery(id),
             providesTags: (_result, _error, { id }) => [
                 'OrderKanban',
                 { type: 'OrderKanban', id },
@@ -195,6 +199,62 @@ export const ordersApi = teethTechApi.injectEndpoints({
                 'OrderKanban',
                 'Tasks',
                 { type: 'TaskHistory', id: taskId },
+            ],
+        }),
+        deleteTask: builder.mutation<void, { taskId: string; orderId?: string }>({
+            query: ({ taskId }) => ({
+                url: `/tasks/${encodeURIComponent(taskId)}`,
+                method: 'DELETE',
+            }),
+            async onQueryStarted({ taskId }, { dispatch, getState, queryFulfilled }) {
+                try {
+                    await queryFulfilled;
+
+                    for (const args of tasksDashboardApi.util.selectCachedArgsForQuery(getState(), 'getTasksDashboard')) {
+                        dispatch(tasksDashboardApi.util.updateQueryData('getTasksDashboard', args, (dashboard) => {
+                            for (const column of dashboard.columns) {
+                                const previousLength = column.tasks.length;
+                                column.tasks = column.tasks.filter((task) => task.id !== taskId);
+                                const removed = previousLength - column.tasks.length;
+                                if (removed > 0) {
+                                    column.count = Math.max(0, column.count - removed);
+                                    const displayedCount = dashboard.displayedTasksCount
+                                        ?? dashboard.columns.reduce((sum, item) => sum + item.tasks.length, 0) + removed;
+                                    dashboard.displayedTasksCount = Math.max(0, displayedCount - removed);
+                                    dashboard.totalTasksCount = Math.max(0, dashboard.totalTasksCount - removed);
+                                }
+                            }
+                            dashboard.recentCompletedTasks = dashboard.recentCompletedTasks.filter((task) => task.id !== taskId);
+                        }));
+                    }
+
+                    for (const args of ordersApi.util.selectCachedArgsForQuery(getState(), 'getOrderKanban')) {
+                        dispatch(ordersApi.util.updateQueryData('getOrderKanban', args, (columns) => {
+                            for (const column of columns) {
+                                const previousLength = column.tasks.length;
+                                column.tasks = column.tasks.filter((task) => task.id !== taskId);
+                                column.taskCount = Math.max(0, column.taskCount - (previousLength - column.tasks.length));
+                            }
+                        }));
+                    }
+
+                    dispatch(ordersApi.util.updateQueryData('getMyTasksKanban', undefined, (board) => {
+                        for (const column of [board.previousColumn, board.currentColumn, board.nextColumn]) {
+                            const previousLength = column.tasks.length;
+                            column.tasks = column.tasks.filter((task) => task.id !== taskId);
+                            column.taskCount = Math.max(0, column.taskCount - (previousLength - column.tasks.length));
+                        }
+                    }));
+                } catch {
+                    // A failed deletion leaves every cached card untouched.
+                }
+            },
+            invalidatesTags: (_result, error, { taskId, orderId }) => error ? [] : [
+                'Tasks',
+                'Orders',
+                'OrderKanban',
+                { type: 'TaskHistory', id: taskId },
+                ...(orderId ? [{ type: 'OrderKanban' as const, id: orderId }] : []),
             ],
         }),
 
@@ -327,6 +387,7 @@ export const {
     useUpdateTaskStatusMutation,
     useUpdateTaskMaterialsMutation,
     useUpdateTaskMutation,
+    useDeleteTaskMutation,
     useGetTaskMaterialPlanQuery,
     useGetTaskMaterialUsagesQuery,
     useGetTaskMaterialAccountingQuery,

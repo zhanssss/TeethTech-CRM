@@ -72,4 +72,22 @@ describe('createEmployeeWithRoles', () => {
             workDirectionIds: ['direction-id'],
         });
     });
+
+    it('configures directions through admin-setup for a single dispatcher role', async () => {
+        const createEmployee = vi.fn().mockResolvedValue('employee-id');
+        const updateAdminSetup = vi.fn().mockResolvedValue(undefined);
+
+        await createEmployeeWithRoles({
+            employee: { ...employee, workDirectionIds: ['direction-id'] },
+            roles: ['ROLE_DISPATCHER'],
+            createEmployee,
+            updateAdminSetup,
+        });
+
+        expect(updateAdminSetup).toHaveBeenCalledWith('employee-id', {
+            roles: ['ROLE_DISPATCHER'],
+            status: 'ACTIVE',
+            workDirectionIds: ['direction-id'],
+        });
+    });
 });
